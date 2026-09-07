@@ -32,9 +32,14 @@
       Hustadvika. Salt, vind og slagregn året rundt er en hardere test enn noe laboratorium.</p>
 
     <h2>Hjelp hele veien</h2>
-    <p>Vi gir veiledning til planlegging, utforming, utførelse og montering, og samarbeider
-      med dyktige forhandlere i store deler av landet. Du får hjelp fra valg av løsning til
-      ferdig montert resultat — og et gratis, uforpliktende tilbud før du bestemmer deg.</p>
+    <p>Vi gir veiledning til planlegging, utforming, utførelse og montering. Du får hjelp fra
+      valg av løsning til ferdig montert resultat — og et gratis, uforpliktende forslag med
+      tegning og pristilbud før du bestemmer deg.</p>
+
+    <h2>Naturvennlig materiale</h2>
+    <p>Produktene er laget av PVC med titan-baserte tilsetninger som gjør materialet
+      naturvennlig. De er vedlikeholdsfrie, brannhemmende og miljøvennlige — og de har ingen
+      negative effekter av vær, vind eller sol.</p>
 
     <div class="card mt-2">
       <h3>Fakta</h3>
@@ -43,6 +48,7 @@
         <dt>Org.nr.</dt><dd id="fOrg"></dd>
         <dt>Adresse</dt><dd id="fAdr"></dd>
         <dt>E-post</dt><dd id="fEpost"></dd>
+        <dt>Telefon</dt><dd id="fTlf"></dd>
         <dt>Etablert</dt><dd id="fAr"></dd>
         <dt>Garanti</dt><dd id="fGaranti"></dd>
       </dl>
@@ -58,8 +64,9 @@
   fOrg.textContent = f.orgnr;
   fAdr.textContent = f.adresse;
   fEpost.innerHTML = `<a href="mailto:${f.epost}">${f.epost}</a>`;
+  fTlf.innerHTML = `<a href="tel:${f.telefon.replace(/\s/g, "")}">${f.telefon}</a>`;
   fAr.textContent = f.etablert + " — " + (new Date().getFullYear() - f.etablert) + " år i markedet";
-  fGaranti.textContent = f.garantiAr + " års garanti på alle produkter";
+  fGaranti.textContent = f.garantiAr + " år på ekstruderte PVC-produkter, " + f.garantiAvvikAr + " år på LED-lys og glass";
 </script>
 </body>
 </html>

@@ -154,11 +154,11 @@ function demoLeads() {
     opprettet: l.opprettet,
   }));
   const faste = [
-    { navn: "Bjørn Hatlem", postnr: "6440", poststed: "Elnesvågen", produkt: "rekkverk", modell: "VBC — flat stolpetopp", mengde: 18, sum: 24800, status: "ny", dagar: 0, seljar: "demo-1" },
-    { navn: "Ingrid Sætre", postnr: "6800", poststed: "Førde", produkt: "terrassegulv", modell: "Standard bord", mengde: 32, sum: 43900, status: "kontaktet", dagar: 3, seljar: "demo-1" },
-    { navn: "Per Kvalvik", postnr: "6520", poststed: "Frei", produkt: "gjerde", modell: "Stakittgjerde", mengde: 40, sum: 41100, status: "befaring", dagar: 6, seljar: "demo-1" },
-    { navn: "Marit Lund", postnr: "6100", poststed: "Volda", produkt: "levegg", modell: "Levegg med glasstopp", mengde: 6, sum: 19200, status: "tilbud", dagar: 12, seljar: "demo-1" },
-    { navn: "Terje Aas", postnr: "0284", poststed: "Oslo", produkt: "rekkverk", modell: "Glassrekkverk", mengde: 14, sum: 50200, status: "ny", dagar: 1, seljar: "demo-2" },
+    { navn: "Bjørn Hatlem", postnr: "6440", poststed: "Elnesvågen", produkt: "rekkverk", modell: "Rekkverk etter mål", mengde: 18, sum: 24800, status: "ny", dagar: 0, seljar: "demo-1" },
+    { navn: "Ingrid Sætre", postnr: "6800", poststed: "Førde", produkt: "terrassegulv", modell: "Terrassegulv", mengde: 32, sum: 43900, status: "kontaktet", dagar: 3, seljar: "demo-1" },
+    { navn: "Per Kvalvik", postnr: "6520", poststed: "Frei", produkt: "gjerde", modell: "Gjerde etter mål", mengde: 40, sum: 41100, status: "befaring", dagar: 6, seljar: "demo-1" },
+    { navn: "Marit Lund", postnr: "6100", poststed: "Volda", produkt: "levegg", modell: "Ferdig standardseksjon", mengde: 6, sum: 19200, status: "tilbud", dagar: 12, seljar: "demo-1" },
+    { navn: "Terje Aas", postnr: "0284", poststed: "Oslo", produkt: "glassrekkverk", modell: "Blankt glass", mengde: 14, sum: 50200, status: "ny", dagar: 1, seljar: "demo-2" },
     { navn: "Silje Berg", postnr: "4020", poststed: "Stavanger", produkt: "sprosser", modell: "Kryssprosse", mengde: 12, sum: 16800, status: "vunnet", dagar: 20, seljar: "demo-3" },
   ];
   return lokale.concat(
@@ -173,8 +173,8 @@ function demoLeads() {
       distriktNavn: (vindexFinnDistrikt(f.postnr) || {}).navn || "",
       montering: i % 2 === 0,
       kunde: { navn: f.navn, telefon: "9" + (10000000 + i * 137).toString().slice(0, 7), epost: f.navn.split(" ")[0].toLowerCase() + "@eksempel.no", adresse: "Eksempelvegen " + (i + 3), postnr: f.postnr, poststed: f.poststed, kommentar: i === 2 ? "Skrånende tomt, ønsker befaring før tilbud." : "" },
-      produkt: { id: f.produkt, navn: (vindexProdukt(f.produkt) || {}).navn || f.produkt, modellNavn: f.modell, mengde: f.mengde, enhet: (vindexProdukt(f.produkt) || {}).enhet || "lm", farge: "hvit", tilvalg: {} },
-      estimat: { uklar: false, sum: f.sum, varer: f.sum, montering: 0, frakt: 0, rabatt: 0 },
+      produkt: { id: f.produkt, navn: (vindexProdukt(f.produkt) || {}).navn || f.produkt, modellNavn: f.modell, mengde: f.mengde, enhet: (vindexProdukt(f.produkt) || {}).enhet || "lm", farge: "klassisk-hvit", tilvalg: {} },
+      estimat: VINDEX_VIS_PRISESTIMAT ? { sum: f.sum, varer: f.sum, montering: 0, frakt: 0, rabatt: 0 } : null,
       logg: [{ tid: new Date(idag - f.dagar * dag).toISOString(), av: "system", tekst: "Tildelt automatisk ut fra postnummer " + f.postnr + "." }],
     }))
   );
@@ -241,17 +241,29 @@ function teikn() {
 }
 
 function teiknKpi(liste) {
+  const naa = Date.now();
   const nye = liste.filter((l) => l.status === "ny").length;
   const iArbeid = liste.filter((l) => erOpen(l.status) && l.status !== "ny").length;
   const vunne = liste.filter((l) => l.status === "vunnet");
+  const forfalne = liste.filter((l) => {
+    const frist = tid(l.oppfolgingFrist);
+    return frist && frist.getTime() < naa && erOpen(l.status);
+  }).length;
+
+  // Vindex prisar etter befaring, så "verdi i pipeline" gir berre meining
+  // når prisestimatet er skrudd på. Elles er forfalt oppfølging det tallet
+  // seljaren faktisk treng å sjå.
   const verdiOpe = liste
     .filter((l) => erOpen(l.status))
     .reduce((sum, l) => sum + (((l.estimat || {}).sum) || 0), 0);
+  const tredjeKort = VINDEX_VIS_PRISESTIMAT
+    ? { num: kr(verdiOpe), label: "estimert verdi i pipeline" }
+    : { num: forfalne, label: "forfalt oppfølging" };
 
   const kort = [
     { num: nye, label: "nye, ikke kontaktet" },
     { num: iArbeid, label: "i arbeid" },
-    { num: kr(verdiOpe), label: "estimert verdi i pipeline" },
+    tredjeKort,
     { num: vunne.length, label: "vunnet" },
   ];
   $("#kpiRad").innerHTML = kort
@@ -284,7 +296,7 @@ function teiknTabell(liste) {
     .map((l) => {
       const frist = tid(l.oppfolgingFrist);
       const forfalt = frist && frist.getTime() < naa && erOpen(l.status);
-      const est = (l.estimat || {}).uklar ? "Etter tegning" : kr(((l.estimat || {}).sum) || 0);
+      const est = l.estimat && l.estimat.sum ? kr(l.estimat.sum) : "Etter befaring";
       return `<tr class="clickable ${forfalt ? "overdue" : ""}" data-id="${l.id}">
         <td class="nowrap">${datoTekst(l.opprettet)}</td>
         <td><strong>${(l.kunde || {}).navn || "–"}</strong><br><span class="hint">${(l.kunde || {}).telefon || ""}</span></td>
@@ -348,7 +360,7 @@ function visDetalj(id) {
         <dt>Omfang</dt><dd>${p.mengde || "–"} ${p.enhet === "m2" ? "m²" : p.enhet || ""}, farge ${p.farge || "–"}</dd>
         ${tilvalg}
         <dt>Montering</dt><dd>${l.montering ? "Vindex monterer" : "Kunden monterer selv"}</dd>
-        <dt>Estimat</dt><dd>${est.uklar ? "Etter tegning" : kr(est.sum || 0)}</dd>
+        <dt>Estimat</dt><dd>${est && est.sum ? kr(est.sum) : "Prises etter befaring"}</dd>
         ${k.kommentar ? `<dt>Kommentar</dt><dd>${k.kommentar}</dd>` : ""}
       </dl>
 

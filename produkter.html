@@ -30,23 +30,27 @@
     <h2>Ofte spurt</h2>
     <div class="card mt-1">
       <h3>Må jeg måle opp selv?</h3>
-      <p class="mb-0">Nei. Du oppgir omtrentlige mål i skjemaet så du får et estimat, og
-        selgeren tar nøyaktig oppmåling på befaring før endelig tilbud.</p>
+      <p class="mb-0">Nei. Du oppgir omtrentlige mål i skjemaet, og vi kommer gjerne på
+        befaring. Basert på ønskene dine lager vi forslag med tegning og pristilbud —
+        helt uforpliktende.</p>
     </div>
     <div class="card mt-1">
       <h3>Kan jeg montere selv?</h3>
-      <p class="mb-0">Ja. Norsk monteringsanvisning følger med alle leveranser. Vil du
-        heller slippe, monterer vi eller forhandleren vår for deg — kryss av for det i skjemaet.</p>
+      <p class="mb-0">Ja. Lettfattelig norsk monteringsanvisning følger med. Vil du heller
+        slippe, leverer vi alt ferdig montert — kryss av for det i skjemaet. Merk at
+        monteringsveiledningen må følges for at garantien skal gjelde.</p>
     </div>
     <div class="card mt-1">
       <h3>Hvor lang tid tar det?</h3>
-      <p class="mb-0">Normal produksjonstid er 1–4 uker fra bestilling, pluss monteringstid.
-        Alt lages spesielt til din ordre, så vi har ikke ferdigvarer på hylla.</p>
+      <p class="mb-0">Normal produksjonstid er 1–4 uker, i tillegg til montering. Vi har egen
+        fabrikk i Norge med stort lager, og produserer etter dine mål.</p>
     </div>
     <div class="card mt-1">
       <h3>Hva dekker garantien?</h3>
-      <p class="mb-0">15 år. PVC-en er gjennomfarget og UV-stabilisert — den skal ikke
-        gulne, sprekke eller kreve maling i garantitiden.</p>
+      <p class="mb-0">30 år på våre ekstruderte PVC-produkter: garantien dekker produksjonsfeil
+        og at produktet ikke skal falme, gulne, råtne, flasse eller sprekke ved normal bruk.
+        På formstøpte deler, LED-lys og glass er garantien 5 år.
+        <a href="garanti.html">Se garanti og salgsbetingelser</a>.</p>
     </div>
   </div>
 </section>
@@ -61,15 +65,12 @@
 <script src="js/produkter.js"></script>
 <script src="js/app.js"></script>
 <script>
-  document.getElementById("produktKort").innerHTML = VINDEX_PRODUKT.map((p) => {
-    const fra = vindexFraPris(p.id);
-    return `<a class="card card-link" href="${p.lenke}">
-      <div class="card-media">${p.ikon}</div>
+  document.getElementById("produktKort").innerHTML = VINDEX_PRODUKT.map((p) => `
+    <a class="card card-link" href="${p.lenke}">
+      <img class="card-media-bilde" src="${p.bilde}" alt="${p.navn} fra Vindex" loading="lazy" width="480" height="320">
       <h3>${p.navn}</h3>
       <p class="muted">${p.kort}</p>
-      <p class="card-price">${fra ? "Fra " + kr(fra) : "Pris etter tegning"}</p>
-    </a>`;
-  }).join("");
+    </a>`).join("");
 </script>
 </body>
 </html>

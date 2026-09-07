@@ -8,7 +8,7 @@ Tre deler:
 
 | Del | Fil | Hva den gjør |
 |---|---|---|
-| Nettsiden | `index.html`, `produkter/*.html`, `om-oss.html`, `kontakt.html` | Markedsføring og produktinformasjon |
+| Nettsiden | `index.html`, `produkter/*.html`, `om-oss.html`, `kontakt.html`, `garanti.html` | Markedsføring og produktinformasjon |
 | Bestillingsskjema | `bestilling.html` + `js/bestilling.js` | Konfigurator, prisestimat, sender lead til Firestore |
 | Selgerverktøy | `selger.html` + `js/selger.js` | Innlogging, pipeline, notater, distriktsadministrasjon |
 
@@ -77,10 +77,12 @@ det må kunne leses av alle.
 
 Settings → Pages → Deploy from a branch → `main` / `(root)`.
 
-## Priser og produkter
+## Produkter, priser og innhold
 
-Alt produktinnhold og alle priser ligger i **`js/produkter.js`**. Endrer du noe
-der, slår det gjennom på forsiden, produktoversikten og i konfiguratoren.
+Alt produktinnhold ligger i **`js/produkter.js`** — 12 produkter, med tekster
+hentet fra Vindex' eget materiale (nettsiden, produktarkene og
+garantidokumentet av 14.03.25). Endrer du noe der, slår det gjennom på
+forsiden, produktoversikten, produktsidene og i skjemaet.
 
 Produktsidene under `produkter/` er generert. Etter en endring:
 
@@ -88,18 +90,43 @@ Produktsidene under `produkter/` er generert. Etter en endring:
 node scripts/bygg-produktsider.mjs
 ```
 
-> ⚠️ **Prisene i `js/produkter.js` må kvalitetssikres mot gjeldende prisliste
-> før lansering.** De er lagt inn som fra-priser basert på offentlig
-> tilgjengelig informasjon, ikke fra Vindex' interne prisliste.
+Skriptet rydder også bort sider for produkter du har fjernet fra katalogen.
 
-Kampanjer skrus på i `VINDEX_KAMPANJE` i samme fil.
+### Prisestimat er slått av
+
+Vindex selger ikke på listepris — kunden får «gratis forslag med tegning og
+pristilbud» etter befaring. Derfor viser skjemaet **ingen priser**, og
+`VINDEX_VIS_PRISESTIMAT` står på `false`.
+
+Vil dere vise et veiledende estimat i skjemaet:
+
+1. Legg inn ekte priser i `pris`-feltet på modellene i `js/produkter.js`.
+2. Sett `VINDEX_VIS_PRISESTIMAT = true`.
+
+Prismodellen (`VINDEX_TILLEGG`, `vindexPrisEstimat`) ligger ferdig og slår inn
+med én gang flagget er på — inkludert monteringstillegg, frakt og kampanje.
+
+### Kampanjer
+
+`VINDEX_KAMPANJE` styrer kampanjebanneret. Det er satt opp med «35 % rabatt —
+gjør et KUPP på ferdige levegger i standardseksjoner», og feltet `gjelder`
+begrenser den til levegg. Skru av med `aktiv: false`.
+
+### Garanti
+
+30 år på ekstruderte PVC-produkter, 5 år på formstøpte deler, LED-lys og glass.
+Vilkårene står i `garanti.html`, gjengitt fra garantidokumentet.
 
 ## Ting som gjenstår før lansering
 
-- [ ] Fyll inn telefonnummer i `VINDEX_FIRMA` (`js/produkter.js`)
-- [ ] Kvalitetssikre alle priser og modellnavn
-- [ ] Bytt ut emoji-plassholderne i produktkortene med ekte produktbilder
-- [ ] Legg inn logo og favicon i `assets/`
+- [ ] Legg inn ekte Vindex-logo i `assets/` (favicon er en midlertidig
+      plassholder laget for prosjektet)
+- [ ] Bekreft at produktbildene i `assets/bilder/` kan brukes, og legg til
+      flere per produkt ved behov — filnavnene følger produkt-id-ene
+- [ ] Komprimer bildene (de er i full oppløsning, ca. 4 MB til sammen)
+- [ ] Fyll inn Instagram- og finn.no-lenker i `VINDEX_FIRMA`
+- [ ] Vurder om prisestimatet skal slås på (se over)
+- [ ] Legg inn produktfilmen og «hør forskjellen på lyd»-videoen
 - [ ] Slå på [Firebase App Check](https://firebase.google.com/docs/app-check)
       (reCAPTCHA) — skjemaet er åpent for innsending, og App Check er
       forsvaret mot søppelregistreringer
@@ -112,11 +139,13 @@ Kampanjer skrus på i `VINDEX_KAMPANJE` i samme fil.
 ```
 index.html               Forside
 produkter.html           Produktoversikt
+garanti.html             Garanti og salgsbetingelser
 produkter/*.html         Genererte produktsider
 bestilling.html          Bestillingsskjema (4 steg)
 selger.html              Selgerverktøy og admin
+assets/bilder/           Produktbilder (filnavn = produkt-id)
 css/style.css            Designsystem
-js/produkter.js          Produktkatalog + prismodell
+js/produkter.js          Produktkatalog, firmafakta og prismodell
 js/distrikt.js           Postnummer → distrikt → selger
 js/app.js                Felles topbar og bunnfelt
 js/firebase-config.js    Firebase-nøkler (fylles ut)

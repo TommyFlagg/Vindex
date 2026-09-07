@@ -20,7 +20,7 @@ const state = {
   steg: 1,
   produktId: null,
   modellId: null,
-  farge: "hvit",
+  farge: (VINDEX_FARGAR.find((f) => f.standard) || VINDEX_FARGAR[0]).id,
   mengde: null,
   ekstra: {},          // { valgId: alternativId }
   montering: false,
@@ -36,7 +36,8 @@ const skjema = $("#skjema");
 $("#produktValg").innerHTML = VINDEX_PRODUKT.map(
   (p) => `<label class="choice">
     <input type="radio" name="produkt" value="${p.id}">
-    <span class="choice-title">${p.ikon} ${p.navn}</span>
+    <img class="choice-bilde" src="${p.bilde}" alt="" loading="lazy" width="320" height="214">
+    <span class="choice-title">${p.navn}</span>
     <span class="choice-sub">${p.kort}</span>
   </label>`
 ).join("");
@@ -46,6 +47,15 @@ $("#produktValg").addEventListener("change", (e) => {
   velgProdukt(e.target.value);
 });
 
+function visKampanje(produktId) {
+  const boks = $("#kampanjeBanner");
+  if (!boks) return;
+  const k = vindexKampanjeFor(produktId);
+  boks.innerHTML = k
+    ? `<div class="notice notice-warn"><strong>${k.tittel}:</strong> ${k.tekst}</div>`
+    : "";
+}
+
 function velgProdukt(id) {
   if (state.produktId === id) return;
   state.produktId = id;
@@ -54,6 +64,7 @@ function velgProdukt(id) {
   const p = vindexProdukt(id);
   state.mengde = p.standardMengde;
   byggSteg2(p);
+  visKampanje(id);
 }
 
 // ---------------------------------------------------------------------------
@@ -204,8 +215,8 @@ $("#tilbake").addEventListener("click", () => {
 function teiknOppsummering() {
   const p = vindexProdukt(state.produktId);
   const m = vindexModell(state.produktId, state.modellId);
-  const est = vindexPrisEstimat(state);
-  if (!p || !m || !est) return;
+  const est = vindexPrisEstimat(state);   // null når prisestimat er slått av
+  if (!p || !m) return;
 
   const rad = (dt, dd) => `<div class="summary-row"><dt>${dt}</dt><dd>${dd}</dd></div>`;
   const enhet = p.enhet === "lm" ? "lm" : p.enhet === "m2" ? "m²" : "stk";
@@ -219,15 +230,16 @@ function teiknOppsummering() {
     .join("");
 
   let prisDel;
-  if (est.uklar) {
-    prisDel = `<p class="notice notice-info mb-0">Denne løsningen prises etter tegning.
-      Selgeren tar kontakt for å avklare detaljene og gi deg en pris.</p>`;
+  if (!est) {
+    // Vindex prisar etter befaring og tegning — då lovar vi ikkje eit tal her.
+    prisDel = `<p class="notice notice-info mb-0">Basert på ønskene dine lager vi et forslag
+      med tegning og pristilbud — helt uforpliktende for deg.</p>`;
   } else {
     prisDel = `
       ${rad("Varer", kr(est.varer))}
       ${state.montering ? rad("Montering", kr(est.monteringPris)) : ""}
       ${rad("Frakt (anslag)", est.frakt ? kr(est.frakt) : "Inkludert")}
-      ${VINDEX_KAMPANJE.aktiv ? rad("Kampanjerabatt", "− " + kr(est.rabatt)) : ""}
+      ${est.rabatt ? rad("Kampanjerabatt", "− " + kr(est.rabatt)) : ""}
       <div class="summary-row" style="border-top:1px solid rgba(16,73,90,.25);margin-top:.4rem;padding-top:.7rem">
         <dt style="font-size:1rem">Estimat</dt>
         <dd><span class="price-estimate">${kr(est.sum)}</span></dd>
@@ -332,17 +344,16 @@ function byggLead() {
     },
     montering: state.montering,
     tidspunkt: state.tidspunkt,
-    estimat: est.uklar
-      ? { uklar: true }
-      : {
-          uklar: false,
+    estimat: est
+      ? {
           enhetspris: est.enhetspris,
           varer: est.varer,
           montering: est.monteringPris,
           frakt: est.frakt,
           rabatt: est.rabatt,
           sum: est.sum,
-        },
+        }
+      : null,
     kunde: {
       navn: $("#navn").value.trim(),
       telefon: $("#telefon").value.trim(),
@@ -427,7 +438,7 @@ function visKvittering(lead, resultat) {
       <div class="summary-row"><dt>Referanse</dt><dd>${resultat.id}</dd></div>
       <div class="summary-row"><dt>Produkt</dt><dd>${lead.produkt.navn} — ${lead.produkt.modellNavn}</dd></div>
       <div class="summary-row"><dt>Omfang</dt><dd>${lead.produkt.mengde} ${lead.produkt.enhet === "m2" ? "m²" : lead.produkt.enhet}</dd></div>
-      ${est.uklar ? "" : `<div class="summary-row"><dt>Estimat</dt><dd>${kr(est.sum)}</dd></div>`}
+      ${est && est.sum ? `<div class="summary-row"><dt>Estimat</dt><dd>${kr(est.sum)}</dd></div>` : ""}
     </div>
     ${resultat.demo ? '<p class="notice notice-warn">Demomodus: forespørselen er bare lagret lokalt i denne nettleseren, ikke sendt til Vindex. Fyll inn Firebase-oppsettet i js/firebase-config.js for å ta skjemaet i bruk.</p>' : ""}
     <div class="btn-row mt-2">

@@ -56,10 +56,11 @@ body {
 img { max-width: 100%; display: block; }
 a { color: var(--primary); }
 
-h1, h2, h3 { font-family: "Source Serif 4", Georgia, "Times New Roman", serif; color: var(--primary-dark); text-wrap: balance; margin: 0 0 0.5rem; }
+h1, h2, h3 { font-family: "Source Serif 4", Georgia, "Times New Roman", serif; color: var(--primary-dark); text-wrap: balance; margin: 0 0 0.5rem; overflow-wrap: break-word; }
 h1 { font-size: 2rem; line-height: 1.18; font-weight: 700; }
 h2 { font-size: 1.5rem; line-height: 1.25; margin-top: 0; }
 h3 { font-size: 1.1rem; font-family: "Inter", sans-serif; font-weight: 700; color: var(--ink); }
+p, li, dd, td { margin: 0.5rem 0; overflow-wrap: break-word; }
 p { margin: 0.5rem 0; }
 .lead { font-size: 1.1rem; color: var(--muted); max-width: 60ch; }
 .hint { color: var(--muted); font-size: 0.9rem; }
@@ -160,9 +161,13 @@ section.tight { padding: 2rem 0; }
 
 /* ---------- 6. Kort og rutenett ---------- */
 .grid { display: grid; gap: 1.1rem; }
+/* Rutenettbarn får min-width: 0 slik at lange ord ikkje pressar kolonna
+   breiare enn skjermen — standardverdien auto gjer nettopp det. */
+.grid > * { min-width: 0; }
 .grid-2 { grid-template-columns: 1fr; }
 .grid-3 { grid-template-columns: 1fr; }
-.grid-4 { grid-template-columns: 1fr 1fr; }
+.grid-4 { grid-template-columns: 1fr; }
+@media (min-width: 560px) { .grid-4 { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 700px) { .grid-2 { grid-template-columns: 1fr 1fr; } .grid-3 { grid-template-columns: repeat(3, 1fr); } }
 @media (min-width: 900px) { .grid-4 { grid-template-columns: repeat(4, 1fr); } }
 
@@ -203,6 +208,7 @@ section.tight { padding: 2rem 0; }
 
 /* valkort — brukt til produkt-, modell- og fargeval i konfiguratoren */
 .choices { display: grid; gap: 0.7rem; grid-template-columns: 1fr 1fr; }
+.choices > * { min-width: 0; }
 @media (min-width: 760px) { .choices { grid-template-columns: repeat(3, 1fr); } }
 .choice {
   position: relative; display: block; cursor: pointer;
@@ -315,3 +321,23 @@ footer.site h4 { color: #fff; margin: 0 0 0.6rem; font-size: 0.95rem; }
   body { background: #fff; }
   .detail, .card, .table-scroll { box-shadow: none; border-color: #999; }
 }
+
+/* ---------- produktbilete i kort og valkort ---------- */
+.choice-bilde {
+  width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover;
+  border-radius: 8px; margin-bottom: 0.55rem; background: var(--surface-alt);
+}
+.card-media-bilde {
+  width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover;
+  border-radius: var(--radius-sm); margin-bottom: 0.9rem; background: var(--surface-alt);
+}
+.hero-bilde {
+  width: 100%; height: auto; border-radius: var(--radius);
+  box-shadow: var(--shadow-md); object-fit: cover;
+}
+.produktbilete {
+  width: 100%; height: auto; border-radius: var(--radius);
+  box-shadow: var(--shadow-sm); margin: 0 0 1.25rem;
+}
+.bildegalleri { display: grid; gap: 0.9rem; grid-template-columns: 1fr; }
+@media (min-width: 700px) { .bildegalleri { grid-template-columns: 1fr 1fr; } }

@@ -66,14 +66,17 @@
       <div class="footer-grid">
         <div>
           <h4>Vindex — vedlikeholdsfritt siden ${f.etablert}</h4>
-          <p>Rekkverk, gjerder, levegger, terrassegulv og sprosser i PVC.
-             Utviklet, produsert og testet i havgapet på Hustadvika.</p>
-          <p>${f.garantiAr} års garanti på alle produkter.</p>
+          <p>Vedlikeholdsfritt rekkverk, gjerde, levegg, terrassegulv og sprosser i PVC.
+             Skreddersydd og produsert på egen fabrikk i Norge.</p>
+          <p>${f.garantiAr} års garanti på ekstruderte PVC-produkter
+             (${f.garantiAvvikAr} år på LED-lys og glass).
+             <a href="${rot}garanti.html">Garanti og salgsbetingelser</a></p>
         </div>
         <div>
           <h4>Produkter</h4>
           <ul class="footer-links">
-            ${VINDEX_PRODUKT.map((p) => `<li><a href="${rot}${p.lenke}">${p.navn}</a></li>`).join("")}
+            ${VINDEX_PRODUKT.slice(0, 6).map((p) => `<li><a href="${rot}${p.lenke}">${p.navn}</a></li>`).join("")}
+            <li><a href="${rot}produkter.html">Alle produkter →</a></li>
           </ul>
         </div>
         <div>
@@ -83,7 +86,8 @@
             ${tlfLinje}
             <li>${f.adresse}</li>
             <li>Org.nr. ${f.orgnr}</li>
-            <li class="mt-1"><a href="${rot}selger.html">Innlogging for selgere</a></li>
+            ${f.facebook ? `<li class="mt-1"><a href="${f.facebook}" rel="noopener">Følg oss på Facebook</a></li>` : ""}
+            <li><a href="${rot}selger.html">Innlogging for selgere</a></li>
           </ul>
         </div>
       </div>
