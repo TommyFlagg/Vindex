@@ -745,6 +745,10 @@ function opneModal(tittel, innhald, botn) {
   $("#modalTittel").textContent = tittel;
   $("#modalInnhald").innerHTML = innhald;
   $("#modalBotn").innerHTML = botn || "";
+  // Dialogen blir gjenbrukt, så rulleposisjonen frå førre innhald heng igjen.
+  // Utan dette kan bekreftelsesdialogen opne seg rulla forbi åtvaringa øvst.
+  $("#modalInnhald").scrollTop = 0;
+  $("#modal").scrollTop = 0;
   $("#modal").classList.remove("hidden");
   document.body.style.overflow = "hidden";
 }
