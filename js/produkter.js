@@ -60,6 +60,10 @@ const VINDEX_FARGAR = [
   { id: "annen", navn: "Annen farge", hex: "#d8dee0", sub: "Avklares med selger" },
 ];
 
+// `bilde` kan stå tomt. Vi viser heller eit reint typografisk kort enn eit
+// svakt bilete — eit uskarpt eller rotete foto skader inntrykket meir enn det
+// hjelper. Manglar eit produkt bilete, er det fordi vi ikkje har eit godt eit
+// enno, ikkje fordi feltet er gløymt.
 const VINDEX_PRODUKT = [
   {
     id: "rekkverk",
@@ -90,7 +94,6 @@ const VINDEX_PRODUKT = [
     id: "glassrekkverk",
     navn: "Glassrekkverk",
     bilde: "assets/bilder/glassrekkverk.jpg",
-    bilder: ["assets/bilder/glassrekkverk-2.jpg"],
     enhet: "lm",
     enhetNavn: "løpemeter",
     kort: "Maksimalt ut av lys og utsikt, samtidig som du får god beskyttelse mot vind.",
@@ -119,7 +122,6 @@ const VINDEX_PRODUKT = [
     id: "levegg",
     navn: "Levegg",
     bilde: "assets/bilder/levegg.jpg",
-    bilder: ["assets/bilder/levegg-hagestue.jpg"],
     enhet: "lm",
     enhetNavn: "løpemeter",
     kort: "Effektiv mot innsyn, støy og vind. Tåler kraftig vind og store påkjenninger.",
@@ -168,7 +170,6 @@ const VINDEX_PRODUKT = [
     id: "sprosser",
     navn: "Sprosser",
     bilde: "assets/bilder/sprosser.jpg",
-    bilder: ["assets/bilder/sprosser-2.jpg", "assets/bilder/sprosser-3.jpg"],
     enhet: "stk",
     enhetNavn: "vinduer",
     kort: "Rammesprosser til alle typer vindu og dører. Hver sprosse spesiallages etter dine mål.",
@@ -252,7 +253,7 @@ const VINDEX_PRODUKT = [
   {
     id: "flyttbart-gjerde",
     navn: "Flyttbart gjerde",
-    bilde: "assets/bilder/flyttbart-gjerde.jpg",
+    bilde: "",
     enhet: "lm",
     enhetNavn: "løpemeter",
     kort: "Gjerd inn et område og tilpass det etter behov — campingplass, restaurant, festival.",
@@ -273,7 +274,7 @@ const VINDEX_PRODUKT = [
   {
     id: "gardsgjerde",
     navn: "Gardsgjerde",
-    bilde: "assets/bilder/gardsgjerde.jpg",
+    bilde: "",
     enhet: "lm",
     enhetNavn: "løpemeter",
     kort: "For større eiendommer, der det fort blir svært mange løpemeter.",
@@ -337,7 +338,7 @@ const VINDEX_PRODUKT = [
   {
     id: "ledlys",
     navn: "LED-lys",
-    bilde: "assets/bilder/ledlys.jpg",
+    bilde: "",
     enhet: "stk",
     enhetNavn: "lys",
     kort: "To typer LED-lys beregnet for våre stolper — innfellbare lamper og lys i stolpetopper.",
@@ -380,6 +381,21 @@ function vindexFraPris(produktId) {
   if (!p) return 0;
   const priser = p.modeller.map((m) => m.pris).filter((n) => n > 0);
   return priser.length ? Math.min(...priser) : 0;
+}
+
+/**
+ * Bilete til eit produktkort, eller eit typografisk kort når vi ikkje har eit
+ * bilete som held mål. Same hjelpar overalt, så plassholdaren ser lik ut på
+ * forsida, i produktoversikta og i bestillingsskjemaet.
+ */
+function vindexBiletHtml(produkt, klasse, rot = "") {
+  if (produkt.bilde) {
+    return `<img class="${klasse}" src="${rot}${produkt.bilde}" alt="${produkt.navn} fra Vindex"
+      loading="lazy" width="480" height="320">`;
+  }
+  // Ordmerket, ikkje produktnamnet: namnet står alt som overskrift rett under
+  // kortet, og eit gjentak les som ein feil.
+  return `<div class="${klasse} utan-bilete" aria-hidden="true"><span>VINDEX</span></div>`;
 }
 
 function kr(tall) {

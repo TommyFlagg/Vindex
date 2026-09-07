@@ -36,7 +36,7 @@ const skjema = $("#skjema");
 $("#produktValg").innerHTML = VINDEX_PRODUKT.map(
   (p) => `<label class="choice">
     <input type="radio" name="produkt" value="${p.id}">
-    <img class="choice-bilde" src="${p.bilde}" alt="" loading="lazy" width="320" height="214">
+    ${vindexBiletHtml(p, "choice-bilde")}
     <span class="choice-title">${p.navn}</span>
     <span class="choice-sub">${p.kort}</span>
   </label>`

@@ -19,7 +19,7 @@ const rot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const katalog = readFileSync(join(rot, "js/produkter.js"), "utf8");
 const hent = new Function(
   katalog +
-    "\nreturn { VINDEX_PRODUKT, VINDEX_FARGAR, VINDEX_FIRMA, VINDEX_VIS_PRISESTIMAT, vindexFraPris, vindexKampanjeFor, kr };"
+    "\nreturn { VINDEX_PRODUKT, VINDEX_FARGAR, VINDEX_FIRMA, VINDEX_VIS_PRISESTIMAT, vindexFraPris, vindexKampanjeFor, vindexBiletHtml, kr };"
 );
 const {
   VINDEX_PRODUKT,
@@ -28,6 +28,7 @@ const {
   VINDEX_VIS_PRISESTIMAT,
   vindexFraPris,
   vindexKampanjeFor,
+  vindexBiletHtml,
   kr,
 } = hent();
 
@@ -83,14 +84,14 @@ ${v.alternativ.map((a) => `          <li>${esc(a.navn)}${a.sub ? " — " + esc(a
 <meta name="description" content="${esc(p.kort)} Skreddersydd og produsert i Norge. ${esc(garantiTekst)}">
 <meta property="og:title" content="${esc(p.navn)} fra Vindex">
 <meta property="og:description" content="${esc(p.kort)}">
-<meta property="og:image" content="https://vindex.no/${p.bilde}">
+${p.bilde ? `<meta property="og:image" content="https://vindex.no/${p.bilde}">` : ""}
 <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
 <link rel="stylesheet" href="../css/style.css">
 </head>
 <body data-rot="../" data-side="produkter">
 
 <section class="hero">
-  <div class="wrap hero-grid">
+  <div class="wrap ${p.bilde ? "hero-grid" : ""}">
     <div>
       <p class="eyebrow">${esc(p.navn)}</p>
       <h1>${esc(p.kort)}</h1>
@@ -101,9 +102,9 @@ ${v.alternativ.map((a) => `          <li>${esc(a.navn)}${a.sub ? " — " + esc(a
       <p class="hint mt-1" style="color:#b9d3d9">Eller ring
         <a href="tel:${VINDEX_FIRMA.telefon.replace(/\s/g, "")}" style="color:#fff">${esc(VINDEX_FIRMA.telefon)}</a></p>
     </div>
-    <div>
+    ${p.bilde ? `<div>
       <img class="hero-bilde" src="../${p.bilde}" alt="${esc(p.navn)} i vedlikeholdsfri PVC fra Vindex">
-    </div>
+    </div>` : ""}
   </div>
 </section>
 ${

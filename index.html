@@ -9,7 +9,7 @@
 <meta property="og:title" content="Nyt fritiden mens naboen skraper og maler">
 <meta property="og:description" content="Vedlikeholdsfritt rekkverk, gjerde, levegg, terrassegulv og sprosser i PVC. Norsk fabrikk, skreddersydde løsninger, 30 års garanti.">
 <meta property="og:type" content="website">
-<meta property="og:image" content="https://vindex.no/assets/bilder/hero.jpg">
+<meta property="og:image" content="https://vindex.no/assets/bilder/hero-fasade.jpg">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="stylesheet" href="css/style.css">
 </head>
@@ -34,7 +34,7 @@
         <a href="tel:71266000" style="color:#fff">71 26 60 00</a></p>
     </div>
     <div>
-      <img class="hero-bilde" src="assets/bilder/hero.jpg" alt="Vedlikeholdsfritt Vindex-rekkverk i hvit PVC" width="1500" height="747">
+      <img class="hero-bilde" src="assets/bilder/hero-fasade.jpg" alt="Hvitt hus med vedlikeholdsfrie Vindex-sprosser og rekkverk" width="1536" height="1024">
     </div>
   </div>
 </section>
@@ -155,7 +155,7 @@
   // med js/produkter.js.
   document.getElementById("produktKort").innerHTML = VINDEX_PRODUKT.map((p) => `
     <a class="card card-link" href="${p.lenke}">
-      <img class="card-media-bilde" src="${p.bilde}" alt="${p.navn} fra Vindex" loading="lazy" width="480" height="320">
+      ${vindexBiletHtml(p, "card-media-bilde")}
       <h3>${p.navn}</h3>
       <p class="muted">${p.kort}</p>
     </a>`).join("");

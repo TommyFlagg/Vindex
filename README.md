@@ -184,6 +184,17 @@ med én gang flagget er på — inkludert monteringstillegg, frakt og kampanje.
 gjør et KUPP på ferdige levegger i standardseksjoner», og feltet `gjelder`
 begrenser den til levegg. Skru av med `aktiv: false`.
 
+### Bilder
+
+Feltet `bilde` på et produkt kan stå tomt. Da vises et typografisk kort med
+Vindex-ordmerket i stedet for et bilde. Det er et bevisst valg: et uskarpt,
+mørkt eller rotete foto skader inntrykket mer enn ingen bilde gjør. Av de 17
+bildene i materialet vi fikk, er 10 i bruk — resten var for svake.
+
+Legger du inn et nytt bilde, pek `bilde:` på det i `js/produkter.js` og kjør
+generatoren. Både forsiden, produktoversikten, produktsiden og
+bestillingsskjemaet henter fra samme sted.
+
 ### Garanti
 
 30 år på ekstruderte PVC-produkter, 5 år på formstøpte deler, LED-lys og glass.
@@ -193,9 +204,13 @@ Vilkårene står i `garanti.html`, gjengitt fra garantidokumentet.
 
 - [ ] Legg inn ekte Vindex-logo i `assets/` (favicon er en midlertidig
       plassholder laget for prosjektet)
-- [ ] Bekreft at produktbildene i `assets/bilder/` kan brukes, og legg til
-      flere per produkt ved behov — filnavnene følger produkt-id-ene
-- [ ] Komprimer bildene (de er i full oppløsning, ca. 4 MB til sammen)
+- [ ] **Bilder til flyttbart gjerde, gardsgjerde og LED-lys.** Disse tre står
+      uten bilde med vilje: materialet vi fikk hadde ikke bilder som holdt mål
+      for dem. De viser et typografisk kort i stedet, som er bedre enn et
+      uskarpt eller rotete foto. Legg inn `bilde:` i `js/produkter.js` og kjør
+      `node scripts/bygg-produktsider.mjs` når bildene finnes.
+- [ ] Bekreft at produktbildene i `assets/bilder/` kan brukes
+- [ ] Komprimer bildene (de er i full oppløsning, ca. 2,7 MB til sammen)
 - [ ] Fyll inn Instagram- og finn.no-lenker i `VINDEX_FIRMA`
 - [ ] Vurder om prisestimatet skal slås på (se over)
 - [ ] Legg inn produktfilmen og «hør forskjellen på lyd»-videoen
@@ -216,6 +231,7 @@ produkter/*.html         Genererte produktsider
 bestilling.html          Bestillingsskjema (4 steg)
 selger.html              Selgerverktøy og admin
 assets/bilder/           Produktbilder (filnavn = produkt-id)
+                         Bare bilder som holder mål — se «Bilder» under
 css/style.css            Designsystem
 js/produkter.js          Produktkatalog, firmafakta og prismodell
 js/distrikt.js           Postnummer → distrikt → selger

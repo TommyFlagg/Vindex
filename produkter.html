@@ -67,7 +67,7 @@
 <script>
   document.getElementById("produktKort").innerHTML = VINDEX_PRODUKT.map((p) => `
     <a class="card card-link" href="${p.lenke}">
-      <img class="card-media-bilde" src="${p.bilde}" alt="${p.navn} fra Vindex" loading="lazy" width="480" height="320">
+      ${vindexBiletHtml(p, "card-media-bilde")}
       <h3>${p.navn}</h3>
       <p class="muted">${p.kort}</p>
     </a>`).join("");
