@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Be om tilbud — Vindex</title>
+<meta name="description" content="Legg inn mål og ønsker, få et uforpliktende prisestimat med én gang, og bli satt i kontakt med selgeren i ditt distrikt.">
+<meta name="robots" content="index,follow">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-rot="" data-side="bestilling">
+
+<section class="hero" style="padding:2.5rem 0 2.75rem">
+  <div class="wrap">
+    <p class="eyebrow">Gratis og uforpliktende</p>
+    <h1>Be om tilbud</h1>
+    <p class="lead">Fire steg, omtrent to minutter. Du får et prisestimat med én gang,
+      og selgeren i ditt distrikt tar kontakt for befaring og endelig tilbud.</p>
+  </div>
+</section>
+
+<section class="tight">
+  <div class="wrap-narrow">
+    <div class="steps" id="steg"></div>
+    <form id="skjema" novalidate>
+
+      <!-- Steg 1: produkt -->
+      <div class="stegside" data-steg="1">
+        <h2>Hva skal du ha?</h2>
+        <p class="hint mb-2">Velg produktet du vil ha pris på. Trenger du flere ting,
+          skriver du det i kommentarfeltet til slutt — selgeren samler det i ett tilbud.</p>
+        <div class="choices" id="produktValg"></div>
+      </div>
+
+      <!-- Steg 2: modell, tilvalg, farge og mengde -->
+      <div class="stegside hidden" data-steg="2">
+        <h2 id="steg2Tittel">Velg modell</h2>
+        <div id="modellValg" class="choices mb-2"></div>
+        <div id="tilvalgFelt"></div>
+        <div class="field">
+          <span class="field-label">Farge</span>
+          <div class="choices" id="fargeValg"></div>
+        </div>
+        <div class="field">
+          <label for="mengde" id="mengdeLabel">Antall</label>
+          <input type="number" id="mengde" name="mengde" min="1" step="0.5" inputmode="decimal">
+          <p class="hint" id="mengdeHjelp"></p>
+          <p class="field-error hidden" id="mengdeFeil"></p>
+        </div>
+      </div>
+
+      <!-- Steg 3: montering -->
+      <div class="stegside hidden" data-steg="3">
+        <h2>Montering</h2>
+        <p class="hint mb-2">Norsk monteringsanvisning følger alltid med. Vil du heller
+          at vi tar jobben, ordner vi montering gjennom oss eller forhandleren vår.</p>
+        <div class="choices" id="monteringValg">
+          <label class="choice">
+            <input type="radio" name="montering" value="nei" checked>
+            <span class="choice-title">Jeg monterer selv</span>
+            <span class="choice-sub">Anvisning følger med</span>
+          </label>
+          <label class="choice">
+            <input type="radio" name="montering" value="ja">
+            <span class="choice-title">Vindex monterer</span>
+            <span class="choice-sub">Pris legges inn i estimatet</span>
+          </label>
+        </div>
+        <div class="field mt-2">
+          <label for="tidspunkt">Når ønsker du det ferdig?</label>
+          <select id="tidspunkt" name="tidspunkt">
+            <option value="snarest">Så snart som mulig</option>
+            <option value="1-3mnd">Om 1–3 måneder</option>
+            <option value="3-6mnd">Om 3–6 måneder</option>
+            <option value="planlegger">Jeg planlegger bare / henter inn priser</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Steg 4: kontaktopplysningar -->
+      <div class="stegside hidden" data-steg="4">
+        <h2>Hvor skal det leveres?</h2>
+        <p class="hint mb-2">Postnummeret avgjør hvilken selger som tar kontakt med deg.</p>
+        <div class="field-row">
+          <div class="field">
+            <label for="navn">Navn</label>
+            <input id="navn" name="navn" autocomplete="name" required>
+            <p class="field-error hidden" data-feil="navn">Fyll inn navnet ditt.</p>
+          </div>
+          <div class="field">
+            <label for="telefon">Telefon</label>
+            <input id="telefon" name="telefon" type="tel" inputmode="tel" autocomplete="tel" required>
+            <p class="field-error hidden" data-feil="telefon">Fyll inn et gyldig telefonnummer.</p>
+          </div>
+        </div>
+        <div class="field">
+          <label for="epost">E-post</label>
+          <input id="epost" name="epost" type="email" autocomplete="email" required>
+          <p class="field-error hidden" data-feil="epost">Fyll inn en gyldig e-postadresse.</p>
+        </div>
+        <div class="field">
+          <label for="adresse">Adresse <span class="optional">(valgfritt nå)</span></label>
+          <input id="adresse" name="adresse" autocomplete="street-address">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="postnr">Postnummer</label>
+            <input id="postnr" name="postnr" inputmode="numeric" maxlength="4" autocomplete="postal-code" required>
+            <p class="hint" id="distriktInfo"></p>
+            <p class="field-error hidden" data-feil="postnr">Fyll inn et gyldig norsk postnummer.</p>
+          </div>
+          <div class="field">
+            <label for="poststed">Poststed</label>
+            <input id="poststed" name="poststed" autocomplete="address-level2">
+          </div>
+        </div>
+        <div class="field">
+          <label for="kommentar">Kommentar <span class="optional">(valgfritt)</span></label>
+          <textarea id="kommentar" name="kommentar" placeholder="Skriv gjerne om terreng, trapp, ønsket høyde, andre produkter du vurderer — alt hjelper selgeren."></textarea>
+        </div>
+        <div class="field">
+          <label style="font-weight:500;display:flex;gap:0.6rem;align-items:flex-start">
+            <input type="checkbox" id="samtykke" style="width:auto;margin-top:0.35rem" required>
+            <span>Jeg samtykker til at Vindex lagrer opplysningene mine for å kunne gi meg
+              et tilbud. Opplysningene deles kun med selgeren som følger opp forespørselen.</span>
+          </label>
+          <p class="field-error hidden" data-feil="samtykke">Vi trenger samtykket for å kunne kontakte deg.</p>
+        </div>
+
+        <div class="summary-box" id="oppsummering"></div>
+      </div>
+
+      <div class="btn-row mt-2" id="navKnappar">
+        <button type="button" class="btn btn-ghost hidden" id="tilbake">Tilbake</button>
+        <button type="button" class="btn" id="neste">Neste</button>
+        <button type="submit" class="btn btn-accent hidden" id="send">Send forespørsel</button>
+      </div>
+      <p class="field-error hidden" id="skjemaFeil"></p>
+    </form>
+
+    <!-- Kvittering -->
+    <div id="kvittering" class="hidden"></div>
+  </div>
+</section>
+
+<script src="js/produkter.js"></script>
+<script src="js/distrikt.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script type="module" src="js/bestilling.js"></script>
+</body>
+</html>

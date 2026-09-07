@@ -1,0 +1,317 @@
+/* ============================================================================
+   VINDEX VEDLIKEHOLDSFRITT — stilark
+   ----------------------------------------------------------------------------
+   Mobilførst. Fargepaletten er henta frå Vindex sin posisjon: norskprodusert
+   PVC utvikla og testa i havgapet på Hustadvika. Difor sjø/skifer som base,
+   varm sand som aksent, og kvitt som "produktfarge" (PVC-kvit).
+
+   Strukturen er delt i:
+     1. Designtokens          6. Kort og rutenett
+     2. Grunnstil             7. Skjema og konfigurator
+     3. Topbar/navigasjon     8. Seljarverktøy (tabell, pipeline, merkelappar)
+     4. Knappar               9. Botnfelt
+     5. Seksjonar/hero       10. Hjelpeklassar + utskrift
+   ============================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ---------- 1. Designtokens ---------- */
+:root {
+  --bg: #f4f6f6;
+  --surface: #ffffff;
+  --surface-alt: #eaeff0;
+  --ink: #14262e;            /* skifer — brødtekst */
+  --muted: #5c7078;
+  --primary: #10495a;        /* djup sjøblå — hovudaksent */
+  --primary-dark: #0a3341;
+  --primary-soft: #e2edf0;
+  --accent: #b8862f;         /* varm sand/messing — CTA og highlight */
+  --accent-soft: #f7eeda;
+  --good: #1d7a5f;
+  --good-soft: #dcefe7;
+  --warn: #a4671b;
+  --warn-soft: #f8eeda;
+  --bad: #a5322b;
+  --bad-soft: #f7e3e1;
+  --border: #d7e0e2;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow-sm: 0 2px 10px rgba(20, 38, 46, 0.07);
+  --shadow-md: 0 14px 34px rgba(20, 38, 46, 0.16);
+  --maxw: 1120px;
+  font-size: 16px;
+}
+
+/* ---------- 2. Grunnstil ---------- */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+img { max-width: 100%; display: block; }
+a { color: var(--primary); }
+
+h1, h2, h3 { font-family: "Source Serif 4", Georgia, "Times New Roman", serif; color: var(--primary-dark); text-wrap: balance; margin: 0 0 0.5rem; }
+h1 { font-size: 2rem; line-height: 1.18; font-weight: 700; }
+h2 { font-size: 1.5rem; line-height: 1.25; margin-top: 0; }
+h3 { font-size: 1.1rem; font-family: "Inter", sans-serif; font-weight: 700; color: var(--ink); }
+p { margin: 0.5rem 0; }
+.lead { font-size: 1.1rem; color: var(--muted); max-width: 60ch; }
+.hint { color: var(--muted); font-size: 0.9rem; }
+.eyebrow {
+  text-transform: uppercase; letter-spacing: 0.09em; font-size: 0.78rem;
+  font-weight: 700; color: var(--accent); margin: 0 0 0.5rem;
+}
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 1.1rem; }
+.wrap-narrow { max-width: 760px; margin: 0 auto; padding: 0 1.1rem; }
+
+@media (min-width: 800px) {
+  h1 { font-size: 2.9rem; }
+  h2 { font-size: 2rem; }
+}
+
+/* ---------- 3. Topbar / navigasjon ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 40;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-inner {
+  max-width: var(--maxw); margin: 0 auto; padding: 0.7rem 1.1rem;
+  display: flex; align-items: center; gap: 1rem;
+}
+.logo {
+  font-family: "Source Serif 4", serif; font-weight: 700; font-size: 1.3rem;
+  color: var(--primary-dark); text-decoration: none; letter-spacing: -0.01em;
+  display: flex; align-items: baseline; gap: 0.45rem; flex-shrink: 0;
+}
+.logo span { font-family: "Inter", sans-serif; font-size: 0.7rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+.nav { display: flex; gap: 0.35rem; margin-left: auto; align-items: center; flex-wrap: wrap; }
+.nav a {
+  color: var(--ink); text-decoration: none; font-weight: 600; font-size: 0.93rem;
+  padding: 0.45rem 0.65rem; border-radius: var(--radius-sm);
+}
+.nav a:hover { background: var(--surface-alt); }
+.nav a.active { color: var(--primary); background: var(--primary-soft); }
+.nav-toggle {
+  margin-left: auto; display: none; background: none; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.45rem 0.7rem; font-size: 1.1rem; cursor: pointer;
+}
+@media (max-width: 860px) {
+  .nav-toggle { display: block; }
+  .nav {
+    display: none; width: 100%; flex-direction: column; align-items: stretch;
+    margin: 0.6rem 0 0.2rem; gap: 0;
+  }
+  .nav.open { display: flex; }
+  .topbar-inner { flex-wrap: wrap; }
+  .nav a { padding: 0.7rem 0.5rem; border-bottom: 1px solid var(--border); border-radius: 0; }
+  .nav .btn { margin-top: 0.6rem; border-bottom: none; }
+}
+
+/* ---------- 4. Knappar ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  background: var(--primary); color: #fff; border: none; cursor: pointer;
+  padding: 0.8rem 1.35rem; border-radius: var(--radius-sm);
+  font: inherit; font-weight: 700; text-decoration: none; line-height: 1.2;
+  transition: transform 0.06s ease, background 0.15s ease;
+}
+.btn:hover { background: var(--primary-dark); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-accent { background: var(--accent); color: #23180a; }
+.btn-accent:hover { background: #9c711f; color: #fff; }
+.btn-ghost { background: transparent; color: var(--primary); border: 1.5px solid var(--border); }
+.btn-ghost:hover { background: var(--surface-alt); color: var(--primary-dark); }
+.btn-sm { padding: 0.45rem 0.8rem; font-size: 0.88rem; }
+.btn-block { width: 100%; }
+.btn-row { display: flex; gap: 0.7rem; flex-wrap: wrap; }
+
+/* ---------- 5. Seksjonar / hero ---------- */
+section { padding: 3.25rem 0; }
+section.tight { padding: 2rem 0; }
+.section-alt { background: var(--surface-alt); }
+.section-dark { background: var(--primary-dark); color: #dbe7ea; }
+.section-dark h2, .section-dark h3 { color: #fff; }
+.section-head { max-width: 62ch; margin-bottom: 1.75rem; }
+
+.hero { background: linear-gradient(170deg, var(--primary-dark) 0%, var(--primary) 62%, #17677a 100%); color: #eaf3f5; padding: 3.5rem 0 3.75rem; }
+.hero h1 { color: #fff; }
+.hero .lead { color: #cfe2e7; }
+.hero-grid { display: grid; gap: 2rem; align-items: center; }
+@media (min-width: 900px) { .hero-grid { grid-template-columns: 1.15fr 1fr; gap: 3rem; } }
+.hero .btn-row { margin-top: 1.5rem; }
+.hero-points { list-style: none; padding: 0; margin: 1.75rem 0 0; display: grid; gap: 0.6rem; }
+.hero-points li { display: flex; gap: 0.6rem; align-items: flex-start; color: #d5e6ea; font-weight: 500; }
+.hero-points li::before { content: "✓"; color: var(--accent); font-weight: 800; flex-shrink: 0; }
+.hero-card {
+  background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius); padding: 1.5rem;
+}
+.hero-card h3 { color: #fff; margin-top: 0; }
+
+/* ---------- 6. Kort og rutenett ---------- */
+.grid { display: grid; gap: 1.1rem; }
+.grid-2 { grid-template-columns: 1fr; }
+.grid-3 { grid-template-columns: 1fr; }
+.grid-4 { grid-template-columns: 1fr 1fr; }
+@media (min-width: 700px) { .grid-2 { grid-template-columns: 1fr 1fr; } .grid-3 { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 900px) { .grid-4 { grid-template-columns: repeat(4, 1fr); } }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.35rem; box-shadow: var(--shadow-sm);
+}
+.card h3 { margin-top: 0; }
+.card p:last-child { margin-bottom: 0; }
+.card-link { text-decoration: none; color: inherit; display: block; transition: box-shadow 0.15s ease, transform 0.15s ease; }
+.card-link:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.card-media { aspect-ratio: 4 / 3; background: var(--surface-alt) center/cover no-repeat; border-radius: var(--radius-sm); margin-bottom: 0.9rem; display: grid; place-items: center; color: var(--muted); font-size: 2.4rem; }
+.card-price { font-weight: 700; color: var(--primary); font-size: 0.95rem; margin-top: 0.6rem; }
+.card-price small { font-weight: 500; color: var(--muted); }
+
+.usp { text-align: left; }
+.usp-icon { font-size: 1.7rem; line-height: 1; margin-bottom: 0.6rem; }
+
+.stat { text-align: center; }
+.stat-num { font-family: "Source Serif 4", serif; font-size: 2.3rem; font-weight: 700; color: var(--accent); line-height: 1; }
+.stat-label { color: #b9d0d6; font-size: 0.9rem; margin-top: 0.35rem; }
+
+/* ---------- 7. Skjema og konfigurator ---------- */
+.field { margin-bottom: 1.1rem; }
+.field label, .field-label { display: block; font-weight: 700; margin-bottom: 0.35rem; font-size: 0.95rem; }
+.field input, .field select, .field textarea {
+  width: 100%; padding: 0.75rem 0.85rem; font: inherit; color: var(--ink);
+  background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft);
+}
+.field textarea { min-height: 110px; resize: vertical; }
+.field-row { display: grid; gap: 0 1rem; }
+@media (min-width: 640px) { .field-row { grid-template-columns: 1fr 1fr; } }
+.field-error { color: var(--bad); font-size: 0.88rem; font-weight: 600; margin-top: 0.3rem; }
+.field input.invalid, .field select.invalid { border-color: var(--bad); }
+
+/* valkort — brukt til produkt-, modell- og fargeval i konfiguratoren */
+.choices { display: grid; gap: 0.7rem; grid-template-columns: 1fr 1fr; }
+@media (min-width: 760px) { .choices { grid-template-columns: repeat(3, 1fr); } }
+.choice {
+  position: relative; display: block; cursor: pointer;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.9rem; transition: border-color 0.12s ease;
+}
+.choice:hover { border-color: var(--primary); }
+.choice input { position: absolute; opacity: 0; pointer-events: none; }
+.choice-title { font-weight: 700; display: block; }
+.choice-sub { color: var(--muted); font-size: 0.85rem; display: block; margin-top: 0.15rem; }
+.choice:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); box-shadow: 0 0 0 2px var(--primary-soft); }
+.choice-swatch { width: 100%; height: 34px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 0.5rem; }
+
+/* stegindikator */
+.steps { display: flex; gap: 0.4rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.step-dot {
+  flex: 1 1 0; min-width: 62px; text-align: center; font-size: 0.75rem; font-weight: 700;
+  color: var(--muted); padding: 0.4rem 0.2rem 0; border-top: 3px solid var(--border);
+}
+.step-dot.done { color: var(--primary); border-top-color: var(--primary); }
+.step-dot.current { color: var(--accent); border-top-color: var(--accent); }
+
+.summary-box {
+  background: var(--primary-soft); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.2rem; margin: 1.25rem 0;
+}
+.summary-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.35rem 0; border-bottom: 1px dashed rgba(16, 73, 90, 0.2); }
+.summary-row:last-child { border-bottom: none; }
+.summary-row dt { color: var(--muted); font-size: 0.92rem; margin: 0; }
+.summary-row dd { margin: 0; font-weight: 700; text-align: right; }
+.price-estimate { font-family: "Source Serif 4", serif; font-size: 2rem; font-weight: 700; color: var(--primary-dark); }
+
+.notice { border-radius: var(--radius-sm); padding: 0.85rem 1rem; font-size: 0.93rem; margin: 1rem 0; }
+.notice-info { background: var(--primary-soft); border: 1px solid #bcd7de; }
+.notice-good { background: var(--good-soft); border: 1px solid #b6ddcd; }
+.notice-warn { background: var(--warn-soft); border: 1px solid #e8d2a5; }
+.notice-bad { background: var(--bad-soft); border: 1px solid #e8c2be; }
+
+/* ---------- 8. Seljarverktøy ---------- */
+.app-shell { max-width: var(--maxw); margin: 0 auto; padding: 1.5rem 1.1rem 4rem; }
+.toolbar { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.2rem; }
+.toolbar select, .toolbar input {
+  padding: 0.5rem 0.7rem; font: inherit; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--surface);
+}
+.toolbar .spacer { margin-left: auto; }
+
+.kpi-row { display: grid; gap: 0.8rem; grid-template-columns: repeat(2, 1fr); margin-bottom: 1.4rem; }
+@media (min-width: 800px) { .kpi-row { grid-template-columns: repeat(4, 1fr); } }
+.kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1rem; }
+.kpi-num { font-size: 1.7rem; font-weight: 800; color: var(--primary); line-height: 1.1; }
+.kpi-label { font-size: 0.82rem; color: var(--muted); font-weight: 600; }
+
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); }
+table.data { width: 100%; border-collapse: collapse; font-size: 0.92rem; min-width: 720px; }
+table.data th, table.data td { text-align: left; padding: 0.7rem 0.85rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.data th { background: var(--surface-alt); font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); white-space: nowrap; }
+table.data tr:last-child td { border-bottom: none; }
+table.data tr.clickable { cursor: pointer; }
+table.data tr.clickable:hover td { background: var(--primary-soft); }
+table.data tr.overdue td:first-child { box-shadow: inset 3px 0 0 var(--bad); }
+
+.tag {
+  display: inline-block; padding: 0.18rem 0.55rem; border-radius: 999px;
+  font-size: 0.76rem; font-weight: 700; white-space: nowrap;
+}
+.tag-ny { background: var(--accent-soft); color: #7a5715; }
+.tag-kontaktet { background: var(--primary-soft); color: var(--primary-dark); }
+.tag-befaring { background: #e6e2f6; color: #4a3d8f; }
+.tag-tilbud { background: var(--warn-soft); color: #7d4d13; }
+.tag-vunnet { background: var(--good-soft); color: #12583f; }
+.tag-tapt { background: var(--bad-soft); color: #7d241e; }
+.tag-muted { background: var(--surface-alt); color: var(--muted); }
+
+/* detaljpanel (slår ut under valgt rad / eige kort) */
+.detail { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.35rem; margin-top: 1.2rem; box-shadow: var(--shadow-sm); }
+.detail-head { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+.detail dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1rem; margin: 1rem 0; font-size: 0.94rem; }
+.detail dt { color: var(--muted); font-weight: 600; }
+.detail dd { margin: 0; }
+.log { list-style: none; padding: 0; margin: 0.5rem 0 0; border-left: 2px solid var(--border); }
+.log li { padding: 0.4rem 0 0.4rem 0.9rem; font-size: 0.9rem; position: relative; }
+.log li::before { content: ""; position: absolute; left: -5px; top: 0.85rem; width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+.log time { color: var(--muted); font-size: 0.8rem; display: block; }
+
+/* ---------- 9. Botnfelt ---------- */
+footer.site {
+  background: var(--primary-dark); color: #b9cdd3; padding: 2.75rem 0 1.75rem; margin-top: 2rem;
+  font-size: 0.93rem;
+}
+footer.site a { color: #fff; text-decoration: none; }
+footer.site a:hover { text-decoration: underline; }
+footer.site h4 { color: #fff; margin: 0 0 0.6rem; font-size: 0.95rem; }
+.footer-grid { display: grid; gap: 1.75rem; }
+@media (min-width: 760px) { .footer-grid { grid-template-columns: 1.4fr 1fr 1fr; } }
+.footer-links { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.35rem; }
+.footer-bottom { border-top: 1px solid rgba(255, 255, 255, 0.14); margin-top: 1.75rem; padding-top: 1.1rem; color: #8fa9b1; font-size: 0.85rem; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
+/* ---------- 10. Hjelpeklassar + utskrift ---------- */
+.hidden { display: none !important; }
+.center { text-align: center; }
+.mt-0 { margin-top: 0; } .mt-1 { margin-top: 0.75rem; } .mt-2 { margin-top: 1.5rem; }
+.mb-0 { margin-bottom: 0; } .mb-2 { margin-bottom: 1.5rem; }
+.muted { color: var(--muted); }
+.nowrap { white-space: nowrap; }
+.spinner { text-align: center; color: var(--muted); padding: 2.5rem 1rem; font-weight: 600; }
+
+@media print {
+  .topbar, footer.site, .toolbar, .btn, .no-print { display: none !important; }
+  body { background: #fff; }
+  .detail, .card, .table-scroll { box-shadow: none; border-color: #999; }
+}

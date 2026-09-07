@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Selgerverktøy — Vindex</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-rot="" data-side="selger" data-chrome="minimal">
+
+<!-- Innlogging -->
+<section id="login" class="tight">
+  <div class="wrap-narrow" style="max-width:440px">
+    <h1>Selgerverktøy</h1>
+    <p class="lead">Logg inn for å se og følge opp forespørslene i ditt distrikt.</p>
+    <div class="card mt-2">
+      <form id="loginSkjema">
+        <div class="field">
+          <label for="loginEpost">E-post</label>
+          <input id="loginEpost" type="email" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="loginPassord">Passord</label>
+          <input id="loginPassord" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-block" type="submit" id="loginKnapp">Logg inn</button>
+        <p class="field-error hidden mt-1" id="loginFeil"></p>
+        <p class="hint mt-1"><a href="#" id="glemtLenke">Glemt passord?</a></p>
+      </form>
+    </div>
+    <div id="demoHint"></div>
+  </div>
+</section>
+
+<!-- Sjølve verktøyet -->
+<div id="verktoy" class="app-shell hidden">
+  <div class="toolbar">
+    <h1 style="font-size:1.4rem;margin:0">Leads</h1>
+    <span class="tag tag-muted" id="brukarMerke"></span>
+    <span class="spacer"></span>
+    <button class="btn btn-ghost btn-sm" id="fanetMine">Mine leads</button>
+    <button class="btn btn-ghost btn-sm hidden" id="fanetAlle">Alle leads</button>
+    <button class="btn btn-ghost btn-sm hidden" id="fanetAdmin">Selgere og distrikt</button>
+    <button class="btn btn-ghost btn-sm" id="loggUt">Logg ut</button>
+  </div>
+
+  <!-- Leads-visning -->
+  <div id="leadsVising">
+    <div class="kpi-row" id="kpiRad"></div>
+    <div class="toolbar">
+      <select id="filterStatus">
+        <option value="">Alle statuser</option>
+        <option value="ny">Ny</option>
+        <option value="kontaktet">Kontaktet</option>
+        <option value="befaring">Befaring avtalt</option>
+        <option value="tilbud">Tilbud sendt</option>
+        <option value="vunnet">Vunnet</option>
+        <option value="tapt">Tapt</option>
+      </select>
+      <select id="filterProdukt"><option value="">Alle produkter</option></select>
+      <input id="filterSok" type="search" placeholder="Søk navn, sted, telefon …">
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-sm" id="skrivUt">Skriv ut</button>
+    </div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr>
+            <th>Mottatt</th><th>Kunde</th><th>Sted</th><th>Produkt</th>
+            <th>Estimat</th><th>Status</th><th>Oppfølging</th>
+          </tr>
+        </thead>
+        <tbody id="leadsRader"></tbody>
+      </table>
+    </div>
+    <div id="leadDetalj"></div>
+  </div>
+
+  <!-- Admin -->
+  <div id="adminVising" class="hidden">
+    <p class="lead">Hvem dekker hvilke distrikt? Endringer her styrer hvem nye forespørsler
+      går til automatisk.</p>
+    <div id="seljarListe" class="grid grid-2 mt-2"></div>
+    <div class="notice notice-info mt-2" id="dekningVarsel"></div>
+  </div>
+</div>
+
+<script src="js/produkter.js"></script>
+<script src="js/distrikt.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script type="module" src="js/selger.js"></script>
+</body>
+</html>

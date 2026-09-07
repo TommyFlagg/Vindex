@@ -1,0 +1,85 @@
+rules_version = '2';
+
+// ============================================================================
+// FIRESTORE-REGLAR FOR VINDEX
+// ----------------------------------------------------------------------------
+// Prinsipp:
+//   * Bestillingsskjemaet er ope for alle — kven som helst må kunne sende inn
+//     ein førespurnad, men ingen skal kunne lese andre sine.
+//   * Ein seljar ser og endrar berre sine eigne leads.
+//   * Admin ser alt og styrer seljarar og distrikt.
+//   * settings/ruting er offentleg lesbar fordi skjemaet må kunne finne rett
+//     seljar før innlogging — dokumentet inneheld berre id-ar, ingen persondata.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function innlogga() {
+      return request.auth != null;
+    }
+
+    function seljarDok() {
+      return get(/databases/$(database)/documents/sellers/$(request.auth.uid)).data;
+    }
+
+    function erSeljar() {
+      return innlogga() && exists(/databases/$(database)/documents/sellers/$(request.auth.uid));
+    }
+
+    function erAdmin() {
+      return erSeljar() && seljarDok().rolle == 'admin';
+    }
+
+    // -- Leads ---------------------------------------------------------------
+    // Validering av innsendte leads. Vi held oss til det skjemaet faktisk
+    // sender, slik at ingen kan dytte inn eigne felt eller sette seg sjølv
+    // som vunnen kunde.
+    function gyldigNyttLead(d) {
+      return d.keys().hasOnly([
+               'kilde', 'produkt', 'montering', 'tidspunkt', 'estimat', 'kunde',
+               'distriktId', 'distriktNavn', 'status', 'samtykke', 'seljarId',
+               'tildeltAutomatisk', 'opprettet', 'statusEndret', 'logg'
+             ])
+             && d.status == 'ny'
+             && d.samtykke == true
+             && d.kunde.navn is string && d.kunde.navn.size() > 1 && d.kunde.navn.size() < 120
+             && d.kunde.telefon is string && d.kunde.telefon.size() < 30
+             && d.kunde.epost is string && d.kunde.epost.size() < 160
+             && d.kunde.postnr is string && d.kunde.postnr.size() == 4
+             && d.kunde.kommentar.size() < 2000
+             && d.distriktId is string
+             && d.produkt.id is string;
+    }
+
+    match /leads/{leadId} {
+      allow create: if gyldigNyttLead(request.resource.data);
+      allow read, update: if erSeljar()
+                          && (resource.data.seljarId == request.auth.uid || erAdmin());
+      allow delete: if erAdmin();
+    }
+
+    // -- Seljarar ------------------------------------------------------------
+    // Alle innlogga seljarar kan lese lista (dei treng namn for å flytte leads
+    // og sjå kven som dekkjer kva). Berre admin kan endre.
+    match /sellers/{uid} {
+      allow read: if erSeljar();
+      allow create, delete: if erAdmin();
+      allow update: if erAdmin()
+                    // Ein seljar kan sjølv skru på feriemodus, ingenting anna.
+                    || (request.auth.uid == uid
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ferie']));
+    }
+
+    // -- Innstillingar -------------------------------------------------------
+    match /settings/ruting {
+      allow read: if true;          // skjemaet treng dette før innlogging
+      allow write: if erAdmin();
+    }
+
+    match /settings/{dokument} {
+      allow read: if erSeljar();
+      allow write: if erAdmin();
+    }
+  }
+}

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kontakt Vindex</title>
+<meta name="description" content="Kontakt Vindex AS på Hustadvika. Be om gratis og uforpliktende tilbud på vedlikeholdsfrie PVC-produkter.">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-rot="" data-side="kontakt">
+
+<section class="hero" style="padding:2.75rem 0 3rem">
+  <div class="wrap">
+    <p class="eyebrow">Kontakt</p>
+    <h1>Ta kontakt</h1>
+    <p class="lead">Skal du ha pris, er bestillingsskjemaet raskeste vei — da får du et
+      estimat med én gang og blir satt rett i kontakt med selgeren i ditt distrikt.</p>
+    <div class="btn-row"><a class="btn btn-accent" href="bestilling.html">Be om tilbud</a></div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap grid grid-2">
+    <div class="card">
+      <h3>Vindex AS</h3>
+      <p id="kontaktInfo"></p>
+    </div>
+    <div class="card">
+      <h3>Er du forhandler eller selger?</h3>
+      <p>Selgere og forhandlere logger inn i leadsverktøyet for å se og følge opp
+        forespørsler i sitt distrikt.</p>
+      <p class="mb-0"><a class="btn btn-ghost btn-sm" href="selger.html">Logg inn</a></p>
+    </div>
+  </div>
+</section>
+
+<script src="js/produkter.js"></script>
+<script src="js/app.js"></script>
+<script>
+  const f = VINDEX_FIRMA;
+  document.getElementById("kontaktInfo").innerHTML = [
+    f.adresse,
+    `<a href="mailto:${f.epost}">${f.epost}</a>`,
+    f.telefon ? `<a href="tel:${f.telefon.replace(/\s/g, "")}">${f.telefon}</a>` : "",
+    "Org.nr. " + f.orgnr,
+  ].filter(Boolean).join("<br>");
+</script>
+</body>
+</html>

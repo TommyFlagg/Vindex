@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Om Vindex — vedlikeholdsfritt siden 1986</title>
+<meta name="description" content="Vindex AS har produsert vedlikeholdsfrie PVC-produkter på Hustadvika siden 1986. Egen fabrikk, egen utvikling, og produkter testet der været er verst.">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-rot="" data-side="om-oss">
+
+<section class="hero" style="padding:2.75rem 0 3rem">
+  <div class="wrap">
+    <p class="eyebrow">Om oss</p>
+    <h1>Vi har holdt på med dette siden 1986</h1>
+    <p class="lead">Vindex er lengst i markedet i Norge på vedlikeholdsfrie PVC-produkter.
+      Vi utvikler, produserer og tester alt selv — på Hustadvika, der været sjelden er en venn.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap-narrow">
+    <h2>Egen fabrikk, egne produkter</h2>
+    <p>De fleste som selger PVC-gjerder i Norge importerer ferdige moduler i faste mål.
+      Vi gjør det motsatte: hver ordre produseres spesielt, etter kundens ønsker og mål.
+      Det betyr ingen kappede moduler, ingen skjøter du ikke ville ha, og løsninger som
+      faktisk passer terrenget ditt.</p>
+
+    <h2>Testet der det er verst</h2>
+    <p>Produktene blir utviklet, produsert og testet under tøffe forhold i havgapet på
+      Hustadvika. Salt, vind og slagregn året rundt er en hardere test enn noe laboratorium.</p>
+
+    <h2>Hjelp hele veien</h2>
+    <p>Vi gir veiledning til planlegging, utforming, utførelse og montering, og samarbeider
+      med dyktige forhandlere i store deler av landet. Du får hjelp fra valg av løsning til
+      ferdig montert resultat — og et gratis, uforpliktende tilbud før du bestemmer deg.</p>
+
+    <div class="card mt-2">
+      <h3>Fakta</h3>
+      <dl class="detail" style="border:none;padding:0;box-shadow:none;margin:0">
+        <dt>Selskap</dt><dd id="fNavn"></dd>
+        <dt>Org.nr.</dt><dd id="fOrg"></dd>
+        <dt>Adresse</dt><dd id="fAdr"></dd>
+        <dt>E-post</dt><dd id="fEpost"></dd>
+        <dt>Etablert</dt><dd id="fAr"></dd>
+        <dt>Garanti</dt><dd id="fGaranti"></dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<script src="js/produkter.js"></script>
+<script src="js/app.js"></script>
+<script>
+  const f = VINDEX_FIRMA;
+  fNavn.textContent = f.navn;
+  fOrg.textContent = f.orgnr;
+  fAdr.textContent = f.adresse;
+  fEpost.innerHTML = `<a href="mailto:${f.epost}">${f.epost}</a>`;
+  fAr.textContent = f.etablert + " — " + (new Date().getFullYear() - f.etablert) + " år i markedet";
+  fGaranti.textContent = f.garantiAr + " års garanti på alle produkter";
+</script>
+</body>
+</html>
