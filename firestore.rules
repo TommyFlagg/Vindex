@@ -6,10 +6,13 @@ rules_version = '2';
 // Prinsipp:
 //   * Bestillingsskjemaet er ope for alle — kven som helst må kunne sende inn
 //     ein førespurnad, men ingen skal kunne lese andre sine.
-//   * Ein seljar ser og endrar berre sine eigne leads.
+//   * Ein seljar ser og endrar berre sine eigne leads og ordrar.
 //   * Admin ser alt og styrer seljarar og distrikt.
-//   * settings/ruting er offentleg lesbar fordi skjemaet må kunne finne rett
-//     seljar før innlogging — dokumentet inneheld berre id-ar, ingen persondata.
+//   * Lager ser ordrane (for plukklista) og kan berre flytte status.
+//   * settings/ruting er offentleg lesbar fordi skjemaet må finne rett seljar
+//     før innlogging — dokumentet inneheld berre id-ar, ingen persondata.
+//
+// Prisar finst berre i orders/ og på leads, som begge krev innlogging.
 // ============================================================================
 
 service cloud.firestore {
@@ -27,19 +30,28 @@ service cloud.firestore {
       return innlogga() && exists(/databases/$(database)/documents/sellers/$(request.auth.uid));
     }
 
+    function rolle() {
+      return erSeljar() ? seljarDok().get('rolle', 'selger') : '';
+    }
+
     function erAdmin() {
-      return erSeljar() && seljarDok().rolle == 'admin';
+      return rolle() == 'admin';
+    }
+
+    function erLager() {
+      return rolle() == 'lager';
     }
 
     // -- Leads ---------------------------------------------------------------
-    // Validering av innsendte leads. Vi held oss til det skjemaet faktisk
-    // sender, slik at ingen kan dytte inn eigne felt eller sette seg sjølv
-    // som vunnen kunde.
+    // Validering av det bestillingsskjemaet sender inn. Vi held oss til felta
+    // skjemaet faktisk bruker, slik at ingen kan dytte inn eigne felt eller
+    // sette seg sjølv som solgt kunde.
     function gyldigNyttLead(d) {
       return d.keys().hasOnly([
                'kilde', 'produkt', 'montering', 'tidspunkt', 'estimat', 'kunde',
                'distriktId', 'distriktNavn', 'status', 'samtykke', 'seljarId',
-               'tildeltAutomatisk', 'opprettet', 'statusEndret', 'logg'
+               'tildeltAutomatisk', 'opprettet', 'statusEndret', 'logg',
+               'avtaler', 'tilbud'
              ])
              && d.status == 'ny'
              && d.samtykke == true
@@ -53,15 +65,27 @@ service cloud.firestore {
     }
 
     match /leads/{leadId} {
-      allow create: if gyldigNyttLead(request.resource.data);
+      // Ope for skjemaet, og for seljarar som registrerer leads manuelt.
+      allow create: if gyldigNyttLead(request.resource.data)
+                    || (erSeljar() && !erLager());
       allow read, update: if erSeljar()
                           && (resource.data.seljarId == request.auth.uid || erAdmin());
       allow delete: if erAdmin();
     }
 
+    // -- Ordrar --------------------------------------------------------------
+    match /orders/{orderId} {
+      allow create: if erSeljar() && !erLager();
+      allow read: if erSeljar()
+                  && (resource.data.seljarId == request.auth.uid || erAdmin() || erLager());
+      // Lageret kvitterer ut plukk, men skal ikkje kunne endre mål eller pris.
+      allow update: if (erSeljar() && (resource.data.seljarId == request.auth.uid || erAdmin()))
+                    || (erLager()
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
+      allow delete: if erAdmin();
+    }
+
     // -- Seljarar ------------------------------------------------------------
-    // Alle innlogga seljarar kan lese lista (dei treng namn for å flytte leads
-    // og sjå kven som dekkjer kva). Berre admin kan endre.
     match /sellers/{uid} {
       allow read: if erSeljar();
       allow create, delete: if erAdmin();

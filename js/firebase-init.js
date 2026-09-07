@@ -6,9 +6,12 @@
 // samla på éin stad.
 //
 // Datamodell i Firestore:
-//   leads/{leadId}     — ein førespurnad frå bestillingsskjemaet
+//   leads/{leadId}     — ein førespurnad frå bestillingsskjemaet eller lagt
+//                        inn manuelt av ein seljar
+//   orders/{orderId}   — ein stadfesta ordre, med utfylt ordreskjema
 //   sellers/{uid}      — ein seljar/forhandlar. Dokument-id = Firebase Auth uid
-//   settings/config    — felles innstillingar (oppfølgingsfrist osv.)
+//   settings/ruting    — distrikt -> seljar-id (offentleg lesbar)
+//   settings/config    — felles innstillingar
 // ============================================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
@@ -46,6 +49,8 @@ const auth = getAuth(app);
 
 const leadsCol = () => collection(db, "leads");
 const leadDoc = (id) => doc(db, "leads", id);
+const ordersCol = () => collection(db, "orders");
+const orderDoc = (id) => doc(db, "orders", id);
 const sellersCol = () => collection(db, "sellers");
 const sellerDoc = (uid) => doc(db, "sellers", uid);
 const settingsDoc = () => doc(db, "settings", "config");
@@ -55,6 +60,8 @@ export {
   auth,
   leadsCol,
   leadDoc,
+  ordersCol,
+  orderDoc,
   sellersCol,
   sellerDoc,
   settingsDoc,

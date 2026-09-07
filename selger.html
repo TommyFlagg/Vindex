@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Selgerverktøy — Vindex</title>
+<title>Salgsverktøy — Vindex</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="stylesheet" href="css/style.css">
@@ -13,7 +13,7 @@
 <!-- Innlogging -->
 <section id="login" class="tight">
   <div class="wrap-narrow" style="max-width:440px">
-    <h1>Selgerverktøy</h1>
+    <h1>Salgsverktøy</h1>
     <p class="lead">Logg inn for å se og følge opp forespørslene i ditt distrikt.</p>
     <div class="card mt-2">
       <form id="loginSkjema">
@@ -34,31 +34,22 @@
   </div>
 </section>
 
-<!-- Sjølve verktøyet -->
+<!-- Verktøyet -->
 <div id="verktoy" class="app-shell hidden">
   <div class="toolbar">
-    <h1 style="font-size:1.4rem;margin:0">Leads</h1>
+    <h1 style="font-size:1.4rem;margin:0">Vindex salg</h1>
     <span class="tag tag-muted" id="brukarMerke"></span>
     <span class="spacer"></span>
-    <button class="btn btn-ghost btn-sm" id="fanetMine">Mine leads</button>
-    <button class="btn btn-ghost btn-sm hidden" id="fanetAlle">Alle leads</button>
-    <button class="btn btn-ghost btn-sm hidden" id="fanetAdmin">Selgere og distrikt</button>
+    <nav class="fanerad" id="faner"></nav>
+    <button class="btn btn-accent btn-sm" id="nyttLead">+ Nytt lead</button>
     <button class="btn btn-ghost btn-sm" id="loggUt">Logg ut</button>
   </div>
 
-  <!-- Leads-visning -->
-  <div id="leadsVising">
+  <!-- Leads -->
+  <div id="visLeads">
     <div class="kpi-row" id="kpiRad"></div>
     <div class="toolbar">
-      <select id="filterStatus">
-        <option value="">Alle statuser</option>
-        <option value="ny">Ny</option>
-        <option value="kontaktet">Kontaktet</option>
-        <option value="befaring">Befaring avtalt</option>
-        <option value="tilbud">Tilbud sendt</option>
-        <option value="vunnet">Vunnet</option>
-        <option value="tapt">Tapt</option>
-      </select>
+      <select id="filterStatus"><option value="">Alle statuser</option></select>
       <select id="filterProdukt"><option value="">Alle produkter</option></select>
       <input id="filterSok" type="search" placeholder="Søk navn, sted, telefon …">
       <span class="spacer"></span>
@@ -69,7 +60,7 @@
         <thead>
           <tr>
             <th>Mottatt</th><th>Kunde</th><th>Sted</th><th>Produkt</th>
-            <th>Estimat</th><th>Status</th><th>Oppfølging</th>
+            <th>Status</th><th>Neste avtale</th><th>Oppfølging</th>
           </tr>
         </thead>
         <tbody id="leadsRader"></tbody>
@@ -78,17 +69,71 @@
     <div id="leadDetalj"></div>
   </div>
 
+  <!-- Kalender -->
+  <div id="visKalender" class="hidden">
+    <div class="section-head">
+      <h2 class="mt-0">Kalender</h2>
+      <p class="lead">Befaringer, møter og montering framover. «Legg i telefonkalender» laster
+        ned en avtalefil som iPhone, Android og Outlook åpner direkte.</p>
+    </div>
+    <div id="agenda"></div>
+  </div>
+
+  <!-- Ordrekonto -->
+  <div id="visOrdre" class="hidden">
+    <div class="section-head">
+      <h2 class="mt-0">Ordrekonto</h2>
+      <p class="lead">Bekreftede ordrer. Spesialproduserte varer går til produksjon,
+        standardseksjoner og lagerdeler går til plukk.</p>
+    </div>
+    <div class="toolbar">
+      <select id="filterOrdrestatus"><option value="">Alle ordrestatuser</option></select>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-sm" id="skrivUtOrdre">Skriv ut</button>
+    </div>
+    <div id="ordreListe"></div>
+  </div>
+
+  <!-- Plukkliste -->
+  <div id="visPlukk" class="hidden">
+    <div class="section-head">
+      <h2 class="mt-0">Plukkliste for lager</h2>
+      <p class="lead">Standardseksjoner og lagerdeler som skal plukkes, med kunde- og
+        selgerinfo på hver ordre.</p>
+    </div>
+    <div id="plukkListe"></div>
+  </div>
+
   <!-- Admin -->
-  <div id="adminVising" class="hidden">
-    <p class="lead">Hvem dekker hvilke distrikt? Endringer her styrer hvem nye forespørsler
-      går til automatisk.</p>
-    <div id="seljarListe" class="grid grid-2 mt-2"></div>
+  <div id="visAdmin" class="hidden">
+    <div class="section-head">
+      <h2 class="mt-0">Selgere og distrikt</h2>
+      <p class="lead">Hvem dekker hvilke distrikt? Endringer her styrer hvem nye forespørsler
+        går til automatisk.</p>
+    </div>
+    <div id="seljarListe" class="grid grid-2"></div>
     <div class="notice notice-info mt-2" id="dekningVarsel"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast notice hidden"></div>
+
+<!-- Dialog: brukt til nytt lead, ordreskjema og bekreftelse før bestilling -->
+<div class="modal hidden" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTittel">
+  <div class="modal-kort">
+    <div class="modal-topp">
+      <h2 id="modalTittel" class="mt-0 mb-0"></h2>
+      <button class="btn btn-ghost btn-sm" id="modalLukk" aria-label="Lukk">✕</button>
+    </div>
+    <div class="modal-innhald" id="modalInnhald"></div>
+    <div class="modal-botn" id="modalBotn"></div>
   </div>
 </div>
 
 <script src="js/produkter.js"></script>
 <script src="js/distrikt.js"></script>
+<script src="js/ordre.js"></script>
+<script src="js/kalender.js"></script>
 <script src="js/firebase-config.js"></script>
 <script src="js/app.js"></script>
 <script type="module" src="js/selger.js"></script>

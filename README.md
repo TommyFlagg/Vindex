@@ -10,7 +10,14 @@ Tre deler:
 |---|---|---|
 | Nettsiden | `index.html`, `produkter/*.html`, `om-oss.html`, `kontakt.html`, `garanti.html` | Markedsføring og produktinformasjon |
 | Bestillingsskjema | `bestilling.html` + `js/bestilling.js` | Konfigurator, prisestimat, sender lead til Firestore |
-| Selgerverktøy | `selger.html` + `js/selger.js` | Innlogging, pipeline, notater, distriktsadministrasjon |
+| Salgsverktøy | `selger.html` + `js/selger.js` | Leads, kalender, tilbud, ordre og plukkliste |
+
+## Priser hører hjemme i salgsverktøyet
+
+Nettsiden viser **aldri** priser. Prisfeltene ligger på ordreskjemaet og på
+tilbudet inne i salgsverktøyet, bak innlogging, og Firestore-reglene sørger for
+at bare selgeren som eier leadet — og admin — får lese dem. Lagerbrukere ser
+plukklisten, men ikke prisseksjonene.
 
 ## Slik henger leads-flyten sammen
 
@@ -22,6 +29,71 @@ Tre deler:
    innboks, og admin fordeler manuelt. **Ingen leads faller på gulvet.**
 
 Er det flere selgere i samme distrikt, roterer tildelingen mellom dem.
+
+Leads som kommer på telefon, e-post, messe eller besøk legges inn manuelt med
+**+ Nytt lead**. De rutes på nøyaktig samme måte, men selgeren kan overstyre og
+ta leadet selv.
+
+## Salgsløpet
+
+| Status | Settes | Av |
+|---|---|---|
+| Ny | Leadet kommer inn | Automatisk |
+| Sett | Selgeren åpner leadet | Automatisk |
+| Kontaktet | Selgeren klikker Ring eller Send e-post | Automatisk |
+| Tilbud sendt | Tilbudssum registreres på kunden | Automatisk |
+| Oppfulgt | Selgeren setter den | Manuelt |
+| Solgt | Ordren bekreftes og sendes til bestilling | Automatisk |
+| Avslått | Selgeren setter den | Manuelt |
+
+Statusen løftes bare framover — et klikk på Ring nullstiller aldri et lead som
+alt har kommet lenger. Både selger og admin ser samme status til enhver tid.
+
+### Tilbud og rabatt
+
+På hver kunde lagres tilbudssum, rabatt i prosent og kroner, gyldighetsdato og
+notat. Alt havner i historikken på leadet, så det er sporbart hvem som ga hvilken
+rabatt og når.
+
+### Kalender
+
+Befaring, møte, oppmåling, montering og oppfølgingssamtale legges på kunden.
+Hver avtale lastes ned som en `.ics`-fil som iPhone, Android og Outlook åpner
+direkte — så avtalen ligger i selgerens egen telefonkalender, med påminnelse en
+time før. Verktøyets egen kalenderfane viser alt framover, gruppert per dag.
+
+## Ordre og lager
+
+Ordreskjemaene er digitale utgaver av papirskjemaene:
+
+| Skjema | Gjelder | Fil |
+|---|---|---|
+| Ordreseddel 2026 | Rekkverk, levegg, gjerde, port, terrassegulv, lys m.m. | `js/ordre.js` |
+| Målskjema sprosser 2026 | Sprosser (12+ vinduer, falsmål, ruter, omramming, buer, hengsler, flukting) | `js/ordre.js` |
+
+Feltene er definert som data, ikke HTML. Legger du til et felt i `js/ordre.js`,
+dukker det opp i skjemaet, i utskriften og i plukklisten uten videre koding.
+
+**Før en ordre går til bestilling** må selgeren gjennom en bekreftelsesdialog
+som viser alle mål og deler, delt i to: hva som er spesialprodusert og hva som er
+lagervare. Selgeren må aktivt bekrefte at målene er kontrollert, og krysse av for
+om kunden selv har oppgitt målene. Ordren kan ikke sendes uten det.
+
+Deretter deles ordren automatisk:
+
+- **Spesialprodusert** (alt som er etter mål) → status *I produksjon*
+- **Lagervare** (standardseksjoner, LED, kabel, strømforsyning) → status *Til plukk*
+
+Plukklisten viser hver ordre med kundens navn, adresse og telefon, selgerens
+navn, og linjene som skal plukkes. Lageret kvitterer ut ved å flytte status.
+
+### Roller
+
+| Rolle | Ser |
+|---|---|
+| `selger` | Egne leads, egen kalender, egne ordrer, plukklisten |
+| `admin` | Alt, kan flytte leads mellom selgere og styre distriktene |
+| `lager` | Ordrer og plukkliste. Kan bare endre status, ikke mål eller priser |
 
 ## Oppsett
 
@@ -151,7 +223,9 @@ js/app.js                Felles topbar og bunnfelt
 js/firebase-config.js    Firebase-nøkler (fylles ut)
 js/firebase-init.js      Firestore + Auth
 js/bestilling.js         Konfigurator og innsending
-js/selger.js             Pipeline og administrasjon
+js/selger.js             Salgsverktøyet: leads, kalender, ordre, plukk
+js/ordre.js              Ordreskjema, statusflyt og plukklistelogikk
+js/kalender.js           Avtaler og .ics-eksport til telefonkalender
 firestore.rules          Tilgangsregler
 scripts/                 Generering av produktsider
 ```

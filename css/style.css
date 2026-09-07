@@ -46,6 +46,11 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
+/* Respekter systeminnstillinga for redusert rørsle. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
 body {
   background: var(--bg);
   color: var(--ink);
@@ -341,3 +346,124 @@ footer.site h4 { color: #fff; margin: 0 0 0.6rem; font-size: 0.95rem; }
 }
 .bildegalleri { display: grid; gap: 0.9rem; grid-template-columns: 1fr; }
 @media (min-width: 700px) { .bildegalleri { grid-template-columns: 1fr 1fr; } }
+
+/* ---------- salgsverktøy: faner, dialog, agenda, ordreskjema ---------- */
+.fanerad { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.fane {
+  background: transparent; border: 1.5px solid var(--border); color: var(--ink);
+  border-radius: var(--radius-sm); padding: 0.45rem 0.8rem; font: inherit;
+  font-weight: 600; font-size: 0.88rem; cursor: pointer;
+}
+.fane:hover { background: var(--surface-alt); }
+.fane.aktiv { background: var(--primary); border-color: var(--primary); color: #fff; }
+.fane .teljar {
+  display: inline-block; margin-left: 0.4rem; background: var(--accent-soft); color: #7a5715;
+  border-radius: 999px; padding: 0 0.4rem; font-size: 0.75rem; font-weight: 800;
+}
+.fane.aktiv .teljar { background: rgba(255,255,255,.22); color: #fff; }
+
+/* dialog */
+.modal {
+  position: fixed; inset: 0; z-index: 60; background: rgba(10, 32, 40, 0.55);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 1rem; overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.modal-kort {
+  background: var(--surface); border-radius: var(--radius); width: 100%; max-width: 860px;
+  margin: 2vh auto; box-shadow: var(--shadow-md); display: flex; flex-direction: column;
+  max-height: 96vh;
+}
+.modal-topp {
+  display: flex; align-items: center; gap: 1rem; justify-content: space-between;
+  padding: 1.1rem 1.35rem; border-bottom: 1px solid var(--border);
+}
+.modal-innhald { padding: 1.35rem; overflow-y: auto; }
+.modal-botn {
+  padding: 1rem 1.35rem; border-top: 1px solid var(--border);
+  display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: center; justify-content: flex-end;
+}
+.modal-botn .spacer { margin-right: auto; }
+
+/* skjemaseksjonar i ordreskjemaet */
+.skjemaseksjon { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1rem; margin-bottom: 1rem; }
+.skjemaseksjon > h3 { margin-top: 0; }
+.skjemaseksjon.intern { border-color: var(--accent); background: var(--accent-soft); }
+.feltrutenett { display: grid; gap: 0.7rem 1rem; grid-template-columns: 1fr; }
+@media (min-width: 620px) { .feltrutenett { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 900px) { .feltrutenett { grid-template-columns: repeat(3, 1fr); } }
+.feltrutenett .field { margin-bottom: 0; }
+.feltrutenett .field.brei { grid-column: 1 / -1; }
+.feltrutenett label { font-size: 0.85rem; font-weight: 600; }
+.feltrutenett input, .feltrutenett select, .feltrutenett textarea { padding: 0.5rem 0.6rem; font-size: 0.92rem; }
+
+/* måltabell for sprosser */
+table.maltabell { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+table.maltabell th {
+  background: var(--surface-alt); padding: 0.4rem 0.35rem; font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted);
+  border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap;
+}
+table.maltabell td { padding: 0.2rem 0.25rem; border-bottom: 1px solid var(--border); }
+table.maltabell input, table.maltabell select {
+  width: 100%; padding: 0.35rem 0.4rem; font: inherit; font-size: 0.85rem;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--surface);
+}
+table.maltabell tr:nth-child(even) td { background: rgba(0,0,0,0.015); }
+
+/* agenda */
+.agendadag { margin-bottom: 1.5rem; }
+.agendadag > h3 { position: sticky; top: 0; background: var(--bg); padding: 0.35rem 0; margin: 0 0 0.5rem; text-transform: capitalize; }
+.avtale {
+  display: flex; gap: 1rem; align-items: flex-start; background: var(--surface);
+  border: 1px solid var(--border); border-left: 4px solid var(--primary);
+  border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 0.6rem;
+}
+.avtale-tid { font-weight: 800; color: var(--primary); min-width: 4.5rem; }
+.avtale-type { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.avtale-handling { margin-left: auto; display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.avtale.befaring { border-left-color: var(--accent); }
+.avtale.montering { border-left-color: var(--good); }
+
+/* ordre og plukkliste */
+.ordrekort { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.15rem; margin-bottom: 1rem; }
+.ordrekort-topp { display: flex; gap: 1rem; justify-content: space-between; flex-wrap: wrap; align-items: flex-start; }
+.plukk-linjer { list-style: none; padding: 0; margin: 0.75rem 0 0; }
+.plukk-linjer li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.35rem 0; border-bottom: 1px dashed var(--border); }
+.plukk-linjer li:last-child { border-bottom: none; }
+.plukk-linjer .mengde { font-weight: 800; color: var(--primary); white-space: nowrap; }
+.avkryssrad { display: flex; gap: 0.6rem; align-items: flex-start; font-weight: 500; }
+.avkryssrad input { width: auto; margin-top: 0.3rem; flex-shrink: 0; }
+
+.statusknappar { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0.5rem 0 0; }
+.statusknapp {
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 0.3rem 0.7rem; font: inherit; font-size: 0.82rem;
+  font-weight: 700; cursor: pointer;
+}
+.statusknapp:hover { border-color: var(--primary); }
+.statusknapp.aktiv { background: var(--primary); border-color: var(--primary); color: #fff; }
+.statusknapp.avslag.aktiv { background: var(--bad); border-color: var(--bad); }
+.statusknapp.solgt.aktiv { background: var(--good); border-color: var(--good); }
+
+.tag-ny { background: var(--accent-soft); color: #7a5715; }
+.tag-sett { background: var(--surface-alt); color: var(--muted); }
+.tag-kontaktet { background: var(--primary-soft); color: var(--primary-dark); }
+.tag-tilbud_sendt { background: var(--warn-soft); color: #7d4d13; }
+.tag-oppfulgt { background: #e6e2f6; color: #4a3d8f; }
+.tag-solgt { background: var(--good-soft); color: #12583f; }
+.tag-avslatt { background: var(--bad-soft); color: #7d241e; }
+
+@media print {
+  .fanerad, .modal, .kpi-row { display: none !important; }
+  .ordrekort { break-inside: avoid; border-color: #999; }
+}
+
+/* Kort tilbakemelding — ligg fast nedst, så den aldri flyttar innhaldet under seg. */
+.toast {
+  position: fixed; bottom: 1.1rem; left: 50%; transform: translateX(-50%);
+  z-index: 70; margin: 0; max-width: min(92vw, 460px); box-shadow: var(--shadow-md);
+  font-weight: 600;
+  /* Toasten er berre til å lese — den skal aldri fange eit klikk som var
+     meint for knappen under. */
+  pointer-events: none;
+}
