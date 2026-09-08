@@ -12,6 +12,41 @@ Tre deler:
 | Bestillingsskjema | `bestilling.html` + `js/bestilling.js` | Konfigurator, prisestimat, sender lead til Firestore |
 | Salgsverktøy | `selger.html` + `js/selger.js` | Leads, kalender, tilbud, ordre og plukkliste |
 
+## Forsidens oppbygning
+
+Én sammenhengende reise, i denne rekkefølgen:
+
+| # | Seksjon | Jobben den gjør |
+|---|---|---|
+| 1 | Intro | Hvem vi er og hva vi selger, med CTA over folden |
+| 2 | Nøkkelinfo | De fem tallene kunden vil ha før de orker lese mer |
+| 3 | Produkter | Hele sortimentet, hentet fra katalogen |
+| 4 | Hva vi står for | Fire verdier, inkludert lydargumentet mot importerte produkter |
+| 5 | Tilbakemeldinger | Kundesitater — skjuler seg selv når lista er tom |
+| 6 | Montering og teknisk | Fire steg i prosessen, pluss datablad |
+| 7 | Miljøfyrtårn | Sertifiseringen, og hvorfor den henger sammen med produktet |
+| 8 | Avslutning | Siste CTA |
+
+**Kort vei til lead.** En klebrig CTA-linje glir opp når helten er ute av syne, og
+finnes ikke på selve skjemaet — der er kunden allerede. Til sammen fem veier fra
+forsiden inn i skjemaet.
+
+### Kundesitater
+
+`js/tilbakemeldingar.js` er **tom med vilje**. Jeg dikter ikke opp kundesitater:
+en oppdiktet omtale er en falsk omtale, uansett hvor sannsynlig den høres ut.
+Fyll inn ekte sitater — med samtykke — så vises seksjonen automatisk. Er lista
+tom, hopper seksjonen over seg selv.
+
+Gode kilder dere allerede har: Facebook-siden, e-poster fra fornøyde kunder, og
+«Derfor vant vi»-årsakene selgerne registrerer i salgsverktøyet.
+
+### Miljøfyrtårn
+
+Sertifiseringen står i `VINDEX_FIRMA.miljofyrtarn`. **Sertifikatnummer og lenke
+er tomme** og må fylles inn før lansering — siden påstår ikke noe den ikke kan
+vise fram. Er nummeret tomt, vises seksjonen uten referanse.
+
 ## Priser hører hjemme i salgsverktøyet
 
 Nettsiden viser **aldri** priser. Prisfeltene ligger på ordreskjemaet og på
@@ -360,6 +395,7 @@ js/fylkeskart.js         Generert SVG-kart (Kartverket, CC BY 4.0)
 js/panel.js              Oversiktspanel og Norgeskart
 js/effekter.js           Avsløring, vipping og parallakse
 js/team.js               Selgere, forhandlere og 2024-tall
+js/tilbakemeldingar.js   Kundesitater (tom — fylles med ekte sitater)
 firestore.rules          Tilgangsregler
 scripts/                 Generering av produktsider
 ```

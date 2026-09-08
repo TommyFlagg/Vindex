@@ -45,6 +45,8 @@
     </div>`;
   body.prepend(header);
 
+  const f = VINDEX_FIRMA;
+
   const toggle = header.querySelector(".nav-toggle");
   const nav = header.querySelector("#hovudmeny");
   if (toggle) {
@@ -54,7 +56,32 @@
     });
   }
 
-  const f = VINDEX_FIRMA;
+  // ---- Klebrig handlingsknapp -------------------------------------------
+  // Reisa frå «eg er interessert» til «eg er eit lead» skal vere eitt trykk,
+  // uansett kor langt nede på sida kunden er. Baren kjem fram når helten er
+  // ute av syne, og finst ikkje på sjølve skjemaet — der er kunden allereie.
+  if (!minimal && aktiv !== "bestilling") {
+    const bar = document.createElement("div");
+    bar.className = "klebrig-cta";
+    bar.innerHTML = `
+      <span class="klebrig-tekst">Gratis og uforpliktende tilbud${f.telefon ? ` — eller ring <a href="tel:${f.telefon.replace(/\s/g, "")}">${f.telefon}</a>` : ""}</span>
+      <a class="btn btn-accent btn-sm" href="${rot}bestilling.html">Be om tilbud</a>`;
+    body.append(bar);
+
+    const merke = document.createElement("div");
+    merke.style.cssText = "position:absolute;top:70vh;height:1px;width:1px;";
+    merke.setAttribute("aria-hidden", "true");
+    body.prepend(merke);
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(
+        ([rad]) => bar.classList.toggle("synleg", !rad.isIntersecting),
+        { threshold: 0 }
+      ).observe(merke);
+    } else {
+      bar.classList.add("synleg");
+    }
+  }
+
   const tlfLinje = f.telefon
     ? `<li><a href="tel:${f.telefon.replace(/\s/g, "")}">${f.telefon}</a></li>`
     : "";

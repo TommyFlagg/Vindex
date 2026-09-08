@@ -22,6 +22,9 @@ const VINDEX_FIRMA = {
   facebook: "https://www.facebook.com/Vedlikeholdsfritt/",
   instagram: "",
   finn: "",
+  // Miljøfyrtårn-sertifisert. Sertifikatnummer og lenke må fyllast inn før
+  // lansering — vi påstår ikkje noko vi ikkje kan vise fram.
+  miljofyrtarn: { sertifisert: true, nummer: "", lenke: "" },
 };
 
 // ---------------------------------------------------------------------------
