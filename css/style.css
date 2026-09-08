@@ -13,7 +13,10 @@
      5. Seksjonar/hero       10. Hjelpeklassar + utskrift
    ============================================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700;800&display=swap');
+/* Oswald er display-fonten i det mørke temaet: kondensert, laga for
+   versalar, og med ein fallback (Arial Narrow) som held same rytme.
+   Source Serif og Inter held fram i salsverktøyet. */
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700;800&family=Oswald:wght@400;500;600;700&display=swap');
 
 /* ---------- 1. Designtokens ---------- */
 :root {
@@ -818,3 +821,219 @@ table.data.kompakt th, table.data.kompakt td { padding: 0.4rem 0.5rem; }
   font-weight: 800; font-size: 0.82rem; line-height: 1.25; letter-spacing: 0.02em;
   box-shadow: var(--shadow-md);
 }
+
+/* ===========================================================================
+   MØRKT TEMA — nettstaden
+   ---------------------------------------------------------------------------
+   Oppbygginga er henta frå eit referansenettstad kunden peika på: mørk base,
+   kondensert versal-display, farga merkelapp over kvar overskrift, og
+   nummererte kort. Paletten er Vindex sin eigen — djup sjø-svart og messing
+   der referansen brukar marineblå og raudt.
+   Salsverktøyet held fram i lyst tema: det er eit arbeidsverktøy som skal
+   lesast heile dagen og skrivast ut (plukklister), og då er lyst rett.
+   =========================================================================== */
+
+body.tema-mork {
+  --bg: #0a1621;
+  --surface: #10202e;
+  --surface-alt: #0c1a26;
+  --ink: #e6eef3;
+  --muted: #91a7b5;
+  --border: #1d3243;
+  --primary: #b8862f;          /* messing er handlingsfargen i mørkt tema */
+  --primary-dark: #9c711f;
+  --primary-soft: #1a2a38;
+  --accent: #b8862f;
+  --accent-soft: #241d10;
+  --krem: #f2ece0;             /* overskriftsfargen, som i referansen */
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 16px 38px rgba(0, 0, 0, 0.5);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* --- display-typografi --- */
+body.tema-mork h1,
+body.tema-mork h2,
+body.tema-mork .display {
+  font-family: "Oswald", "Arial Narrow", Impact, sans-serif;
+  text-transform: uppercase;
+  color: var(--krem);
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+body.tema-mork h1 { font-size: clamp(2.6rem, 9vw, 5.4rem); }
+body.tema-mork h2 { font-size: clamp(1.9rem, 5vw, 3.2rem); }
+body.tema-mork h3 { color: var(--krem); font-weight: 700; }
+body.tema-mork .h3-versal {
+  font-family: "Oswald", "Arial Narrow", sans-serif; text-transform: uppercase;
+  font-size: 1.22rem; letter-spacing: 0.02em; font-weight: 600;
+}
+
+/* Sperra versalar til småtekst — nav, etikettar, knappar. */
+body.tema-mork .nav a,
+body.tema-mork .btn,
+body.tema-mork .sperra {
+  text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.8rem; font-weight: 600;
+}
+body.tema-mork .btn { padding: 0.95rem 1.6rem; border-radius: 2px; }
+body.tema-mork .btn-accent { background: var(--accent); color: #171104; }
+body.tema-mork .btn-accent:hover { background: #cf9a3c; color: #171104; }
+body.tema-mork .btn-ghost { border-color: rgba(230, 238, 243, 0.28); color: var(--krem); background: transparent; }
+body.tema-mork .btn-ghost:hover { background: rgba(230, 238, 243, 0.08); color: #fff; }
+
+/* --- topbar --- */
+body.tema-mork .topbar { background: rgba(10, 22, 33, 0.92); border-bottom-color: var(--border); }
+body.tema-mork .logo { color: var(--krem); font-family: "Oswald", sans-serif; text-transform: uppercase; letter-spacing: 0.06em; }
+body.tema-mork .logo span { color: var(--accent); letter-spacing: 0.18em; }
+body.tema-mork .nav a { color: var(--muted); }
+body.tema-mork .nav a:hover, body.tema-mork .nav a.active { color: var(--krem); background: transparent; }
+body.tema-mork .nav-toggle { border-color: var(--border); color: var(--krem); }
+
+/* --- merkelapp over overskrifta --- */
+.merkelapp {
+  display: inline-block; background: var(--accent); color: #171104;
+  padding: 0.55rem 1.1rem; font-weight: 700; font-size: 0.78rem;
+  text-transform: uppercase; letter-spacing: 0.16em; margin-bottom: 1.1rem;
+}
+.merkelapp-open {
+  background: transparent; border: 1px solid var(--accent); color: var(--accent);
+}
+
+/* --- helt med fullt bilete bak --- */
+.helt-fullbleed { position: relative; overflow: hidden; background: #06101a; }
+.helt-fullbleed > .helt-bilete {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  opacity: 0.42;
+}
+.helt-fullbleed::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(100deg, rgba(6, 16, 26, 0.94) 8%, rgba(6, 16, 26, 0.62) 52%, rgba(6, 16, 26, 0.35) 100%);
+}
+.helt-innhald { position: relative; z-index: 2; padding: 4.5rem 0 5rem; max-width: 46rem; }
+.helt-tofarga span { display: block; }
+.helt-tofarga .linje2 { color: var(--accent); }
+.helt-stikkord {
+  display: flex; gap: 0.9rem; flex-wrap: wrap; align-items: center;
+  text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.8rem;
+  font-weight: 600; color: var(--krem); margin: 1.1rem 0 1.3rem;
+}
+.helt-stikkord i { color: var(--accent); font-style: normal; }
+
+/* Tredje, roligare veg vidare — for dei som ikkje er klare til å be om tilbod. */
+.tredjeveg {
+  display: inline-flex; flex-direction: column; gap: 0.15rem;
+  border: 1px solid var(--accent); padding: 0.85rem 1.3rem; text-decoration: none;
+  color: var(--accent); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.14em; font-size: 0.8rem;
+}
+.tredjeveg small { text-transform: none; letter-spacing: 0; font-weight: 500; opacity: 0.75; font-size: 0.78rem; }
+.tredjeveg:hover { background: rgba(184, 134, 47, 0.12); }
+
+/* Tillitsstripe nedst i helten. */
+.tillitspille {
+  display: inline-block; border: 1px solid rgba(230, 238, 243, 0.4);
+  border-radius: 999px; padding: 0.75rem 1.5rem; color: var(--krem);
+  font-size: 0.88rem; margin-top: 2rem;
+}
+
+/* --- talrutenett --- */
+.talrutenett {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 2.5rem 1rem;
+  padding: 3.5rem 0; text-align: center;
+}
+@media (min-width: 820px) { .talrutenett { grid-template-columns: repeat(4, 1fr); } }
+.talrutenett .tal {
+  font-family: "Oswald", "Arial Narrow", sans-serif; font-size: clamp(2.6rem, 6vw, 3.6rem);
+  color: var(--accent); line-height: 1; font-weight: 600; display: block;
+}
+.talrutenett .etikett {
+  display: block; margin-top: 0.6rem; text-transform: uppercase;
+  letter-spacing: 0.18em; font-size: 0.78rem; color: var(--muted); font-weight: 600;
+}
+
+/* --- nummererte produktkort --- */
+.nummerkort {
+  background: var(--surface); border: 1px solid var(--border);
+  text-decoration: none; color: inherit; display: block; overflow: hidden;
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1), border-color 200ms ease;
+}
+.nummerkort:hover { transform: translateY(-4px); border-color: var(--accent); }
+.nummerkort-bilete { position: relative; aspect-ratio: 16 / 10; overflow: hidden; background: var(--surface-alt); }
+.nummerkort-bilete img, .nummerkort-bilete .utan-bilete { width: 100%; height: 100%; object-fit: cover; display: block; }
+.nummerkort-nr {
+  position: absolute; top: 0.5rem; left: 0.9rem; z-index: 2;
+  font-family: "Oswald", "Arial Narrow", sans-serif; font-size: 3.2rem; font-weight: 600;
+  color: rgba(242, 236, 224, 0.32); line-height: 1;
+}
+.nummerkort-kropp { padding: 1.3rem 1.4rem 1.5rem; }
+.nummerkort-kropp h3 { margin: 0 0 0.5rem; }
+.nummerkort-kropp p { color: var(--muted); margin: 0 0 1rem; }
+.les-meir {
+  color: var(--accent); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.14em; font-size: 0.78rem;
+}
+
+/* --- justeringar av eksisterande komponentar i mørkt tema --- */
+body.tema-mork .section-alt { background: var(--surface-alt); }
+body.tema-mork .section-dark { background: #06101a; }
+body.tema-mork .card { background: var(--surface); border-color: var(--border); }
+body.tema-mork .eyebrow { color: var(--accent); }
+body.tema-mork .lead, body.tema-mork .hint, body.tema-mork .muted { color: var(--muted); }
+body.tema-mork .hero { background: none; }
+body.tema-mork footer.site { background: #06101a; border-top: 1px solid var(--border); }
+body.tema-mork .nokkelstripe { background: var(--border); border-color: var(--border); }
+body.tema-mork .nokkelfelt { background: var(--surface); }
+body.tema-mork .verdirad { border-bottom-color: var(--border); }
+body.tema-mork .verdirad h3 { color: var(--krem); }
+body.tema-mork .datablad div { border-bottom-color: var(--border); }
+body.tema-mork .klebrig-cta { background: rgba(6, 16, 26, 0.97); }
+body.tema-mork .field input, body.tema-mork .field select, body.tema-mork .field textarea {
+  background: var(--surface-alt); border-color: var(--border); color: var(--ink);
+}
+body.tema-mork .field input::placeholder, body.tema-mork .field textarea::placeholder { color: #6d8492; }
+body.tema-mork .choice { background: var(--surface-alt); border-color: var(--border); }
+body.tema-mork .choice:has(input:checked) { border-color: var(--accent); background: rgba(184, 134, 47, 0.1); box-shadow: none; }
+body.tema-mork .step-dot { border-top-color: var(--border); }
+body.tema-mork .summary-box { background: var(--surface); border-color: var(--border); }
+body.tema-mork .summary-row { border-bottom-color: var(--border); }
+body.tema-mork .price-estimate { color: var(--accent); }
+body.tema-mork table.data { background: var(--surface); }
+body.tema-mork table.data th { background: var(--surface-alt); }
+body.tema-mork table.data th, body.tema-mork table.data td { border-bottom-color: var(--border); }
+body.tema-mork .table-scroll { background: var(--surface); border-color: var(--border); }
+body.tema-mork .notice-info { background: var(--primary-soft); border-color: var(--border); }
+body.tema-mork .notice-warn { background: #2a2110; border-color: #4a3a18; }
+body.tema-mork .notice-good { background: #10281f; border-color: #1d4a38; }
+body.tema-mork .notice-bad { background: #2b1512; border-color: #55261f; }
+body.tema-mork .miljomerke { background: #0f7a52; }
+body.tema-mork .sitat { background: var(--surface); border-color: var(--border); }
+body.tema-mork .sitat blockquote { color: var(--krem); }
+
+/* Lite steg-tal på korta i teknisk-seksjonen. */
+.tal-liten {
+  font-family: "Oswald", "Arial Narrow", sans-serif; font-size: 1.5rem;
+  color: var(--accent); font-weight: 600; display: block; margin-bottom: 0.35rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Knappefargar i mørkt tema — må kome etter navigasjonsreglane.
+   `body.tema-mork .nav a` er meir spesifikk enn `body.tema-mork .btn-accent`,
+   så utan desse to reglane arvar CTA-en i toppmenyen menyfargen og blir
+   messing på messing. Kontrastrevisjonen målte 1,29:1.
+   Messing er lys nok til at teksten oppå må vere mørk, ikkje kvit — kvit på
+   messing gir 3,2:1 og fell under kravet for brødtekst.
+   --------------------------------------------------------------------------- */
+body.tema-mork .btn,
+body.tema-mork .nav a.btn { background: var(--primary); color: #171104; }
+body.tema-mork .btn:hover,
+body.tema-mork .nav a.btn:hover { background: #cf9a3c; color: #120d03; }
+body.tema-mork .btn-ghost,
+body.tema-mork .nav a.btn-ghost { background: transparent; color: var(--krem); border-color: rgba(230, 238, 243, 0.28); }
+body.tema-mork .btn-ghost:hover { background: rgba(230, 238, 243, 0.08); color: #fff; }
+
+/* Bakgrunnsbiletet i helten rører seg litt mot peikaren. Vi skalerer det opp
+   nokre prosent så kantane aldri kjem innanfor når det flyttar seg. */
+.helt-fullbleed > .helt-bilete { transform-origin: center; scale: 1.08; }

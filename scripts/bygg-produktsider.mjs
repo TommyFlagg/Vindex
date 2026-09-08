@@ -88,19 +88,19 @@ ${p.bilde ? `<meta property="og:image" content="https://vindex.no/${p.bilde}">` 
 <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
 <link rel="stylesheet" href="../css/style.css">
 </head>
-<body data-rot="../" data-side="produkter">
+<body class="tema-mork" data-rot="../" data-side="produkter">
 
 <section class="hero"${"" /* parallakse berre når det finst eit bilete å flytte */} ${p.bilde ? "data-parallakse" : ""}>
   <div class="wrap ${p.bilde ? "hero-grid" : ""}">
     <div>
-      <p class="eyebrow">${esc(p.navn)}</p>
+      <span class="merkelapp">${esc(p.navn)}</span>
       <h1>${esc(p.kort)}</h1>
       <p class="lead">${esc(p.ingress)}</p>
       <div class="btn-row">
         <a class="btn btn-accent" href="../bestilling.html?produkt=${p.id}">Be om tilbud på ${esc(p.navn.toLowerCase())}</a>
       </div>
-      <p class="hint mt-1" style="color:#b9d3d9">Eller ring
-        <a href="tel:${VINDEX_FIRMA.telefon.replace(/\s/g, "")}" style="color:#fff">${esc(VINDEX_FIRMA.telefon)}</a></p>
+      <p class="hint mt-1">Eller ring
+        <a href="tel:${VINDEX_FIRMA.telefon.replace(/\s/g, "")}">${esc(VINDEX_FIRMA.telefon)}</a></p>
     </div>
     ${p.bilde ? `<div class="hero-scene" data-djupne="1">
       <img class="hero-bilde" src="../${p.bilde}" alt="${esc(p.navn)} i vedlikeholdsfri PVC fra Vindex">
@@ -120,6 +120,7 @@ ${
 <section>
   <div class="wrap">
     <div class="section-head">
+      <span class="merkelapp">Fordeler</span>
       <h2>Derfor velger kundene dette</h2>
     </div>
     <div class="grid grid-2">
@@ -133,6 +134,7 @@ ${p.fordeler
 <section class="section-alt">
   <div class="wrap">
     <div class="section-head">
+      <span class="merkelapp">Utvalg</span>
       <h2>Utførelser</h2>
       <p class="lead">Alt produseres etter dine mål. Er du usikker på hva som passer, hjelper
         selgeren deg med å velge.</p>

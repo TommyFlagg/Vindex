@@ -12,14 +12,34 @@ Tre deler:
 | Bestillingsskjema | `bestilling.html` + `js/bestilling.js` | Konfigurator, prisestimat, sender lead til Firestore |
 | Salgsverktøy | `selger.html` + `js/selger.js` | Leads, kalender, tilbud, ordre og plukkliste |
 
+## Design: mørkt tema på nettsiden, lyst i verktøyet
+
+Nettsiden bruker et **mørkt tema** — dyp sjø-svart bunn, messing som
+handlingsfarge, kondensert versal-display (Oswald), og en farget merkelapp over
+hver overskrift. Oppbygningen er hentet fra en referanseside kunden pekte på;
+paletten og tonen er Vindex' egen.
+
+**Salgsverktøyet blir lyst.** Det er et arbeidsverktøy som skal leses hele dagen
+og skrives ut — plukklister og ordresedler går på papir — og der er lys bakgrunn
+riktig. Temaet er derfor scopet til `body.tema-mork`, som alle sidene utenom
+`selger.html` har.
+
+> ⚠️ **Fontene er ikke visuelt verifisert.** Google Fonts er blokkert i
+> utviklingsmiljøet, så skjermbildene viser reservefonten (Arial Narrow), ikke
+> Oswald. Sjekk hvordan overskriftene faktisk ser ut på den publiserte siden.
+
+Kontrasten er derimot målt: en revisjon går gjennom alle tekstelementer på åtte
+sider, regner ut faktisk kontrastforhold mot bakgrunnen bak, og krever 4,5:1 for
+brødtekst og 3:1 for store overskrifter. Alt er over kravet.
+
 ## Forsidens oppbygning
 
 Én sammenhengende reise, i denne rekkefølgen:
 
 | # | Seksjon | Jobben den gjør |
 |---|---|---|
-| 1 | Intro | Hvem vi er og hva vi selger, med CTA over folden |
-| 2 | Nøkkelinfo | De fem tallene kunden vil ha før de orker lese mer |
+| 1 | Intro | Fullflate-bilde, tofarget versal-overskrift, tre veier videre |
+| 2 | Nøkkelinfo | De fire tallene kunden vil ha før de orker lese mer |
 | 3 | Produkter | Hele sortimentet, hentet fra katalogen |
 | 4 | Hva vi står for | Fire verdier, inkludert lydargumentet mot importerte produkter |
 | 5 | Tilbakemeldinger | Kundesitater — skjuler seg selv når lista er tom |
