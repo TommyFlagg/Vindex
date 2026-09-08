@@ -87,6 +87,74 @@ Deretter deles ordren automatisk:
 Plukklisten viser hver ordre med kundens navn, adresse og telefon, selgerens
 navn, og linjene som skal plukkes. Lageret kvitterer ut ved å flytte status.
 
+## Panelene
+
+Verktøyet åpner på **Oversikt**. Admin ser hele landet, selgeren ser sitt eget —
+men begge ser de samme nøkkeltallene for alle selgere. Det er med vilje: uten
+sammenligning vet ingen om egne tall er gode.
+
+| Tall | Slik regnes det |
+|---|---|
+| Oppfølgingsrate | Andel av de åpne sakene som **ikke** har passert oppfølgingsfristen. Ingen åpne saker gir 100 %, ikke 0. |
+| Responstid | Median tid fra leadet kom inn til «Kontaktet kunden» står i historikken. Leses av loggen, ikke av statusen. |
+| Konvertering | Solgt delt på avgjorte saker (solgt + avslått). |
+| Streak | Dager på rad uten at noe falt forfalle. |
+
+Alt regnes i `js/nokkeltal.js`, atskilt fra det som tegner panelene, slik at
+admin og selger aldri kan få to ulike svar på det samme spørsmålet.
+
+### Litt spill, ikke mye
+
+Rangering blant selgerne, en streak-teller, tall som teller opp, en
+progresjonsring, og en kort konfettibyge når et salg registreres. Det er alt.
+Målet er å premiere det som faktisk selger — å ringe tilbake i tide — uten at
+verktøyet blir et leketøy man må se på hele dagen.
+
+## Kartet
+
+15 fylker (inndelingen fra 2024), tegnet som inline SVG uten kartbibliotek.
+Fem faner: **Kunder**, **Solgt**, **I arbeid**, **Mitt område** og
+**Tilbakemeldinger**. Klikk et fylke for tall, hvem som dekker det, og siste
+saker. Fylkene kan også nås med tabulator og Enter.
+
+Fargeskalaen er én tone fra lys til mørk — magnitude er en sekvensiell jobb, ikke
+en kategorisk. Skalaen er kontrollert for monotont fallende lyshet, og
+statusfargene på produksjonskøen er validert for fargesynsvariasjon. De står
+aldri alene: ikon og tekst sier det samme som fargen.
+
+**Kartdata:** Kartverket, hentet via
+[robhop/fylker-og-kommuner](https://github.com/robhop/fylker-og-kommuner),
+lisens [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Kjør
+`scripts/lag-fylkeskart.mjs` for å bygge `js/fylkeskart.js` på nytt.
+
+**Postnummer til fylke** ligger i `js/fylke.js`. Seriene er tilnærminger som
+treffer godt nok til statistikk, men et par hundre postnummer i grenseland kan
+havne i nabofylket. Skal de bli eksakte, må Postens offisielle register inn.
+
+## Produksjonskø
+
+Køen regnes ut fra ordrene som står i produksjon, og vises live — legger en
+kollega inn en ordre, flytter tallet seg med det samme. Selgeren bruker det til
+å love riktig leveringstid.
+
+Anslagene i `VINDEX_PRODUKSJON` (`js/nokkeltal.js`) — kapasitet per dag, rigg per
+ordre, dager per løpemeter, kvadratmeter og vindu — **må kalibreres mot
+fabrikken**. De styrer både køvisningen og leveringstiden som loves kunden, så
+de bør ikke stå og gjette lenge.
+
+## Grafikk og bevegelse
+
+Tre effekter, delt mellom nettsiden og verktøyet (`js/effekter.js`):
+
+- **Avsløring** — innhold stiger mykt inn når det kommer i syne
+- **Vipping** — kort får perspektiv mot musepekeren
+- **Parallakse** — heltebildet beveger seg i forhold til bakgrunnen
+
+Alt kjører på `transform` og `opacity`, som nettleseren flytter til GPU-en, og
+ingen av dem rører layout — derfor kan de ikke skape hakking i scrollen. Alle
+tre slås av ved `prefers-reduced-motion`, og vipping og parallakse er dessuten
+av på enheter uten mus.
+
 ### Roller
 
 | Rolle | Ser |
@@ -94,6 +162,9 @@ navn, og linjene som skal plukkes. Lageret kvitterer ut ved å flytte status.
 | `selger` | Egne leads, egen kalender, egne ordrer, plukklisten |
 | `admin` | Alt, kan flytte leads mellom selgere og styre distriktene |
 | `lager` | Ordrer og plukkliste. Kan bare endre status, ikke mål eller priser |
+
+Selgere ser alltid de generelle nøkkeltallene for alle — men bare sine egne
+kunder. Firestore-reglene håndhever det, ikke bare grensesnittet.
 
 ## Oppsett
 
@@ -242,6 +313,11 @@ js/bestilling.js         Konfigurator og innsending
 js/selger.js             Salgsverktøyet: leads, kalender, ordre, plukk
 js/ordre.js              Ordreskjema, statusflyt og plukklistelogikk
 js/kalender.js           Avtaler og .ics-eksport til telefonkalender
+js/nokkeltal.js          Nøkkeltall, oppfølgingsrate og produksjonskø
+js/fylke.js              Postnummer → fylke, aggregering per fylke
+js/fylkeskart.js         Generert SVG-kart (Kartverket, CC BY 4.0)
+js/panel.js              Oversiktspanel og Norgeskart
+js/effekter.js           Avsløring, vipping og parallakse
 firestore.rules          Tilgangsregler
 scripts/                 Generering av produktsider
 ```

@@ -375,3 +375,55 @@ const VINDEX_ORDRESTATUSAR = [
 ];
 const vindexOrdrestatusNavn = (id) =>
   (VINDEX_ORDRESTATUSAR.find((s) => s.id === id) || { navn: id }).navn;
+
+// ---------------------------------------------------------------------------
+// Tilbakemelding når eit lead blir avslutta
+// ---------------------------------------------------------------------------
+// Kvifor vi vann eller tapte er den mest verdifulle informasjonen i heile
+// verktøyet, og den einaste som forsvinn om vi ikkje spør med ein gong.
+// Difor blir seljaren spurt i det han set «Solgt» eller «Avslått», og svaret
+// blir aggregert per fylke på kartet.
+const VINDEX_GRUNNAR = {
+  solgt: [
+    { id: "pris", navn: "Pris" },
+    { id: "kvalitet", navn: "Kvalitet og garanti" },
+    { id: "norsk", navn: "Norsk produksjon" },
+    { id: "leveringstid", navn: "Leveringstid" },
+    { id: "anbefaling", navn: "Anbefalt av andre" },
+    { id: "service", navn: "Service og oppfølging" },
+    { id: "annet", navn: "Annet" },
+  ],
+  avslatt: [
+    { id: "pris", navn: "For dyrt" },
+    { id: "konkurrent", navn: "Valgte konkurrent" },
+    { id: "leveringstid", navn: "For lang leveringstid" },
+    { id: "utsatt", navn: "Utsatt prosjektet" },
+    { id: "ikke_svar", navn: "Fikk ikke tak i kunden" },
+    { id: "feil_produkt", navn: "Vi har ikke det de trengte" },
+    { id: "annet", navn: "Annet" },
+  ],
+};
+
+function vindexGrunnNavn(status, grunnId) {
+  const liste = VINDEX_GRUNNAR[status] || [];
+  const g = liste.find((x) => x.id === grunnId);
+  return g ? g.navn : grunnId || "–";
+}
+
+/** Tel tilbakemeldingar per grunn, for eit sett leads. */
+function vindexTilbakemeldingar(leads, status) {
+  const tal = new Map();
+  (leads || []).forEach((l) => {
+    const t = l.tilbakemelding;
+    if (!t || !t.grunn) return;
+    if (status && l.status !== status) return;
+    const nokkel = l.status + "|" + t.grunn;
+    tal.set(nokkel, (tal.get(nokkel) || 0) + 1);
+  });
+  return Array.from(tal.entries())
+    .map(([nokkel, tal]) => {
+      const [st, grunn] = nokkel.split("|");
+      return { status: st, grunn, navn: vindexGrunnNavn(st, grunn), tal };
+    })
+    .sort((a, b) => b.tal - a.tal);
+}

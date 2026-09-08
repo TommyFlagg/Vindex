@@ -67,7 +67,7 @@ ${v.alternativ.map((a) => `          <li>${esc(a.navn)}${a.sub ? " — " + esc(a
   const galleri = (p.bilder || [])
     .map(
       (b) =>
-        `      <img class="produktbilete" src="../${b}" alt="${esc(p.navn)} fra Vindex" loading="lazy">`
+        `      <img class="produktbilete" data-avslor src="../${b}" alt="${esc(p.navn)} fra Vindex" loading="lazy">`
     )
     .join("\n");
 
@@ -90,7 +90,7 @@ ${p.bilde ? `<meta property="og:image" content="https://vindex.no/${p.bilde}">` 
 </head>
 <body data-rot="../" data-side="produkter">
 
-<section class="hero">
+<section class="hero"${"" /* parallakse berre når det finst eit bilete å flytte */} ${p.bilde ? "data-parallakse" : ""}>
   <div class="wrap ${p.bilde ? "hero-grid" : ""}">
     <div>
       <p class="eyebrow">${esc(p.navn)}</p>
@@ -102,7 +102,7 @@ ${p.bilde ? `<meta property="og:image" content="https://vindex.no/${p.bilde}">` 
       <p class="hint mt-1" style="color:#b9d3d9">Eller ring
         <a href="tel:${VINDEX_FIRMA.telefon.replace(/\s/g, "")}" style="color:#fff">${esc(VINDEX_FIRMA.telefon)}</a></p>
     </div>
-    ${p.bilde ? `<div>
+    ${p.bilde ? `<div class="hero-scene" data-djupne="1">
       <img class="hero-bilde" src="../${p.bilde}" alt="${esc(p.navn)} i vedlikeholdsfri PVC fra Vindex">
     </div>` : ""}
   </div>
@@ -124,7 +124,7 @@ ${
     </div>
     <div class="grid grid-2">
 ${p.fordeler
-  .map((f) => `      <div class="card"><p class="mb-0"><strong>✓</strong> ${esc(f)}</p></div>`)
+  .map((f, i) => `      <div class="card tilt" data-tilt data-avslor data-forseinking="${(i % 4) + 1}"><p class="mb-0"><strong>✓</strong> ${esc(f)}</p></div>`)
   .join("\n")}
     </div>
   </div>
@@ -178,6 +178,7 @@ ${galleri}
 
 <script src="../js/produkter.js"></script>
 <script src="../js/app.js"></script>
+<script src="../js/effekter.js"></script>
 </body>
 </html>
 `;

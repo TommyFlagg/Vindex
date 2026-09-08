@@ -28,24 +28,24 @@
 <section class="section-alt">
   <div class="wrap-narrow">
     <h2>Ofte spurt</h2>
-    <div class="card mt-1">
+    <div class="card mt-1" data-avslor>
       <h3>Må jeg måle opp selv?</h3>
       <p class="mb-0">Nei. Du oppgir omtrentlige mål i skjemaet, og vi kommer gjerne på
         befaring. Basert på ønskene dine lager vi forslag med tegning og pristilbud —
         helt uforpliktende.</p>
     </div>
-    <div class="card mt-1">
+    <div class="card mt-1" data-avslor>
       <h3>Kan jeg montere selv?</h3>
       <p class="mb-0">Ja. Lettfattelig norsk monteringsanvisning følger med. Vil du heller
         slippe, leverer vi alt ferdig montert — kryss av for det i skjemaet. Merk at
         monteringsveiledningen må følges for at garantien skal gjelde.</p>
     </div>
-    <div class="card mt-1">
+    <div class="card mt-1" data-avslor>
       <h3>Hvor lang tid tar det?</h3>
       <p class="mb-0">Normal produksjonstid er 1–4 uker, i tillegg til montering. Vi har egen
         fabrikk i Norge med stort lager, og produserer etter dine mål.</p>
     </div>
-    <div class="card mt-1">
+    <div class="card mt-1" data-avslor>
       <h3>Hva dekker garantien?</h3>
       <p class="mb-0">30 år på våre ekstruderte PVC-produkter: garantien dekker produksjonsfeil
         og at produktet ikke skal falme, gulne, råtne, flasse eller sprekke ved normal bruk.
@@ -64,13 +64,16 @@
 
 <script src="js/produkter.js"></script>
 <script src="js/app.js"></script>
+<script src="js/effekter.js"></script>
 <script>
-  document.getElementById("produktKort").innerHTML = VINDEX_PRODUKT.map((p) => `
-    <a class="card card-link" href="${p.lenke}">
+  document.getElementById("produktKort").innerHTML = VINDEX_PRODUKT.map((p, i) => `
+    <a class="card card-link tilt" data-tilt data-avslor data-forseinking="${(i % 4) + 1}" href="${p.lenke}">
       ${vindexBiletHtml(p, "card-media-bilde")}
       <h3>${p.navn}</h3>
       <p class="muted">${p.kort}</p>
     </a>`).join("");
+  vindexAvsloring(document.getElementById("produktKort"));
+  vindexTilt(document.getElementById("produktKort"));
 </script>
 </body>
 </html>

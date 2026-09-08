@@ -107,6 +107,7 @@ if (!VINDEX_DEMOMODUS) {
     app.brukar = { uid: bruker.uid, epost: bruker.email, ...snap.data() };
     await lastData();
     visVerktoy();
+    lyttLive();
   });
 }
 
@@ -146,7 +147,7 @@ function startDemo(rolle) {
   ];
   app.leads = demoLeads();
   app.ordrar = demoOrdrar();
-  if (rolle === "lager") app.visning = "plukk";
+  app.visning = rolle === "lager" ? "plukk" : "oversikt";
   visVerktoy();
 }
 
@@ -166,7 +167,75 @@ function demoLeads() {
     { navn: "Terje Aas", postnr: "0284", poststed: "Oslo", produkt: "glassrekkverk", modell: "Blankt glass", mengde: 14, status: "sett", dagar: 1, seljar: "demo-2" },
     { navn: "Silje Berg", postnr: "4020", poststed: "Stavanger", produkt: "levegg", modell: "Ferdig standardseksjon", mengde: 6, status: "solgt", dagar: 20, seljar: "demo-3" },
   ];
-  return lokale.concat(
+  // Eit breiare utval så kartet og nøkkeltala har noko å vise. Postnummera er
+  // ekte og spreidde over heile landet, slik at fylkesfordelinga blir reell.
+  const spreidd = [
+    ["Anne Rype", "9008", "Tromsø", "gjerde", "solgt", 34, "demo-2", "kvalitet"],
+    ["Jonas Five", "9600", "Hammerfest", "levegg", "avslatt", 41, "demo-2", "leveringstid"],
+    ["Hilde Rønning", "8006", "Bodø", "rekkverk", "solgt", 28, "demo-2", "norsk"],
+    ["Kjell Aune", "7010", "Trondheim", "terrassegulv", "tilbud_sendt", 9, "demo-2", null],
+    ["Vigdis Sund", "7038", "Trondheim", "rekkverk", "solgt", 51, "demo-2", "anbefaling"],
+    ["Rolf Haga", "2317", "Hamar", "gjerde", "avslatt", 22, "demo-2", "pris"],
+    ["Nina Løken", "2003", "Lillestrøm", "porter", "solgt", 17, "demo-2", "service"],
+    ["Espen Dahl", "1607", "Fredrikstad", "levegg", "kontaktet", 4, "demo-2", null],
+    ["Turid Holm", "3200", "Sandefjord", "rekkverk", "avslatt", 30, "demo-2", "konkurrent"],
+    ["Bård Nes", "3770", "Kragerø", "kystveggen", "solgt", 44, "demo-2", "kvalitet"],
+    ["Grete Vik", "3050", "Mjøndalen", "gjerde", "oppfulgt", 11, "demo-2", null],
+    ["Sindre Moe", "4610", "Kristiansand", "terrassegulv", "solgt", 25, "demo-3", "pris"],
+    ["Astrid Vold", "4020", "Stavanger", "glassrekkverk", "tilbud_sendt", 7, "demo-3", null],
+    ["Håkon Rein", "5527", "Haugesund", "rekkverk", "solgt", 38, "demo-3", "norsk"],
+    ["Liv Åsen", "5003", "Bergen", "levegg", "avslatt", 26, "demo-3", "pris"],
+    ["Trond Sæther", "5063", "Bergen", "sprosser", "solgt", 19, "demo-3", "kvalitet"],
+    ["Randi Fjell", "6800", "Førde", "gjerde", "kontaktet", 2, "demo-1", null],
+    ["Odd Berge", "6100", "Volda", "varmepumpehus", "solgt", 33, "demo-1", "service"],
+    ["Marte Lien", "6009", "Ålesund", "rekkverk", "oppfulgt", 8, "demo-1", null],
+    ["Geir Todal", "6413", "Molde", "terrassegulv", "solgt", 47, "demo-1", "anbefaling"],
+    ["Solveig Ness", "6530", "Averøy", "gjerde", "avslatt", 21, "demo-1", "utsatt"],
+    ["Are Kvam", "6650", "Surnadal", "levegg", "sett", 1, "demo-1", null],
+  ];
+
+  const ekstra = spreidd.map(([navn, postnr, poststed, produkt, status, dagar, seljar, grunn], i) => {
+    const distrikt = vindexFinnDistrikt(postnr) || {};
+    const p = vindexProdukt(produkt) || {};
+    return {
+      id: "demo-spreidd-" + i,
+      opprettet: new Date(naa - dagar * dag).toISOString(),
+      statusEndret: new Date(naa - (dagar - 1) * dag).toISOString(),
+      oppfolgingFrist: new Date(naa + ((i % 10) - 1) * dag).toISOString(),
+      status,
+      seljarId: seljar,
+      distriktId: distrikt.id || null,
+      distriktNavn: distrikt.navn || "",
+      montering: i % 3 === 0,
+      kilde: i % 5 === 0 ? "telefon" : "nettside",
+      kunde: {
+        navn, telefon: "9" + (20000000 + i * 971).toString().slice(0, 7),
+        epost: navn.split(" ")[0].toLowerCase() + "@eksempel.no",
+        adresse: "Eksempelvegen " + (i + 2), postnr, poststed, kommentar: "",
+      },
+      produkt: { id: produkt, navn: p.navn || produkt, modellNavn: "", mengde: 5 + (i % 30),
+                 enhet: p.enhet || "lm", farge: "klassisk-hvit", tilvalg: {} },
+      tilbud: status === "tilbud_sendt" || status === "solgt" || status === "oppfulgt"
+        ? { sum: 18000 + i * 2300, rabattProsent: i % 4 === 0 ? 10 : 0,
+            rabattKr: i % 4 === 0 ? Math.round((18000 + i * 2300) * 0.1) : 0,
+            dato: new Date(naa - (dagar - 2) * dag).toISOString(), gyldigTil: "", notat: "" }
+        : null,
+      tilbakemelding: grunn
+        ? { grunn, kommentar: "", tid: new Date(naa - (dagar - 3) * dag).toISOString(), av: "Demo" }
+        : null,
+      avtaler: [],
+      logg: [
+        { tid: new Date(naa - dagar * dag).toISOString(), av: "system",
+          tekst: "Tildelt automatisk ut fra postnummer " + postnr + "." },
+        ...(status !== "ny" && status !== "sett"
+          ? [{ tid: new Date(naa - dagar * dag + (2 + (i % 20)) * 3600000).toISOString(),
+               av: "Demo", tekst: "Kontaktet kunden på telefon." }]
+          : []),
+      ],
+    };
+  });
+
+  return lokale.concat(ekstra).concat(
     faste.map((f, i) => {
       const distrikt = vindexFinnDistrikt(f.postnr) || {};
       return {
@@ -236,6 +305,36 @@ function demoOrdrar() {
       rader: [],
       bekrefta: { av: "Ola Sørheim", tid: new Date(Date.now() - 4 * 86400000).toISOString(), kundeOppgittMal: "ja" },
     },
+    // Spesialproduserte ordrar, så produksjonskøen viser eit reelt tal.
+    {
+      id: "demo-ordre-2",
+      leadId: "demo-spreidd-3",
+      skjemaId: "rekkverk",
+      status: "i_produksjon",
+      opprettet: new Date(Date.now() - 2 * 86400000).toISOString(),
+      seljarId: "demo-2",
+      seljarNavn: "Kari Nordvik",
+      kunde: { navn: "Kjell Aune", telefon: "92000001", epost: "kjell@eksempel.no", adresse: "Eksempelvegen 12", postnr: "7010", poststed: "Trondheim" },
+      felt: { modell1: "VBC New England", modell1_meter: 46, modell1_hoyde: 1000, stk_stolper: 24, pris_tilpasset: 58900 },
+      rader: [],
+      bekrefta: { av: "Kari Nordvik", tid: new Date(Date.now() - 2 * 86400000).toISOString(), kundeOppgittMal: "nei" },
+    },
+    {
+      id: "demo-ordre-3",
+      leadId: "demo-spreidd-15",
+      skjemaId: "sprosser",
+      status: "i_produksjon",
+      opprettet: new Date(Date.now() - 86400000).toISOString(),
+      seljarId: "demo-3",
+      seljarNavn: "Ola Sørheim",
+      kunde: { navn: "Trond Sæther", telefon: "92000002", epost: "trond@eksempel.no", adresse: "Eksempelvegen 4", postnr: "5063", poststed: "Bergen" },
+      felt: { antall_sprosser: 14, pris_sprosser: 16800 },
+      rader: [
+        { lnr: "1", antall: "8", fals_b: "1180", fals_h: "1080", ruter_b: "3", ruter_h: "2", sprosseverk: "22", omramming: "29", buer: "", hengsler: "V", type: "V", flukting_nr: "", flukting_verdi: "" },
+        { lnr: "2", antall: "6", fals_b: "890", fals_h: "1180", ruter_b: "2", ruter_h: "3", sprosseverk: "22", omramming: "29", buer: "", hengsler: "H", type: "V", flukting_nr: "", flukting_verdi: "" },
+      ],
+      bekrefta: { av: "Ola Sørheim", tid: new Date(Date.now() - 86400000).toISOString(), kundeOppgittMal: "ja" },
+    },
   ];
 }
 
@@ -243,13 +342,28 @@ function demoOrdrar() {
 // Faner og visning
 // ---------------------------------------------------------------------------
 const FANER = [
+  { id: "oversikt", navn: "Oversikt", roller: ["selger", "admin"] },
   { id: "mine", navn: "Mine leads", roller: ["selger", "admin"] },
   { id: "alle", navn: "Alle leads", roller: ["admin"] },
+  { id: "kart", navn: "Kart", roller: ["selger", "admin"] },
   { id: "kalender", navn: "Kalender", roller: ["selger", "admin"] },
   { id: "ordre", navn: "Ordre", roller: ["selger", "admin", "lager"] },
   { id: "plukk", navn: "Plukkliste", roller: ["selger", "admin", "lager"] },
   { id: "admin", navn: "Selgere", roller: ["admin"] },
 ];
+
+/** Alt panela treng, samla på éin stad. */
+function panelKontekst() {
+  return {
+    brukar: app.brukar,
+    seljarar: app.seljarar,
+    leads: app.leads,
+    ordrar: app.ordrar,
+    erAdmin: erAdmin(),
+    opneLead: (id) => { app.visning = erAdmin() ? "alle" : "mine"; opneLead(id); },
+    byttFane: (id) => { app.visning = id; teikn(); },
+  };
+}
 
 function visVerktoy() {
   $("#login").classList.add("hidden");
@@ -271,7 +385,7 @@ function visVerktoy() {
     VINDEX_ORDRESTATUSAR.map((s) => `<option value="${s.id}">${s.navn}</option>`).join("");
 
   if (!FANER.some((f) => f.id === app.visning && f.roller.includes(app.brukar.rolle))) {
-    app.visning = erLager() ? "plukk" : "mine";
+    app.visning = erLager() ? "plukk" : "oversikt";
   }
   teikn();
 }
@@ -301,13 +415,17 @@ function teiknFaner() {
 function teikn() {
   teiknFaner();
   const erLeads = app.visning === "mine" || app.visning === "alle";
+  $("#visOversikt").classList.toggle("hidden", app.visning !== "oversikt");
+  $("#visKart").classList.toggle("hidden", app.visning !== "kart");
   $("#visLeads").classList.toggle("hidden", !erLeads);
   $("#visKalender").classList.toggle("hidden", app.visning !== "kalender");
   $("#visOrdre").classList.toggle("hidden", app.visning !== "ordre");
   $("#visPlukk").classList.toggle("hidden", app.visning !== "plukk");
   $("#visAdmin").classList.toggle("hidden", app.visning !== "admin");
 
-  if (erLeads) {
+  if (app.visning === "oversikt") vindexTeiknOversikt($("#visOversikt"), panelKontekst());
+  else if (app.visning === "kart") vindexTeiknKart($("#visKart"), panelKontekst());
+  else if (erLeads) {
     const liste = synlegeLeads();
     teiknKpi(liste);
     teiknTabell(liste);
@@ -639,6 +757,8 @@ function koplaDetalj(l) {
     b.addEventListener("click", async () => {
       const ny = b.dataset.status;
       if (ny === l.status) return;
+      // Vinn eller tap: spør om årsaka med ein gong. Ventar vi, blir ho borte.
+      if (ny === "solgt" || ny === "avslatt") return sporGrunn(l, ny);
       await lagreLead(l, { status: ny }, [`Status endret fra «${vindexStatusNavn(l.status)}» til «${vindexStatusNavn(ny)}».`]);
       teikn();
     })
@@ -1380,4 +1500,112 @@ async function byggRuting() {
     if (eigarar.length) ruting[d.id] = eigarar;
   });
   await fb.setDoc(fb.doc(fb.db, "settings", "ruting"), ruting);
+}
+
+// ---------------------------------------------------------------------------
+// Årsak ved vunnen eller tapt sak
+// ---------------------------------------------------------------------------
+/**
+ * Spør kvifor saka blei vunnen eller tapt, og lagrar det på leadet.
+ * Svaret blir aggregert per fylke på kartet, og er det næraste vi kjem eit
+ * ærleg bilete av kvifor kundane vel oss — eller lar vere.
+ */
+function sporGrunn(lead, nyStatus) {
+  const grunnar = VINDEX_GRUNNAR[nyStatus] || [];
+  const vunnen = nyStatus === "solgt";
+
+  opneModal(
+    vunnen ? "Solgt — hva avgjorde?" : "Avslått — hva var årsaken?",
+    `<p class="hint">Ett klikk. Dette er det eneste stedet vi får vite hvorfor,
+       og det havner i statistikken for ditt fylke.</p>
+     <div class="choices mt-1" id="grunnValg">
+       ${grunnar
+         .map(
+           (g) => `<label class="choice">
+             <input type="radio" name="grunn" value="${g.id}">
+             <span class="choice-title">${g.navn}</span>
+           </label>`
+         )
+         .join("")}
+     </div>
+     <div class="field mt-1">
+       <label for="grunnNotat">Utdyp <span class="optional">(valgfritt)</span></label>
+       <input id="grunnNotat" placeholder="${vunnen ? "Hva var utslagsgivende?" : "Hvem tok jobben, og til hvilken pris?"}">
+     </div>
+     <p class="field-error hidden" id="grunnFeil">Velg en årsak.</p>`,
+    `<button class="btn btn-ghost" id="grunnAvbryt">Avbryt</button>
+     <button class="btn ${vunnen ? "btn-accent" : ""}" id="grunnLagre">${vunnen ? "Registrer salg" : "Registrer avslag"}</button>`
+  );
+
+  $("#grunnAvbryt").addEventListener("click", lukkModal);
+  $("#grunnLagre").addEventListener("click", async () => {
+    const valt = document.querySelector('input[name="grunn"]:checked');
+    if (!valt) {
+      $("#grunnFeil").classList.remove("hidden");
+      return;
+    }
+    const tilbakemelding = {
+      grunn: valt.value,
+      kommentar: $("#grunnNotat").value.trim(),
+      tid: new Date().toISOString(),
+      av: app.brukar.navn,
+    };
+    await lagreLead(lead, { status: nyStatus, tilbakemelding }, [
+      `${vunnen ? "Solgt" : "Avslått"} — ${vindexGrunnNavn(nyStatus, valt.value)}` +
+        (tilbakemelding.kommentar ? ": " + tilbakemelding.kommentar : "") + ".",
+    ]);
+    lukkModal();
+    teikn();
+    if (vunnen) konfetti();
+    melding(vunnen ? "Salg registrert. Godt jobbet." : "Avslag registrert.", vunnen ? "good" : "info");
+  });
+}
+
+/** Kort feiring når ein sal blir registrert. Bevisst kort — 1,4 sekund. */
+function konfetti() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const fargar = ["#b8862f", "#10495a", "#0f7a52", "#f7eeda", "#6fa3b5"];
+  const boks = document.createElement("div");
+  boks.className = "konfetti";
+  boks.setAttribute("aria-hidden", "true");
+  for (let i = 0; i < 42; i++) {
+    const bit = document.createElement("i");
+    bit.style.left = Math.random() * 100 + "vw";
+    bit.style.background = fargar[i % fargar.length];
+    bit.style.setProperty("--dx", (Math.random() * 160 - 80).toFixed(0) + "px");
+    bit.style.setProperty("--spin", (Math.random() * 720 + 180).toFixed(0) + "deg");
+    bit.style.animationDelay = (Math.random() * 220).toFixed(0) + "ms";
+    boks.appendChild(bit);
+  }
+  document.body.appendChild(boks);
+  setTimeout(() => boks.remove(), 1900);
+}
+
+// ---------------------------------------------------------------------------
+// Live oppdatering
+// ---------------------------------------------------------------------------
+/**
+ * Held leads og ordrar i takt med databasen utan at seljaren må laste på nytt.
+ * Det er dette som gjer produksjonskøen reelt live: legg ein kollega inn ein
+ * ordre, flyttar køtalet seg her med det same.
+ */
+function lyttLive() {
+  if (VINDEX_DEMOMODUS) return;
+  const alt = erAdmin() || erLager();
+
+  const leadQ = alt
+    ? fb.query(fb.leadsCol(), fb.orderBy("opprettet", "desc"), fb.limit(500))
+    : fb.query(fb.leadsCol(), fb.where("seljarId", "==", app.brukar.uid), fb.orderBy("opprettet", "desc"), fb.limit(300));
+  fb.onSnapshot(leadQ, (snap) => {
+    app.leads = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    teikn();
+  });
+
+  const ordreQ = alt
+    ? fb.query(fb.ordersCol(), fb.orderBy("opprettet", "desc"), fb.limit(500))
+    : fb.query(fb.ordersCol(), fb.where("seljarId", "==", app.brukar.uid), fb.orderBy("opprettet", "desc"), fb.limit(300));
+  fb.onSnapshot(ordreQ, (snap) => {
+    app.ordrar = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    teikn();
+  });
 }
