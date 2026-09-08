@@ -90,7 +90,7 @@ ${p.bilde ? `<meta property="og:image" content="https://vindex.no/${p.bilde}">` 
 </head>
 <body class="tema-mork" data-rot="../" data-side="produkter">
 
-<section class="hero"${"" /* parallakse berre når det finst eit bilete å flytte */} ${p.bilde ? "data-parallakse" : ""}>
+<section class="hero">
   <div class="wrap ${p.bilde ? "hero-grid" : ""}">
     <div>
       <span class="merkelapp">${esc(p.navn)}</span>
@@ -102,7 +102,7 @@ ${p.bilde ? `<meta property="og:image" content="https://vindex.no/${p.bilde}">` 
       <p class="hint mt-1">Eller ring
         <a href="tel:${VINDEX_FIRMA.telefon.replace(/\s/g, "")}">${esc(VINDEX_FIRMA.telefon)}</a></p>
     </div>
-    ${p.bilde ? `<div class="hero-scene" data-djupne="1">
+    ${p.bilde ? `<div class="hero-scene">
       <img class="hero-bilde" src="../${p.bilde}" alt="${esc(p.navn)} i vedlikeholdsfri PVC fra Vindex">
     </div>` : ""}
   </div>

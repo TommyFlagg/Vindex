@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Produkter — vedlikeholdsfri PVC fra Vindex</title>
+<meta name="description" content="Rekkverk, gjerder og porter, levegger, terrassegulv, sprosser og spesialløsninger i vedlikeholdsfri PVC. Produsert etter mål på Hustadvika.">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-rot="" data-side="produkter">
+
+<section class="hero" style="padding:2.75rem 0 3rem">
+  <div class="wrap">
+    <p class="eyebrow">Sortiment</p>
+    <h1>Produkter</h1>
+    <p class="lead">Alt produseres etter dine mål, i gjennomfarget PVC som ikke skal
+      males. Kombiner gjerne flere produkter i samme farge.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="grid grid-3" id="produktKort"></div>
+  </div>
+</section>
+
+<section class="section-alt">
+  <div class="wrap-narrow">
+    <h2>Ofte spurt</h2>
+    <div class="card mt-1" data-avslor>
+      <h3>Må jeg måle opp selv?</h3>
+      <p class="mb-0">Nei. Du oppgir omtrentlige mål i skjemaet, og vi kommer gjerne på
+        befaring. Basert på ønskene dine lager vi forslag med tegning og pristilbud —
+        helt uforpliktende.</p>
+    </div>
+    <div class="card mt-1" data-avslor>
+      <h3>Kan jeg montere selv?</h3>
+      <p class="mb-0">Ja. Lettfattelig norsk monteringsanvisning følger med. Vil du heller
+        slippe, leverer vi alt ferdig montert — kryss av for det i skjemaet. Merk at
+        monteringsveiledningen må følges for at garantien skal gjelde.</p>
+    </div>
+    <div class="card mt-1" data-avslor>
+      <h3>Hvor lang tid tar det?</h3>
+      <p class="mb-0">Normal produksjonstid er 1–4 uker, i tillegg til montering. Vi har egen
+        fabrikk i Norge med stort lager, og produserer etter dine mål.</p>
+    </div>
+    <div class="card mt-1" data-avslor>
+      <h3>Hva dekker garantien?</h3>
+      <p class="mb-0">30 år på våre ekstruderte PVC-produkter: garantien dekker produksjonsfeil
+        og at produktet ikke skal falme, gulne, råtne, flasse eller sprekke ved normal bruk.
+        På formstøpte deler, LED-lys og glass er garantien 5 år.
+        <a href="garanti.html">Se garanti og salgsbetingelser</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap-narrow center">
+    <h2>Be om et uforpliktende tilbud</h2>
+    <a class="btn btn-accent mt-1" href="bestilling.html">Start skjemaet</a>
+  </div>
+</section>
+
+<script src="js/produkter.js"></script>
+<script src="js/app.js"></script>
+<script src="js/effekter.js"></script>
+<script>
+  document.getElementById("produktKort").innerHTML = VINDEX_PRODUKT.map((p, i) => `
+    <a class="card card-link tilt" data-tilt data-avslor data-forseinking="${(i % 4) + 1}" href="${p.lenke}">
+      ${vindexBiletHtml(p, "card-media-bilde")}
+      <h3>${p.navn}</h3>
+      <p class="muted">${p.kort}</p>
+    </a>`).join("");
+  vindexAvsloring(document.getElementById("produktKort"));
+  vindexTilt(document.getElementById("produktKort"));
+</script>
+</body>
+</html>
