@@ -38,6 +38,38 @@ const erAdmin = () => app.brukar && app.brukar.rolle === "admin";
 const erLager = () => app.brukar && app.brukar.rolle === "lager";
 
 // ---------------------------------------------------------------------------
+// Fargetema
+// ---------------------------------------------------------------------------
+// Verktøyet er lyst som standard — det skal lesast heile dagen og skrivast ut.
+// Den som sit i eit mørkt rom kan velje sjølv, og valet blir hugsa på maskina.
+// Kart og diagram må teiknast på nytt ved bytte: fargerampa på kartet snur
+// retning, sidan lys-til-mørk ikkje kan lesast på mørk botn.
+function lesTema() {
+  try {
+    return localStorage.getItem("vindex_tema") === "mork" ? "mork" : "lys";
+  } catch (e) {
+    return "lys";
+  }
+}
+
+function settTema(tema, teiknPaaNytt = true) {
+  document.body.classList.toggle("tema-mork", tema === "mork");
+  document.body.classList.add("verktoyside");
+  document.documentElement.classList.remove("tema-mork-tidleg");
+  $$("[data-tema]").forEach((k) => k.classList.toggle("aktiv", k.dataset.tema === tema));
+  try {
+    localStorage.setItem("vindex_tema", tema);
+  } catch (e) { /* privat vindauge: valet varer økta ut */ }
+  if (teiknPaaNytt && app.brukar) teikn();
+}
+
+$$("[data-tema]").forEach((k) =>
+  k.addEventListener("click", () => settTema(k.dataset.tema))
+);
+settTema(lesTema(), false);
+
+
+// ---------------------------------------------------------------------------
 // Innlogging
 // ---------------------------------------------------------------------------
 if (VINDEX_DEMOMODUS) {
@@ -372,7 +404,7 @@ const FANER = [
   { id: "kalender", navn: "Kalender", roller: ["selger", "admin"] },
   { id: "ordre", navn: "Ordre", roller: ["selger", "admin", "lager"] },
   { id: "plukk", navn: "Plukkliste", roller: ["selger", "admin", "lager"] },
-  { id: "admin", navn: "Selgere", roller: ["admin"] },
+  { id: "admin", navn: "Apparat", roller: ["admin"] },
 ];
 
 /** Alt panela treng, samla på éin stad. */
@@ -1449,31 +1481,75 @@ function teiknPlukk() {
 // ---------------------------------------------------------------------------
 // Admin: seljarar og distrikt
 // ---------------------------------------------------------------------------
+/** Eitt kort per person i apparatet, med distrikta som kan hakast av. */
+function apparatKort(s) {
+  const kontakt = [s.telefon, s.epost].filter(Boolean).join(" · ");
+  const fjor = s.y2024
+    ? `<p class="hint mb-0">${VINDEX_FJOR.aar}: <strong>${kr(s.y2024)}</strong></p>`
+    : "";
+
+  // Berre seljarar og forhandlarar eig distrikt. Hovudkontor og lager har
+  // brukar i verktøyet, men får ikkje leads tildelt — då er avkryssingslista
+  // berre villeiande.
+  if (s.rolle !== "selger") {
+    return `<div class="card">
+      <h3 class="mt-0">${s.navn}</h3>
+      <p class="hint">${kontakt || "Ingen kontaktinfo"}</p>
+      <p class="hint mb-0">${s.rolle === "lager"
+        ? "Lagerbrukere får ikke tildelt leads."
+        : "Administrator ser alt, men står ikke i fordelingen."}</p>
+    </div>`;
+  }
+
+  return `<div class="card">
+    <div class="detail-head">
+      <div>
+        <h3 class="mt-0 mb-0">${s.navn}</h3>
+        <p class="hint mb-0">${s.sted ? s.sted : "Sted ikke oppgitt"}${kontakt ? " · " + kontakt : ""}</p>
+      </div>
+      ${s.aktiv === false ? '<span class="tag tag-muted">Inaktiv</span>' : ""}
+    </div>
+    ${fjor}
+    <div class="field mt-1">
+      <span class="field-label">Distrikt${(s.distrikt || []).length ? "" : " — ingen valgt"}</span>
+      ${VINDEX_DISTRIKT.map(
+        (d) => `<label style="display:flex;gap:0.5rem;align-items:center;font-weight:500;font-size:0.9rem;padding:0.12rem 0">
+          <input type="checkbox" data-seljar="${s.id}" value="${d.id}" style="width:auto"
+            ${(s.distrikt || []).includes(d.id) ? "checked" : ""}>
+          ${d.navn}
+        </label>`
+      ).join("")}
+    </div>
+    <button class="btn btn-sm" data-lagre="${s.id}">Lagre distrikt</button>
+    <span class="hint" data-melding="${s.id}"></span>
+  </div>`;
+}
+
 function teiknAdmin() {
-  $("#seljarListe").innerHTML = app.seljarar
-    .map(
-      (s) => `<div class="card">
-        <h3>${s.navn}</h3>
-        <p class="hint">${s.epost || ""}${s.rolle && s.rolle !== "selger" ? " · " + s.rolle : ""}</p>
-        ${
-          s.rolle === "lager"
-            ? '<p class="hint">Lagerbrukere får ikke tildelt leads.</p>'
-            : `<div class="field mt-1">
-                 <span class="field-label">Distrikt</span>
-                 ${VINDEX_DISTRIKT.map(
-                   (d) => `<label style="display:flex;gap:0.5rem;align-items:center;font-weight:500;font-size:0.9rem;padding:0.12rem 0">
-                     <input type="checkbox" data-seljar="${s.id}" value="${d.id}" style="width:auto"
-                       ${(s.distrikt || []).includes(d.id) ? "checked" : ""}>
-                     ${d.navn}
-                   </label>`
-                 ).join("")}
-               </div>
-               <button class="btn btn-sm" data-lagre="${s.id}">Lagre distrikt</button>
-               <span class="hint" data-melding="${s.id}"></span>`
-        }
-      </div>`
-    )
-    .join("");
+  // Apparatet er to ulike ting: eigne seljarar og eksterne forhandlarar. Dei
+  // blir rutet likt, men det er ulike samtalar å ha med dei — difor to lister.
+  const forhandlarar = app.seljarar.filter((s) => s.type === "forhandler");
+  const seljarar = app.seljarar.filter((s) => s.type !== "forhandler" && s.rolle === "selger");
+  // Hovudkontor og lager har brukar i verktøyet, men er ikkje eit distrikt.
+  const andre = app.seljarar.filter((s) => s.type !== "forhandler" && s.rolle !== "selger");
+
+  const sum = (liste) => liste.reduce((n, s) => n + (s.y2024 || 0), 0);
+  const bolk = (tittel, liste, hjelp) => {
+    if (!liste.length) return "";
+    const total = sum(liste);
+    return `<div class="apparatbolk">
+      <div class="detail-head">
+        <h3 class="mt-0 mb-0">${tittel} <span class="tag tag-muted">${liste.length}</span></h3>
+        <span class="hint">${hjelp}${total ? ` · ${VINDEX_FJOR.aar}: ${kr(total)}` : ""}</span>
+      </div>
+      <div class="grid grid-2 mt-1">${liste.map(apparatKort).join("")}</div>
+    </div>`;
+  };
+
+  $("#seljarListe").innerHTML =
+    bolk("Selgere", seljarar, "Egne selgere") +
+    bolk("Forhandlere", forhandlarar, "Eksterne, selger på egne vegne") +
+    bolk("Andre brukere", andre, "Lager og intern");
 
   $$("[data-lagre]").forEach((knapp) =>
     knapp.addEventListener("click", () => lagreDistrikt(knapp.dataset.lagre))

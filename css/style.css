@@ -24,12 +24,13 @@
   --surface: #ffffff;
   --surface-alt: #eaeff0;
   --ink: #14262e;            /* skifer — brødtekst */
-  --muted: #5c7078;
+  --muted: #55666d;         /* 5.2:1 mot --surface-alt; #5c7078 låg på 4.48 */
   --primary: #10495a;        /* djup sjøblå — hovudaksent */
   --primary-dark: #0a3341;
   --primary-soft: #e2edf0;
   --accent: #b8862f;         /* varm sand/messing — CTA og highlight */
   --accent-soft: #f7eeda;
+  --accent-tekst: #8a6317;   /* messing som held 4.5:1 som småtekst på lys botn */
   --good: #1d7a5f;
   --good-soft: #dcefe7;
   --warn: #a4671b;
@@ -74,7 +75,7 @@ p { margin: 0.5rem 0; }
 .hint { color: var(--muted); font-size: 0.9rem; }
 .eyebrow {
   text-transform: uppercase; letter-spacing: 0.09em; font-size: 0.78rem;
-  font-weight: 700; color: var(--accent); margin: 0 0 0.5rem;
+  font-weight: 700; color: var(--accent-tekst); margin: 0 0 0.5rem;
 }
 .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 1.1rem; }
 .wrap-narrow { max-width: 760px; margin: 0 auto; padding: 0 1.1rem; }
@@ -750,7 +751,7 @@ table.data.kompakt th, table.data.kompakt td { padding: 0.4rem 0.5rem; }
 }
 .klebrig-cta.synleg { transform: none; }
 .klebrig-tekst { font-weight: 600; font-size: 0.94rem; }
-.klebrig-cta a { color: #fff; }
+.klebrig-cta a:not(.btn) { color: #fff; }
 @media (max-width: 560px) {
   .klebrig-cta { justify-content: space-between; padding: 0.6rem 0.85rem; }
   .klebrig-tekst { font-size: 0.82rem; flex: 1 1 60%; }
@@ -834,6 +835,9 @@ table.data.kompakt th, table.data.kompakt td { padding: 0.4rem 0.5rem; }
    =========================================================================== */
 
 body.tema-mork {
+  /* Fortel nettlesaren at temaet er mørkt, så avkryssingsboksar, nedtrekk,
+     datoveljarar og rullefelt følgjer med i staden for å lyse kvitt. */
+  color-scheme: dark;
   --bg: #0a1621;
   --surface: #10202e;
   --surface-alt: #0c1a26;
@@ -846,6 +850,12 @@ body.tema-mork {
   --accent: #b8862f;
   --accent-soft: #241d10;
   --krem: #f2ece0;             /* overskriftsfargen, som i referansen */
+  --good: #4cb98b;             /* statusfargane må lysne for å halde 4.5:1 */
+  --good-soft: #10281f;
+  --warn: #e0a53c;
+  --warn-soft: #2a2110;
+  --bad: #e8776b;
+  --bad-soft: #2b1512;
   --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 16px 38px rgba(0, 0, 0, 0.5);
   background: var(--bg);
@@ -1134,3 +1144,154 @@ body.tema-mork .btn-ghost:hover { background: rgba(230, 238, 243, 0.08); color: 
 }
 .personlenker a:hover { border-color: var(--accent); color: var(--accent); }
 .personlenker svg { width: 18px; height: 18px; flex-shrink: 0; fill: currentColor; }
+
+/* Apparatet i admin: eigne seljarar og eksterne forhandlarar er to ulike
+   samtalar, og skal difor lesast som to lister. */
+.apparatbolk { margin-bottom: 2.25rem; }
+.apparatbolk:last-child { margin-bottom: 0; }
+.apparatbolk > .detail-head { border-bottom: 1px solid var(--border); padding-bottom: 0.6rem; }
+
+/* ===========================================================================
+   SALSVERKTØYET I MØRKT TEMA
+   ---------------------------------------------------------------------------
+   Verktøyet er lyst som standard: det skal lesast heile dagen og skrivast ut.
+   Men den som sit med det i eit mørkt rom skal kunne velje sjølv, så her er
+   dei komponentane verktøyet har som nettstaden ikkje har.
+   =========================================================================== */
+
+body.tema-mork.verktoyside { color: var(--ink); }
+body.tema-mork .kpi,
+body.tema-mork .stat-kort,
+body.tema-mork .ordrekort,
+body.tema-mork .kart-side,
+body.tema-mork .detail,
+body.tema-mork .avtale,
+body.tema-mork .skjemaseksjon,
+body.tema-mork .personkort { background: var(--surface); border-color: var(--border); }
+
+body.tema-mork .stat-verdi,
+body.tema-mork .kpi-num,
+body.tema-mork .ring-tal { color: var(--krem); }
+body.tema-mork .stat-etikett { color: var(--ink); }
+body.tema-mork .agendadag > h3 { background: var(--bg); color: var(--krem); }
+
+/* Fanene */
+body.tema-mork .fane { border-color: var(--border); color: var(--ink); }
+body.tema-mork .fane:hover { background: var(--surface); }
+body.tema-mork .fane.aktiv { background: var(--accent); border-color: var(--accent); color: #171104; }
+body.tema-mork .fane .teljar { background: var(--accent-soft); color: var(--accent); }
+body.tema-mork .fane.aktiv .teljar { background: rgba(0, 0, 0, 0.22); color: #171104; }
+
+/* Dialog */
+body.tema-mork .modal { background: rgba(3, 9, 14, 0.72); }
+body.tema-mork .modal-kort { background: var(--surface); }
+body.tema-mork .modal-topp, body.tema-mork .modal-botn { border-color: var(--border); }
+body.tema-mork .skjemaseksjon.intern { background: var(--accent-soft); border-color: var(--accent); }
+body.tema-mork table.maltabell th { background: var(--surface-alt); }
+body.tema-mork table.maltabell td { border-color: var(--border); }
+body.tema-mork table.maltabell input, body.tema-mork table.maltabell select {
+  background: var(--surface-alt); border-color: var(--border); color: var(--ink);
+}
+body.tema-mork table.maltabell tr:nth-child(even) td { background: rgba(255, 255, 255, 0.02); }
+
+/* Diagram, målarar og stolpar */
+body.tema-mork .manadsdiagram .stolpe-aar { fill: var(--accent); }
+body.tema-mork .manadsdiagram .stolpe-fjor { stroke: var(--muted); }
+body.tema-mork .manadsdiagram .stolpe-tal { fill: var(--krem); }
+body.tema-mork .manadsdiagram .akse { stroke: var(--border); }
+body.tema-mork .manadsdiagram .stolpegruppe:hover .stolpe-aar { fill: #d8a349; }
+body.tema-mork .diagram-tegn .tegn-aar { background: var(--accent); }
+body.tema-mork .stolpe { background: var(--surface-alt); }
+body.tema-mork .stolpe span { background: var(--accent); }
+body.tema-mork .malar-spor { background: var(--surface-alt); }
+body.tema-mork table.data tr.meg td { background: rgba(184, 134, 47, 0.12); }
+body.tema-mork table.data tr.clickable:hover td { background: rgba(255, 255, 255, 0.04); }
+
+/* Kartet: kvit strek mellom fylka blir feil på mørk botn. */
+/* Plassholdaren for manglande bilete er bygd på --primary. I mørkt tema er
+   --primary messing, og kvit skrift på messing gir berre 3.24:1 — så her blir
+   flata pinna til den djupe sjøblåe uansett tema. */
+body.tema-mork .utan-bilete { background: linear-gradient(150deg, #0a3341, #10495a); }
+
+body.tema-mork .fylke { stroke: var(--bg); }
+body.tema-mork .norgeskart { filter: drop-shadow(0 10px 22px rgba(0, 0, 0, 0.5)); }
+body.tema-mork .kart-tooltip { background: var(--surface-alt); border: 1px solid var(--border); }
+
+/* Statusmerke */
+body.tema-mork .tag-ny { background: #2a2110; color: #e0b25f; }
+body.tema-mork .tag-sett { background: var(--surface-alt); color: var(--muted); }
+body.tema-mork .tag-kontaktet { background: #16303f; color: #9fc9d8; }
+body.tema-mork .tag-tilbud_sendt { background: #2a2110; color: #e0b25f; }
+body.tema-mork .tag-oppfulgt { background: #232041; color: #b3aae8; }
+body.tema-mork .tag-solgt { background: #10281f; color: #6cc4a1; }
+body.tema-mork .tag-avslatt { background: #2b1512; color: #e29289; }
+body.tema-mork .tag-muted { background: var(--surface-alt); color: var(--muted); }
+body.tema-mork .statusknapp { background: var(--surface); border-color: var(--border); color: var(--ink); }
+body.tema-mork .statusknapp.aktiv { background: var(--accent); border-color: var(--accent); color: #171104; }
+
+/* Køen og ringen: statusfargane må lysne for å halde kontrasten på mørk botn. */
+body.tema-mork .ko-god, body.tema-mork .malar-god { color: var(--good); }
+body.tema-mork .ko-warn, body.tema-mork .malar-warn { color: var(--warn); }
+body.tema-mork .ko-bad, body.tema-mork .malar-bad { color: var(--bad); }
+body.tema-mork .malar-god { background: var(--good); }
+body.tema-mork .malar-warn { background: var(--warn); }
+body.tema-mork .malar-bad { background: var(--bad); }
+body.tema-mork .live-prikk { background: var(--good); }
+
+/* Temaveljaren */
+.temaveljar {
+  display: inline-flex; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.temaveljar button {
+  background: transparent; border: none; padding: 0.45rem 0.7rem; font: inherit;
+  font-size: 0.82rem; font-weight: 700; color: var(--muted); cursor: pointer;
+}
+.temaveljar button.aktiv { background: var(--primary); color: #fff; }
+body.tema-mork .temaveljar button.aktiv { background: var(--accent); color: #171104; }
+body.tema-mork .temaveljar { border-color: var(--border); }
+
+/* Set temaet før JavaScript rekk å køyre, så sida ikkje blinkar lys først. */
+html.tema-mork-tidleg { color-scheme: dark; }
+html.tema-mork-tidleg body { background: #0a1621; color: #e6eef3; }
+
+/* ---------------------------------------------------------------------------
+   Verktøyet skal ikkje arve display-typografien frå nettstaden. Der er
+   overskriftene store versalar i Oswald — det er rett på ei landingsside, men
+   verktøyet har titlar inne i kort og tabellar og treng den kompakte skrifta.
+   .verktoy blir sett på <body> av salsverktøyet, aldri av nettstaden.
+   --------------------------------------------------------------------------- */
+body.tema-mork.verktoyside h1,
+body.tema-mork.verktoyside h2,
+body.tema-mork.verktoyside h3 {
+  font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+  text-transform: none; letter-spacing: normal; line-height: 1.2;
+  font-weight: 700; color: var(--krem);
+}
+body.tema-mork.verktoyside h1 { font-size: 2rem; }
+body.tema-mork.verktoyside h2 { font-size: 1.5rem; }
+body.tema-mork.verktoyside h3 {
+  font-family: "Inter", sans-serif; font-size: 1.1rem; color: var(--ink);
+}
+body.tema-mork.verktoyside .btn {
+  text-transform: none; letter-spacing: normal; font-size: 0.92rem;
+  font-weight: 600; padding: 0.6rem 1.05rem; border-radius: var(--radius-sm);
+}
+body.tema-mork.verktoyside .btn { background: var(--accent); color: #171104; }
+body.tema-mork.verktoyside .btn:hover { background: #cf9a3c; color: #171104; }
+body.tema-mork.verktoyside .btn-ghost {
+  background: var(--surface); border-color: var(--border); color: var(--ink);
+}
+body.tema-mork.verktoyside .btn-ghost:hover { background: var(--surface-alt); color: var(--krem); }
+body.tema-mork.verktoyside .btn-sm { padding: 0.45rem 0.8rem; font-size: 0.88rem; }
+body.tema-mork.verktoyside .toolbar { background: var(--surface); border-color: var(--border); }
+body.tema-mork.verktoyside .card { background: var(--surface); border-color: var(--border); }
+body.tema-mork.verktoyside input,
+body.tema-mork.verktoyside select,
+body.tema-mork.verktoyside textarea {
+  background: var(--surface-alt); border-color: var(--border); color: var(--ink);
+}
+body.tema-mork.verktoyside label { color: var(--ink); }
+body.tema-mork.verktoyside input[type=checkbox], body.tema-mork.verktoyside input[type=radio] { accent-color: var(--accent); }
+body.tema-mork.verktoyside .hint, body.tema-mork.verktoyside .lead { color: var(--muted); }
+body.tema-mork.verktoyside a { color: var(--accent); }

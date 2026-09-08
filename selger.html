@@ -7,6 +7,15 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="stylesheet" href="css/style.css">
+<script>
+  // Temavalet må settast før sida blir teikna første gong. Ligg det i eit
+  // vanleg skript nedst, rekk brukaren å sjå lys sida blinke før den mørknar.
+  try {
+    if (localStorage.getItem("vindex_tema") === "mork") {
+      document.documentElement.classList.add("tema-mork-tidleg");
+    }
+  } catch (e) { /* privat vindauge: berre hopp over */ }
+</script>
 </head>
 <body data-rot="" data-side="selger" data-chrome="minimal">
 
@@ -31,6 +40,12 @@
       </form>
     </div>
     <div id="demoHint"></div>
+    <!-- Temavalet blir hugsa, så den som har valt mørkt møter innlogginga mørk.
+         Då må veljaren vere her òg, ikkje berre inne i verktøyet. -->
+    <div class="temaveljar mt-2" role="group" aria-label="Fargetema">
+      <button type="button" data-tema="lys">Lys</button>
+      <button type="button" data-tema="mork">Mørk</button>
+    </div>
   </div>
 </section>
 
@@ -41,6 +56,10 @@
     <span class="tag tag-muted" id="brukarMerke"></span>
     <span class="spacer"></span>
     <nav class="fanerad" id="faner"></nav>
+    <div class="temaveljar" role="group" aria-label="Fargetema">
+      <button type="button" data-tema="lys">Lys</button>
+      <button type="button" data-tema="mork">Mørk</button>
+    </div>
     <button class="btn btn-accent btn-sm" id="nyttLead">+ Nytt lead</button>
     <button class="btn btn-ghost btn-sm" id="loggUt">Logg ut</button>
   </div>
@@ -117,7 +136,7 @@
       <p class="lead">Hvem dekker hvilke distrikt? Endringer her styrer hvem nye forespørsler
         går til automatisk.</p>
     </div>
-    <div id="seljarListe" class="grid grid-2"></div>
+    <div id="seljarListe"></div>
     <div class="notice notice-info mt-2" id="dekningVarsel"></div>
   </div>
 </div>

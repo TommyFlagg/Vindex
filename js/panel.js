@@ -18,16 +18,22 @@
 // validerte for fargesynsvariasjon.
 // ============================================================================
 
-const VINDEX_RAMPE = ["#eef2f3", "#d3e4e9", "#a8c9d4", "#6fa3b5", "#3a7b91", "#14556b", "#0a3341"];
-// Frå og med dette steget er flata mørk nok til at teksten må vere kvit.
-const RAMPE_MORK_FRA = 4;
+// Kartet måler mengde, altså sekvensiell rampe i éin tone. På lys botn går
+// den frå lys til mørk; på mørk botn må den gå andre vegen, elles ville "null
+// kundar" lyst kraftigast av alt. Begge er kontrollerte for monotont
+// stigande/fallande lysheit.
+const VINDEX_RAMPE_LYS = ["#eef2f3", "#d3e4e9", "#a8c9d4", "#6fa3b5", "#3a7b91", "#14556b", "#0a3341"];
+const VINDEX_RAMPE_MORK = ["#12222e", "#1a3a4a", "#215064", "#2b6980", "#43899f", "#6bafc4", "#9ed3e4"];
+
+const erMorkt = () => document.body.classList.contains("tema-mork");
+const rampe = () => (erMorkt() ? VINDEX_RAMPE_MORK : VINDEX_RAMPE_LYS);
 
 /** Plasserer ein verdi på rampa. 0 får alltid det nøytrale steget. */
 function rampeSteg(verdi, maks) {
   if (!verdi) return 0;
   if (maks <= 0) return 0;
-  const steg = Math.ceil((verdi / maks) * (VINDEX_RAMPE.length - 1));
-  return Math.min(VINDEX_RAMPE.length - 1, Math.max(1, steg));
+  const steg = Math.ceil((verdi / maks) * (rampe().length - 1));
+  return Math.min(rampe().length - 1, Math.max(1, steg));
 }
 
 const tallFormat = (n) => new Intl.NumberFormat("nb-NO").format(n);
@@ -388,7 +394,7 @@ function teiknKartSvg(el, leads, val = {}) {
       // Minikartet på oversikta er eit bilete, ikkje eit betjeningspanel: utan
       // dette hamnar 15 fylke i tabbrekkefølgja utan å gjere noko.
       const interaktiv = val.interaktiv !== false;
-      return `<path d="${f.bane}" fill="${VINDEX_RAMPE[steg]}"
+      return `<path d="${f.bane}" fill="${rampe()[steg]}"
         class="fylke ${val.valt === f.id ? "valt" : ""}" data-fylke="${f.id}"
         ${interaktiv ? `tabindex="0" role="button" aria-label="${f.navn}: ${verdi} ${eining}"` : 'aria-hidden="true"'}>
         ${interaktiv ? `<title>${f.navn} — ${verdi} ${eining}</title>` : ""}
@@ -442,11 +448,11 @@ function vindexTeiknKart(el, ctx) {
   function tegnforklaring(maks, omrademodus) {
     const tegn = el.querySelector("#kartTegn");
     if (omrademodus) {
-      tegn.innerHTML = `<span class="tegn-rad"><i style="background:${VINDEX_RAMPE[4]}"></i> Ditt område</span>
-        <span class="tegn-rad"><i style="background:${VINDEX_RAMPE[1]}"></i> Dekkes av andre</span>`;
+      tegn.innerHTML = `<span class="tegn-rad"><i style="background:${rampe()[4]}"></i> Ditt område</span>
+        <span class="tegn-rad"><i style="background:${rampe()[1]}"></i> Dekkes av andre</span>`;
       return;
     }
-    const steg = VINDEX_RAMPE.slice(1);
+    const steg = rampe().slice(1);
     tegn.innerHTML =
       `<span class="tegn-etikett">0</span>` +
       steg.map((f) => `<i style="background:${f}"></i>`).join("") +

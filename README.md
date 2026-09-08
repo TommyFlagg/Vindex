@@ -19,18 +19,46 @@ handlingsfarge, kondensert versal-display (Oswald), og en farget merkelapp over
 hver overskrift. Oppbygningen er hentet fra en referanseside kunden pekte på;
 paletten og tonen er Vindex' egen.
 
-**Salgsverktøyet blir lyst.** Det er et arbeidsverktøy som skal leses hele dagen
-og skrives ut — plukklister og ordresedler går på papir — og der er lys bakgrunn
-riktig. Temaet er derfor scopet til `body.tema-mork`, som alle sidene utenom
-`selger.html` har.
+**Salgsverktøyet er lyst som standard.** Det er et arbeidsverktøy som skal leses
+hele dagen og skrives ut — plukklister og ordresedler går på papir — og der er
+lys bakgrunn riktig. Temaet er scopet til `body.tema-mork`, som alle sidene
+utenom `selger.html` har fast.
+
+### Selgeren velger selv
+
+Øverst til høyre i verktøylinja ligger en **Lys / Mørk**-bryter, og den samme
+bryteren ligger på innloggingssiden. Valget lagres i `localStorage` under
+`vindex_tema` og gjelder den maskinen, ikke brukerkontoen — sitter du på lageret
+om dagen og hjemme om kvelden, kan de to ha hvert sitt.
+
+Tre ting er verdt å vite for den som skal videreutvikle:
+
+- Temaet settes av et lite skript i `<head>` som legger `tema-mork-tidleg` på
+  `<html>` **før** siden tegnes. Uten det ville siden blinke lys og så mørkne.
+- Ved bytte tegnes kart og diagram på nytt. Fargerampen på fylkeskartet må snu
+  retning — en lys-til-mørk rampe er uleselig på mørk bunn — så `js/panel.js`
+  har to ramper og velger etter `body.tema-mork`.
+- `<body>` får også klassen `verktoyside`. Nettstedets mørke tema drar med seg
+  store versal-overskrifter i Oswald, og det er riktig på en landingsside, men
+  galt i et verktøy der overskriftene sitter inne i kort og tabeller.
+  `verktoyside` slår den display-typografien av igjen.
 
 > ⚠️ **Fontene er ikke visuelt verifisert.** Google Fonts er blokkert i
 > utviklingsmiljøet, så skjermbildene viser reservefonten (Arial Narrow), ikke
 > Oswald. Sjekk hvordan overskriftene faktisk ser ut på den publiserte siden.
 
-Kontrasten er derimot målt: en revisjon går gjennom alle tekstelementer på åtte
-sider, regner ut faktisk kontrastforhold mot bakgrunnen bak, og krever 4,5:1 for
-brødtekst og 3:1 for store overskrifter. Alt er over kravet.
+Kontrasten er derimot målt. En revisjon går gjennom hvert tekstelement på hver
+side i begge design, og gjennom alle fanene i verktøyet i begge temaer og for
+alle tre rollene — til sammen over seksti visninger. Den regner ut faktisk
+kontrastforhold mot bakgrunnen bak, inkludert gradienter (den plukker det
+stoppet i gradienten som gir dårligst forhold), og krever 4,5:1 for brødtekst og
+3:1 for store overskrifter. Alt er over kravet.
+
+Revisjonen fant og fikset blant annet dette underveis: `--muted` lå på 4,48:1 i
+tabelloverskrifter, messing som småtekstfarge lå på 2,98:1 mot lys bunn (egen
+`--accent-tekst` er mørknet til 4,67:1), hvit tekst på messingknappen i den
+klebrige CTA-stripa lå på 3,24:1, og statusfargene rødt/gult/grønt måtte lysnes
+i mørkt tema for i det hele tatt å være lesbare.
 
 ## Forsidens oppbygning
 
@@ -333,8 +361,25 @@ ting: som demodata i verktøyet, og som fasit når brukerne skal opprettes i
 Firestore.
 
 Forhandlere opprettes på samme måte som selgere, men med `"type": "forhandler"`.
-De får leads og ordrer som alle andre; feltet styrer bare merkingen i
-oversikten.
+De får leads og ordrer som alle andre; feltet styrer merkingen i oversikten og
+hvilken liste de havner i.
+
+**Apparat-fanen** (admin) deler apparatet i tre lister, hver med antall og
+fjorårets omsetning i overskriften:
+
+| Liste | Hvem | Kriterium |
+|---|---|---|
+| Selgere | Egne selgere | `type ≠ forhandler` og `rolle = selger` |
+| Forhandlere | Eksterne, selger på egne vegne | `type = forhandler` |
+| Andre brukere | Hovedkontor og lager | `type ≠ forhandler` og `rolle ≠ selger` |
+
+En tom liste vises ikke. Distriktavkryssingen virker likt i alle tre.
+
+> ⚠️ Du ba om en liste over **leverandører**. Det vi har tall på er
+> **forhandlere** — de ti eksterne som selger Vindex på egne vegne, hentet fra
+> ordreinngangsrapporten for 2024. Det er den lista som er bygget. Et eget
+> register over råvareleverandører finnes ikke i materialet; si fra hvis det er
+> det du mente, så lager vi det.
 
 > ⚠️ **Distriktene i `js/team.js` er utledet fra stedet hver person sitter**,
 > ikke fra et oppgitt ansvarsområde. De må bekreftes før de brukes til
