@@ -12,6 +12,15 @@
 //  ⚠️  Tala under er utgangspunkt og må kalibrerast mot fabrikken. Dei styrer
 //     kø-visninga og lovnaden om leveringstid, så dei bør ikkje stå og gjette
 //     lenge. Alt ligg her, i éin blokk.
+//
+//  Sesongen avgjer kva som er rett kapasitet. Ordreinngangen i 2024 (sjå
+//  VINDEX_FJOR i js/team.js) var 142 000 kr i januar og 2 162 000 kr i mai —
+//  femten gonger så mykje. Mai og juni åleine stod for 40 % av jan–sep.
+//  Kapasiteten må difor dimensjonerast for mai, ikkje for snittet: eit tal som
+//  held i februar gir tolv vekers kø i mai, og då lovar seljarane feil.
+//
+//  For å setje kapasitetPerDag rett treng de eitt tal fabrikken har og vi
+//  ikkje: kor mange ordrar som faktisk blei produserte i mai.
 const VINDEX_PRODUKSJON = {
   kapasitetPerDag: 6,          // ordredagar fabrikken klarer per arbeidsdag
   arbeidsdagarPerVeke: 5,
@@ -199,4 +208,67 @@ function vindexTimarTekst(timar) {
   if (timar < 1) return Math.round(timar * 60) + " min";
   if (timar < 48) return Math.round(timar) + " t";
   return Math.round(timar / 24) + " d";
+}
+
+// ---------------------------------------------------------------------------
+// Ordreinngang
+// ---------------------------------------------------------------------------
+// Same storleik som Vindex sin eigen rapport: eks. mva, utan frakt, per månad
+// og per kanal. Verdien blir henta frå ordreskjemaet, som er den einaste
+// staden ein pris faktisk blir skriven inn.
+
+const MANADSNAVN = [
+  "Januar", "Februar", "Mars", "April", "Mai", "Juni",
+  "Juli", "August", "September", "Oktober", "November", "Desember",
+];
+
+/**
+ * Verdien av ein ordre, eks. mva og utan frakt — slik rapporten reknar.
+ * Er totalsummen fylt ut, gjeld den. Elles summerer vi delprisane, og held
+ * frakt utanfor så tala kan samanliknast med i fjor.
+ */
+function vindexOrdreVerdi(ordre) {
+  const f = ordre.felt || {};
+  if (f.pris_total) return Number(f.pris_total) || 0;
+  return ["pris_tilpasset", "pris_standard", "pris_lys", "pris_sprosser", "pris_montering"]
+    .reduce((s, n) => s + (Number(f[n]) || 0), 0);
+}
+
+/** Ordreinngang per månad for eit år. Returnerer alltid tolv månader. */
+function vindexOrdreinngang(ordrar, aar = new Date().getFullYear()) {
+  const manad = MANADSNAVN.map((navn) => ({ navn, sum: 0, tal: 0 }));
+  (ordrar || []).forEach((o) => {
+    const d = vindexTid(o.opprettet);
+    if (!d || d.getFullYear() !== aar) return;
+    const rad = manad[d.getMonth()];
+    rad.sum += vindexOrdreVerdi(o);
+    rad.tal += 1;
+  });
+  return manad;
+}
+
+/** Ordreinngang per person, sortert høgast først. */
+function vindexOrdreinngangPerSeljar(seljarar, ordrar, aar = new Date().getFullYear()) {
+  return (seljarar || [])
+    .filter((s) => s.rolle !== "lager")
+    .map((s) => {
+      const eigne = (ordrar || []).filter((o) => {
+        const d = vindexTid(o.opprettet);
+        return o.seljarId === s.id && d && d.getFullYear() === aar;
+      });
+      return {
+        seljar: s,
+        sum: eigne.reduce((n, o) => n + vindexOrdreVerdi(o), 0),
+        tal: eigne.length,
+      };
+    })
+    .sort((a, b) => b.sum - a.sum);
+}
+
+/** «1,2 mill» / «458 000» — kompakt nok til ei stat-flis. */
+function vindexKrKort(n) {
+  if (!n) return "0";
+  if (n >= 1000000) return (n / 1000000).toFixed(n >= 10000000 ? 0 : 1).replace(".", ",") + " mill";
+  if (n >= 10000) return Math.round(n / 1000) + " 000";
+  return new Intl.NumberFormat("nb-NO").format(Math.round(n));
 }

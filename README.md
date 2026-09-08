@@ -131,6 +131,21 @@ lisens [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Kjør
 treffer godt nok til statistikk, men et par hundre postnummer i grenseland kan
 havne i nabofylket. Skal de bli eksakte, må Postens offisielle register inn.
 
+## Ordreinngang
+
+Verktøyet regner ordreinngang på samme grunnlag som årsrapporten: eks. mva,
+uten frakt, per måned og per selger. Verdien hentes fra prisfeltene i
+ordreskjemaet — den eneste stedet en pris faktisk skrives inn.
+
+Månedsdiagrammet på oversikten viser inneværende år med **2024 som referanse**
+bak. Alle ser selskapets månedstall; bare hovedkontoret ser fordelingen per
+selger.
+
+Referansetallene ligger i `VINDEX_FJOR` (`js/team.js`) og er hentet fra
+rapporten «Ordreinngang Vindex» datert 31.10.2024: 9 943 157 kr i januar–
+september, fordelt på 6,1 mill fra selgere, 1,5 mill fra forhandlere og 2,3 mill
+direkte fra Vindex AS.
+
 ## Produksjonskø
 
 Køen regnes ut fra ordrene som står i produksjon, og vises live — legger en
@@ -141,6 +156,15 @@ Anslagene i `VINDEX_PRODUKSJON` (`js/nokkeltal.js`) — kapasitet per dag, rigg 
 ordre, dager per løpemeter, kvadratmeter og vindu — **må kalibreres mot
 fabrikken**. De styrer både køvisningen og leveringstiden som loves kunden, så
 de bør ikke stå og gjette lenge.
+
+Sesongen avgjør hva som er riktig kapasitet. I 2024 var ordreinngangen 142 000 kr
+i januar og 2 162 000 kr i mai — femten ganger så mye — og mai og juni alene stod
+for 40 % av januar–september. Kapasiteten må dimensjoneres for mai, ikke for
+snittet: et tall som holder i februar gir tolv ukers kø i mai, og da lover
+selgerne feil leveringstid.
+
+For å sette `kapasitetPerDag` riktig trengs ett tall fabrikken har og vi ikke:
+hvor mange ordrer som faktisk ble produsert i mai.
 
 ## Grafikk og bevegelse
 
@@ -202,6 +226,23 @@ nettleseren:
 
 Sett `"rolle": "admin"` for den første brukeren — admin styrer resten fra
 fanen «Selgere og distrikt» i verktøyet.
+
+### Selgere og forhandlere
+
+Apparatet slik det så ut i 2024 ligger ferdig i **`js/team.js`** — 13 selgere og
+10 forhandlere med sted, distrikt og fjorårets ordreinngang. Lista brukes til to
+ting: som demodata i verktøyet, og som fasit når brukerne skal opprettes i
+Firestore.
+
+Forhandlere opprettes på samme måte som selgere, men med `"type": "forhandler"`.
+De får leads og ordrer som alle andre; feltet styrer bare merkingen i
+oversikten.
+
+> ⚠️ **Distriktene i `js/team.js` er utledet fra stedet hver person sitter**,
+> ikke fra et oppgitt ansvarsområde. De må bekreftes før de brukes til
+> automatisk fordeling. To ting til: «Herøy» finnes både i Møre og Romsdal og i
+> Nordland — vi har lagt Rune Mathisen i Møre. Og Løvdals Trevare mangler sted i
+> rapporten, så den står uten distrikt.
 
 ### Steg 3 — Rutingtabellen
 
@@ -318,6 +359,7 @@ js/fylke.js              Postnummer → fylke, aggregering per fylke
 js/fylkeskart.js         Generert SVG-kart (Kartverket, CC BY 4.0)
 js/panel.js              Oversiktspanel og Norgeskart
 js/effekter.js           Avsløring, vipping og parallakse
+js/team.js               Selgere, forhandlere og 2024-tall
 firestore.rules          Tilgangsregler
 scripts/                 Generering av produktsider
 ```

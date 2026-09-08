@@ -133,18 +133,41 @@ async function lastData() {
 }
 
 function startDemo(rolle) {
-  app.brukar = {
-    uid: "demo-1",
-    navn: rolle === "admin" ? "Demo Administrator" : rolle === "lager" ? "Demo Lager" : "Demo Selger",
-    epost: rolle + "@vindex.no",
-    rolle,
-    distrikt: ["more-romsdal", "vestland-nord"],
-  };
-  app.seljarar = [
-    { id: "demo-1", navn: app.brukar.navn, epost: app.brukar.epost, telefon: "900 00 001", rolle, distrikt: app.brukar.distrikt, aktiv: true },
-    { id: "demo-2", navn: "Kari Nordvik", epost: "kari@vindex.no", telefon: "900 00 002", rolle: "selger", distrikt: ["oslo-akershus", "ostfold", "innlandet"], aktiv: true },
-    { id: "demo-3", navn: "Ola Sørheim", epost: "ola@vindex.no", telefon: "900 00 003", rolle: "selger", distrikt: ["rogaland", "agder", "vestland-sor"], aktiv: true },
-  ];
+  // Demoen brukar det verkelege apparatet frå js/team.js, så namn, stader og
+  // distrikt er dei same som i drift. Innlogga brukar overtek den første
+  // seljaren sin plass.
+  app.seljarar = VINDEX_TEAM.map((t, i) => ({
+    id: "demo-" + (i + 1),
+    navn: t.navn,
+    sted: t.sted,
+    type: t.type,
+    y2024: t.y2024,
+    epost: t.navn.toLowerCase().replace(/[^a-zæøå]+/g, ".").replace(/^\.|\.$/g, "") + "@vindex.no",
+    telefon: "900 00 " + String(i + 10).padStart(3, "0"),
+    rolle: "selger",
+    distrikt: t.distrikt,
+    aktiv: true,
+  }));
+  // Loggar du inn som seljar, *er* du den første i apparatet — det gir eit
+  // meir truverdig bilete enn ein oppdikta "Demo Selger" ved sida av dei
+  // verkelege namna. Admin og lager er eigne brukarar, som i drift.
+  if (rolle === "selger") {
+    app.brukar = { uid: app.seljarar[0].id, ...app.seljarar[0], rolle: "selger" };
+  } else {
+    const ekstra = {
+      id: "demo-" + rolle,
+      navn: rolle === "admin" ? "Hovedkontoret" : "Lager Farstad",
+      sted: "Farstad",
+      type: "internt",
+      epost: rolle + "@vindex.no",
+      telefon: "71 26 60 00",
+      rolle,
+      distrikt: [],
+      aktiv: true,
+    };
+    app.seljarar.push(ekstra);
+    app.brukar = { uid: ekstra.id, ...ekstra };
+  }
   app.leads = demoLeads();
   app.ordrar = demoOrdrar();
   app.visning = rolle === "lager" ? "plukk" : "oversikt";
@@ -288,7 +311,7 @@ function demoOrdrar() {
       status: "til_plukk",
       opprettet: new Date(Date.now() - 4 * 86400000).toISOString(),
       seljarId: "demo-3",
-      seljarNavn: "Ola Sørheim",
+      seljarNavn: (VINDEX_TEAM[2] || {}).navn || "Selger",
       kunde: { navn: "Silje Berg", telefon: "91000068", epost: "silje@eksempel.no", adresse: "Eksempelvegen 8", postnr: "4020", poststed: "Stavanger" },
       felt: {
         std_levegg_18m: 4,
@@ -303,7 +326,7 @@ function demoOrdrar() {
         pris_total: 41900,
       },
       rader: [],
-      bekrefta: { av: "Ola Sørheim", tid: new Date(Date.now() - 4 * 86400000).toISOString(), kundeOppgittMal: "ja" },
+      bekrefta: { av: (VINDEX_TEAM[2] || {}).navn || "Selger", tid: new Date(Date.now() - 4 * 86400000).toISOString(), kundeOppgittMal: "ja" },
     },
     // Spesialproduserte ordrar, så produksjonskøen viser eit reelt tal.
     {
@@ -313,11 +336,11 @@ function demoOrdrar() {
       status: "i_produksjon",
       opprettet: new Date(Date.now() - 2 * 86400000).toISOString(),
       seljarId: "demo-2",
-      seljarNavn: "Kari Nordvik",
+      seljarNavn: (VINDEX_TEAM[1] || {}).navn || "Selger",
       kunde: { navn: "Kjell Aune", telefon: "92000001", epost: "kjell@eksempel.no", adresse: "Eksempelvegen 12", postnr: "7010", poststed: "Trondheim" },
       felt: { modell1: "VBC New England", modell1_meter: 46, modell1_hoyde: 1000, stk_stolper: 24, pris_tilpasset: 58900 },
       rader: [],
-      bekrefta: { av: "Kari Nordvik", tid: new Date(Date.now() - 2 * 86400000).toISOString(), kundeOppgittMal: "nei" },
+      bekrefta: { av: (VINDEX_TEAM[1] || {}).navn || "Selger", tid: new Date(Date.now() - 2 * 86400000).toISOString(), kundeOppgittMal: "nei" },
     },
     {
       id: "demo-ordre-3",
@@ -326,14 +349,14 @@ function demoOrdrar() {
       status: "i_produksjon",
       opprettet: new Date(Date.now() - 86400000).toISOString(),
       seljarId: "demo-3",
-      seljarNavn: "Ola Sørheim",
+      seljarNavn: (VINDEX_TEAM[2] || {}).navn || "Selger",
       kunde: { navn: "Trond Sæther", telefon: "92000002", epost: "trond@eksempel.no", adresse: "Eksempelvegen 4", postnr: "5063", poststed: "Bergen" },
       felt: { antall_sprosser: 14, pris_sprosser: 16800 },
       rader: [
         { lnr: "1", antall: "8", fals_b: "1180", fals_h: "1080", ruter_b: "3", ruter_h: "2", sprosseverk: "22", omramming: "29", buer: "", hengsler: "V", type: "V", flukting_nr: "", flukting_verdi: "" },
         { lnr: "2", antall: "6", fals_b: "890", fals_h: "1180", ruter_b: "2", ruter_h: "3", sprosseverk: "22", omramming: "29", buer: "", hengsler: "H", type: "V", flukting_nr: "", flukting_verdi: "" },
       ],
-      bekrefta: { av: "Ola Sørheim", tid: new Date(Date.now() - 86400000).toISOString(), kundeOppgittMal: "ja" },
+      bekrefta: { av: (VINDEX_TEAM[2] || {}).navn || "Selger", tid: new Date(Date.now() - 86400000).toISOString(), kundeOppgittMal: "ja" },
     },
   ];
 }

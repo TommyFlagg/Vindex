@@ -711,3 +711,20 @@ table.data.kompakt th, table.data.kompakt td { padding: 0.4rem 0.5rem; }
 .fylkeliste li { display: grid; grid-template-columns: 6.5rem 1fr 2rem; gap: 0.6rem; align-items: center; font-size: 0.88rem; }
 .fylkeliste-navn { font-weight: 600; }
 .fylkeliste-tal { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* --- månadsdiagram --- */
+.diagramboks { position: relative; margin-top: 0.75rem; }
+.manadsdiagram { width: 100%; height: auto; display: block; }
+/* Aksen skal vere til stades, ikkje til stades i vegen. */
+.manadsdiagram .akse { stroke: var(--border); stroke-width: 1; }
+.manadsdiagram .stolpe-aar { fill: var(--primary); }
+.manadsdiagram .stolpe-fjor { fill: none; stroke: var(--muted); stroke-width: 1.5; opacity: 0.55; }
+.manadsdiagram .stolpe-etikett { font-size: 11px; fill: var(--muted); text-anchor: middle; font-weight: 600; }
+.manadsdiagram .stolpe-tal { font-size: 12px; fill: var(--primary-dark); text-anchor: middle; font-weight: 800; }
+.manadsdiagram .stolpe-treff { fill: transparent; }
+.manadsdiagram .stolpegruppe:hover .stolpe-aar { fill: var(--primary-dark); }
+.manadsdiagram .stolpegruppe:hover .stolpe-treff { fill: rgba(16, 73, 90, 0.05); }
+.diagram-tegn { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.4rem; }
+.diagram-tegn i { width: 14px; height: 12px; border-radius: 3px; display: inline-block; }
+.diagram-tegn .tegn-aar { background: var(--primary); }
+.diagram-tegn .tegn-fjor { border: 1.5px solid var(--muted); opacity: 0.7; }

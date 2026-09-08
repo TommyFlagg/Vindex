@@ -90,6 +90,75 @@ function kapasitetsmalar(ko) {
   </div>`;
 }
 
+
+/**
+ * Ordreinngang per månad, med fjoråret som referanse.
+ *
+ * Éin måling over tid — altså stolpar. I år er fylt, i fjor er ein open ramme
+ * bak: to seriar skil seg då på både farge og form, ikkje farge åleine.
+ * Berre den høgaste månaden får tal skrive på seg; resten les ein av
+ * verktøylinja. Aksen er med vilje sval, den skal ikkje konkurrere med tala.
+ */
+function manadsdiagram(iAar, iFjor, aar) {
+  const B = 720, H = 260, venstre = 8, botn = 34, topp = 18;
+  const felt = B - venstre * 2;
+  const breidd = felt / iAar.length;
+  const stolpe = Math.min(34, breidd * 0.52);
+
+  const maks = Math.max(1, ...iAar.map((m) => m.sum), ...iFjor.map((m) => m.sum || 0));
+  const y = (v) => topp + (H - topp - botn) * (1 - v / maks);
+  const hogd = (v) => Math.max(v > 0 ? 3 : 0, H - botn - y(v));
+  const toppManad = iAar.reduce((a, b) => (b.sum > a.sum ? b : a), iAar[0]);
+
+  const stolpar = iAar
+    .map((m, i) => {
+      const x = venstre + i * breidd + (breidd - stolpe) / 2;
+      const fjor = iFjor[i] ? iFjor[i].sum : 0;
+      const merk = m.sum > 0 && m.navn === toppManad.navn;
+      return `<g class="stolpegruppe" data-manad="${m.navn}" data-sum="${m.sum}" data-fjor="${fjor}">
+        ${fjor ? `<rect class="stolpe-fjor" x="${x}" y="${y(fjor)}" width="${stolpe}" height="${hogd(fjor)}" rx="4"/>` : ""}
+        ${m.sum ? `<rect class="stolpe-aar" x="${x + 3}" y="${y(m.sum)}" width="${stolpe - 6}" height="${hogd(m.sum)}" rx="4"/>` : ""}
+        ${merk ? `<text class="stolpe-tal" x="${x + stolpe / 2}" y="${y(m.sum) - 6}">${vindexKrKort(m.sum)}</text>` : ""}
+        <text class="stolpe-etikett" x="${x + stolpe / 2}" y="${H - botn + 16}">${m.navn.slice(0, 3)}</text>
+        <rect class="stolpe-treff" x="${venstre + i * breidd}" y="${topp}" width="${breidd}" height="${H - topp - botn}"/>
+      </g>`;
+    })
+    .join("");
+
+  return `<div class="diagramboks">
+    <svg viewBox="0 0 ${B} ${H}" class="manadsdiagram" role="img"
+      aria-label="Ordreinngang per måned i ${aar}, med ${VINDEX_FJOR.aar} som referanse">
+      <line class="akse" x1="${venstre}" y1="${H - botn}" x2="${B - venstre}" y2="${H - botn}"/>
+      ${stolpar}
+    </svg>
+    <div class="kart-tooltip hidden" role="status"></div>
+    <div class="diagram-tegn">
+      <span class="tegn-rad"><i class="tegn-aar"></i> ${aar}</span>
+      <span class="tegn-rad"><i class="tegn-fjor"></i> ${VINDEX_FJOR.aar} (${VINDEX_FJOR.periode})</span>
+    </div>
+  </div>`;
+}
+
+function koplaDiagram(rot) {
+  const tooltip = rot.querySelector(".diagramboks .kart-tooltip");
+  if (!tooltip) return;
+  rot.querySelectorAll(".stolpegruppe").forEach((g) => {
+    const vis = (e) => {
+      const sum = Number(g.dataset.sum), fjor = Number(g.dataset.fjor);
+      const diff = fjor ? Math.round(((sum - fjor) / fjor) * 100) : null;
+      tooltip.innerHTML = `<strong>${g.dataset.manad}</strong><br>
+        ${kr(sum)}${fjor ? `<br><span style="opacity:.75">${VINDEX_FJOR.aar}: ${kr(fjor)}${
+          diff === null ? "" : ` (${diff >= 0 ? "+" : ""}${diff} %)`}</span>` : ""}`;
+      tooltip.classList.remove("hidden");
+      const boks = rot.querySelector(".diagramboks").getBoundingClientRect();
+      tooltip.style.left = Math.min(boks.width - 180, Math.max(6, e.clientX - boks.left + 12)) + "px";
+      tooltip.style.top = Math.max(6, e.clientY - boks.top - 50) + "px";
+    };
+    g.addEventListener("mousemove", vis);
+    g.addEventListener("mouseleave", () => tooltip.classList.add("hidden"));
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Oversikt
 // ---------------------------------------------------------------------------
@@ -104,6 +173,17 @@ function vindexTeiknOversikt(el, ctx) {
   const minPlass = rangering.findIndex((r) => r.seljar.id === brukar.uid) + 1;
   const streak = vindexStreak(mine);
   const ko = vindexProduksjonsko(ordrar);
+
+  const iAar = new Date().getFullYear();
+  const inngang = vindexOrdreinngang(ordrar, iAar);
+  const aarSum = inngang.reduce((n, m) => n + m.sum, 0);
+  // Fjoråret som referanse. Rapporten dekkjer jan–sep, så resten står tom
+  // heller enn å bli fylt med null — vi skal ikkje teikne data vi ikkje har.
+  const fjorManad = MANADSNAVN.map((navn) => {
+    const f = VINDEX_FJOR.manad.find((m) => m.navn === navn);
+    return { navn, sum: f ? f.sum : 0 };
+  });
+  const perSeljar = vindexOrdreinngangPerSeljar(seljarar, ordrar, iAar);
 
   const rateFarge =
     tal.oppfolgingsrate >= 90 ? "var(--good)" : tal.oppfolgingsrate >= 70 ? "var(--warn)" : "var(--bad)";
@@ -168,6 +248,40 @@ function vindexTeiknOversikt(el, ctx) {
 
     <div class="card mt-2">
       <div class="detail-head">
+        <h3 class="mt-0 mb-0">Ordreinngang ${iAar}</h3>
+        <span class="hint">Eks. mva, uten frakt — samme grunnlag som årsrapporten.</span>
+      </div>
+      ${manadsdiagram(inngang, fjorManad, iAar)}
+      <p class="hint mb-0">Hittil i år: <strong>${kr(aarSum)}</strong>.
+        ${VINDEX_FJOR.aar} ${VINDEX_FJOR.periode}: ${kr(VINDEX_FJOR.total)} totalt,
+        hvorav ${VINDEX_FJOR.kanal.map((k) => k.navn.toLowerCase() + " " + vindexKrKort(k.sum)).join(", ")}.</p>
+    </div>
+
+    ${erAdmin ? `<div class="card mt-2">
+      <div class="detail-head">
+        <h3 class="mt-0 mb-0">Ordreinngang per selger</h3>
+        <span class="hint">Bare synlig for hovedkontoret.</span>
+      </div>
+      <div class="table-scroll mt-1" style="border:none">
+        <table class="data" style="min-width:420px">
+          <thead><tr><th>Selger</th><th>Sted</th><th>Ordrer</th><th>Ordreinngang</th><th>${VINDEX_FJOR.aar}</th></tr></thead>
+          <tbody>${perSeljar
+            .map(
+              (r) => `<tr>
+                <td><strong>${r.seljar.navn}</strong>${r.seljar.type === "forhandler" ? ' <span class="merke merke-liten">forhandler</span>' : ""}</td>
+                <td>${r.seljar.sted || "–"}</td>
+                <td>${r.tal}</td>
+                <td class="nowrap">${r.sum ? kr(r.sum) : "–"}</td>
+                <td class="nowrap hint">${r.seljar.y2024 ? kr(r.seljar.y2024) : "–"}</td>
+              </tr>`
+            )
+            .join("")}</tbody>
+        </table>
+      </div>
+    </div>` : ""}
+
+    <div class="card mt-2">
+      <div class="detail-head">
         <h3 class="mt-0 mb-0">Alle selgere</h3>
         <span class="hint">Nøkkeltall er synlige for alle — slik vet du om dine egne tall er gode.</span>
       </div>
@@ -182,7 +296,9 @@ function vindexTeiknOversikt(el, ctx) {
               .map(
                 (r, i) => `<tr class="${r.seljar.id === brukar.uid ? "meg" : ""}">
                   <td class="nowrap">${i + 1}</td>
-                  <td><strong>${r.seljar.navn}</strong>${r.seljar.id === brukar.uid ? ' <span class="merke merke-liten">deg</span>' : ""}</td>
+                  <td><strong>${r.seljar.navn}</strong>${r.seljar.id === brukar.uid ? ' <span class="merke merke-liten">deg</span>' : ""}
+                    ${r.seljar.type === "forhandler" ? '<br><span class="hint">forhandler</span>' : ""}
+                    ${r.seljar.sted ? `<br><span class="hint">${r.seljar.sted}</span>` : ""}</td>
                   <td>
                     <div class="stolpe" title="${r.tal.oppfolgingsrate} %">
                       <span style="width:${r.tal.oppfolgingsrate}%"></span>
@@ -213,6 +329,7 @@ function vindexTeiknOversikt(el, ctx) {
     </div>`;
 
   el.querySelectorAll("[data-tell]").forEach((n) => tellOpp(n, Number(n.dataset.tell)));
+  koplaDiagram(el);
   vindexTilt(el);
 
   const minikart = el.querySelector("#miniKart");
