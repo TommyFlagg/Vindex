@@ -116,19 +116,40 @@
   </div>
 </section>
 
-<!-- 5 — TILBAKEMELDINGER ---------------------------------------------- -->
-<section id="tilbakemeldinger" class="hidden">
+<!-- 5 — HVEM ER VI ---------------------------------------------------- -->
+<section id="omoss" style="padding-top:0">
+  <img class="lagbilete hidden" id="lagbilete" src="" alt="Folkene på Vindex-fabrikken på Hustadvika">
+  <div class="wrap" style="padding-top:3.25rem">
+    <div class="omoss-tekst" data-avslor>
+      <span class="merkelapp">Hvem er vi</span>
+      <h2 class="mt-0">Et verksted bygd av <em class="aksentord">folk</em> ·
+        for <em class="aksentord">hus</em>.</h2>
+      <p class="lead" id="omossIngress"></p>
+      <hr class="omoss-skilje">
+      <p class="understreking">Vi kan faget vårt. Men jobben vår er huset ditt.</p>
+      <p>Et rekkverk er ikke en vare du kjøper ferdig fra en hylle — det er noe som
+        skal stå på akkurat din terrasse, i akkurat ditt terreng, i tretti år. Derfor
+        måler vi opp hos deg, tegner løsningen, og produserer den selv. Vi vet hva
+        salt og vestavind gjør med ting, fordi vi står i det hver dag.</p>
+      <p class="mb-0"><a class="btn btn-ghost" href="om-oss.html">Mer om oss</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- 6 — TILBAKEMELDINGER ---------------------------------------------- -->
+<section id="tilbakemeldinger" class="section-alt hidden">
   <div class="wrap">
     <div class="section-head" data-avslor>
       <span class="merkelapp">Hva kundene sier</span>
-      <h2>Tilbakemeldinger</h2>
+      <h2 id="sitatOverskrift">Tilbakemeldinger</h2>
+      <p class="lead" id="sitatUnder"></p>
     </div>
     <div class="sitatrad" id="sitatRad"></div>
   </div>
 </section>
 
-<!-- 6 — MONTERING OG TEKNISK ------------------------------------------ -->
-<section class="section-alt" id="teknisk">
+<!-- 7 — MONTERING OG TEKNISK ------------------------------------------ -->
+<section id="teknisk">
   <div class="wrap">
     <div class="section-head" data-avslor>
       <span class="merkelapp">Montering og teknisk</span>
@@ -182,7 +203,7 @@
   </div>
 </section>
 
-<!-- 7 — MILJØFYRTÅRN --------------------------------------------------- -->
+<!-- 8 — MILJØFYRTÅRN --------------------------------------------------- -->
 <section id="miljo">
   <div class="wrap">
     <div class="miljoblokk" data-avslor>
@@ -202,7 +223,7 @@
   </div>
 </section>
 
-<!-- 8 — AVSLUTTENDE CTA ------------------------------------------------ -->
+<!-- 9 — AVSLUTTENDE CTA ------------------------------------------------ -->
 <section class="section-dark seksjon-rel">
   <svg class="vindstriper" viewBox="0 0 1200 400" preserveAspectRatio="none" aria-hidden="true">
     <path d="M-200 70 C 100 30, 300 110, 600 70 S 1100 30, 1400 70"/>
@@ -240,13 +261,43 @@
       </div>
     </a>`).join("");
 
-  // Sitatseksjonen viser seg berre når det finst ekte sitat å vise.
+  // Ingressen i «Hvem er vi» nemner tal tilsette berre når vi har talet.
+  document.getElementById("omossIngress").textContent = VINDEX_FIRMA.tilsette
+    ? `Vi er ${VINDEX_FIRMA.tilsette} på Hustadvika, og vi har holdt på siden ${VINDEX_FIRMA.etablert}.`
+    : `Vi holder til på Hustadvika, og vi har holdt på siden ${VINDEX_FIRMA.etablert}.`;
+
+  if (VINDEX_FIRMA.lagbilete) {
+    const bilete = document.getElementById("lagbilete");
+    bilete.src = VINDEX_FIRMA.lagbilete;
+    bilete.classList.remove("hidden");
+  }
+
+  // Sitatseksjonen viser seg berre når det finst ekte sitat å vise, og
+  // overskrifta blir rekna ut av lista — ikkje skriven inn for hand.
   if (VINDEX_TILBAKEMELDINGAR.length) {
+    const s = vindexSitatSamandrag(VINDEX_TILBAKEMELDINGAR);
     document.getElementById("tilbakemeldinger").classList.remove("hidden");
-    document.getElementById("sitatRad").innerHTML = VINDEX_TILBAKEMELDINGAR.slice(0, 6)
+    document.getElementById("sitatOverskrift").innerHTML = s.prosent !== null
+      ? `<em class="aksentord">${s.prosent} %</em> anbefaler oss`
+      : "Hva kundene sier";
+    document.getElementById("sitatUnder").textContent =
+      `${s.tal} anbefaling${s.tal === 1 ? "" : "er"}` +
+      (s.kjelder.length ? " fra " + s.kjelder.join(" og ") : "");
+
+    document.getElementById("sitatRad").innerHTML = VINDEX_TILBAKEMELDINGAR.slice(0, 9)
       .map((t) => `<figure class="sitat" data-avslor>
-        <blockquote>${t.sitat}</blockquote>
-        <figcaption>${t.namn}${t.stad ? ", " + t.stad : ""}${t.produkt ? " · " + t.produkt : ""}${t.aar ? " · " + t.aar : ""}</figcaption>
+        <div class="sitat-topp">
+          ${t.stjerner ? `<span class="stjerner" role="img" aria-label="${t.stjerner} av 5 stjerner">${"★".repeat(t.stjerner)}</span>` : "<span></span>"}
+          ${t.kjelde ? `<span class="sitat-kjelde">${t.kjelde}</span>` : ""}
+        </div>
+        <blockquote>«${t.sitat}»</blockquote>
+        <figcaption class="sitat-person">
+          <span class="initialar" aria-hidden="true">${vindexInitialar(t.namn)}</span>
+          <span>
+            <span class="sitat-namn">${t.namn}</span>
+            <span class="sitat-rolle">${[t.rolle, t.stad].filter(Boolean).join(", ")}</span>
+          </span>
+        </figcaption>
       </figure>`).join("");
   }
 

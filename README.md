@@ -42,10 +42,11 @@ brødtekst og 3:1 for store overskrifter. Alt er over kravet.
 | 2 | Nøkkelinfo | De fire tallene kunden vil ha før de orker lese mer |
 | 3 | Produkter | Hele sortimentet, hentet fra katalogen |
 | 4 | Hva vi står for | Fire verdier, inkludert lydargumentet mot importerte produkter |
-| 5 | Tilbakemeldinger | Kundesitater — skjuler seg selv når lista er tom |
-| 6 | Montering og teknisk | Fire steg i prosessen, pluss datablad |
-| 7 | Miljøfyrtårn | Sertifiseringen, og hvorfor den henger sammen med produktet |
-| 8 | Avslutning | Siste CTA |
+| 5 | Hvem er vi | Lagbilde og hvem som står bak |
+| 6 | Tilbakemeldinger | Kundesitater — skjuler seg selv når lista er tom |
+| 7 | Montering og teknisk | Fire steg i prosessen, pluss datablad |
+| 8 | Miljøfyrtårn | Sertifiseringen, og hvorfor den henger sammen med produktet |
+| 9 | Avslutning | Siste CTA |
 
 **Kort vei til lead.** En klebrig CTA-linje glir opp når helten er ute av syne, og
 finnes ikke på selve skjemaet — der er kunden allerede. Til sammen fem veier fra
@@ -58,8 +59,30 @@ en oppdiktet omtale er en falsk omtale, uansett hvor sannsynlig den høres ut.
 Fyll inn ekte sitater — med samtykke — så vises seksjonen automatisk. Er lista
 tom, hopper seksjonen over seg selv.
 
+Hvert sitat kan ha stjerner, rolle, sted og kilde:
+
+```js
+{ sitat: "…", namn: "Kari Nordmann", rolle: "Huseier",
+  stad: "Molde", kjelde: "Facebook", stjerner: 5 }
+```
+
+**Overskriften regnes ut av lista**, ikke skrevet inn: antall anbefalinger,
+hvilke kilder de kommer fra, og hvor stor andel som er 4–5 stjerner. Da kan
+tallet aldri bli utdatert — og det kan aldri påstå mer enn dataene viser. Er det
+ingen stjerner i lista, står det ingen prosentpåstand.
+
+Kortene ligger i en rad man sveiper gjennom på mobil, og i et rutenett fra
+900 px.
+
 Gode kilder dere allerede har: Facebook-siden, e-poster fra fornøyde kunder, og
 «Derfor vant vi»-årsakene selgerne registrerer i salgsverktøyet.
+
+### Lagbilde
+
+`VINDEX_FIRMA.lagbilete` er tom. Legg inn et bilde av folkene på fabrikken, så
+vises det øverst i «Hvem er vi». Uten bilde viser seksjonen bare teksten — vi
+setter ikke inn et produktbilde og kaller det et lagbilde. `VINDEX_FIRMA.tilsette`
+kan settes til antall ansatte; står det tomt, nevner ingressen ikke tallet.
 
 ### Miljøfyrtårn
 

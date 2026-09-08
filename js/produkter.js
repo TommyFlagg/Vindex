@@ -25,6 +25,11 @@ const VINDEX_FIRMA = {
   // Miljøfyrtårn-sertifisert. Sertifikatnummer og lenke må fyllast inn før
   // lansering — vi påstår ikkje noko vi ikkje kan vise fram.
   miljofyrtarn: { sertifisert: true, nummer: "", lenke: "" },
+  // Bilete av folka på fabrikken, til «Hvem er vi»-seksjonen. Står feltet
+  // tomt, viser seksjonen berre teksten — vi set ikkje inn eit produktbilete
+  // og kallar det eit lagbilete.
+  lagbilete: "",
+  tilsette: null,   // tal tilsette, om de vil vise det
 };
 
 // ---------------------------------------------------------------------------
