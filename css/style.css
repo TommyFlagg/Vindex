@@ -1099,3 +1099,38 @@ body.tema-mork .btn-ghost:hover { background: rgba(230, 238, 243, 0.08); color: 
 }
 .initialar { width: 46px; height: 46px; font-size: 0.92rem; }
 .sitat-rolle { display: block; }
+
+/* ---------------------------------------------------------------------------
+   KONTAKTPERSONAR
+   Eit namn og eit ansikt gjer meir for terskelen til å ta kontakt enn noko
+   anna på sida. Kortet er difor bygd rundt portrettet, med telefon og e-post
+   som store, trykkbare mål.
+   --------------------------------------------------------------------------- */
+.personrad { display: grid; gap: 1.1rem; grid-template-columns: 1fr; }
+@media (min-width: 700px) { .personrad { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1040px) { .personrad.tre { grid-template-columns: repeat(3, 1fr); } }
+.personkort {
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 2rem 1.5rem; text-align: center; display: flex;
+  flex-direction: column; align-items: center; gap: 0.4rem;
+}
+.personbilete {
+  width: 148px; height: 148px; border-radius: 50%; object-fit: cover;
+  margin-bottom: 1rem; border: 3px solid var(--border);
+}
+.personkort .namn {
+  font-family: "Oswald", "Arial Narrow", sans-serif; text-transform: uppercase;
+  font-size: 1.3rem; font-weight: 600; color: var(--krem, var(--ink)); letter-spacing: 0.02em;
+}
+.personkort .rolle {
+  text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.74rem;
+  color: var(--muted); font-weight: 700; margin-bottom: 1rem;
+}
+.personlenker { display: grid; gap: 0.55rem; width: 100%; margin-top: auto; }
+.personlenker a {
+  display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+  color: var(--ink); text-decoration: none; padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border); font-weight: 600; font-size: 0.94rem;
+}
+.personlenker a:hover { border-color: var(--accent); color: var(--accent); }
+.personlenker svg { width: 18px; height: 18px; flex-shrink: 0; fill: currentColor; }

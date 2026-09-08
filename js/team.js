@@ -80,3 +80,28 @@ const VINDEX_FJOR = {
 };
 
 const vindexTeamAv = (type) => VINDEX_TEAM.filter((t) => t.type === type);
+
+// ---------------------------------------------------------------------------
+// Kontaktpersonar
+// ---------------------------------------------------------------------------
+// Folka kunden faktisk skal snakke med. Eit namn og eit ansikt gjer meir for
+// terskelen til å ta kontakt enn nokon annan seksjon på sida.
+//
+//  ⚠️  Direkte e-postadresser manglar. Vi gjettar dei ikkje — står `epost`
+//     tomt, brukar kortet firmaadressa i staden.
+const VINDEX_KONTAKTAR = [
+  {
+    namn: "Magnus Farstad",
+    rolle: "Daglig leder",
+    telefon: "71 26 60 00",
+    epost: "",
+    bilete: "assets/bilder/magnus-farstad.jpg",
+  },
+  {
+    namn: "Randi Farstad",
+    rolle: "Marked",
+    telefon: "918 66 547",
+    epost: "",
+    bilete: "assets/bilder/randi-farstad.jpg",
+  },
+];

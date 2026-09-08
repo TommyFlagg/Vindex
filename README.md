@@ -77,12 +77,32 @@ Kortene ligger i en rad man sveiper gjennom på mobil, og i et rutenett fra
 Gode kilder dere allerede har: Facebook-siden, e-poster fra fornøyde kunder, og
 «Derfor vant vi»-årsakene selgerne registrerer i salgsverktøyet.
 
-### Lagbilde
+### Lagbilde og kontaktpersoner
 
-`VINDEX_FIRMA.lagbilete` er tom. Legg inn et bilde av folkene på fabrikken, så
-vises det øverst i «Hvem er vi». Uten bilde viser seksjonen bare teksten — vi
-setter ikke inn et produktbilde og kaller det et lagbilde. `VINDEX_FIRMA.tilsette`
-kan settes til antall ansatte; står det tomt, nevner ingressen ikke tallet.
+Lagbildet fra Hustadvika ligger i `assets/bilder/laget.webp` og vises øverst i
+«Hvem er vi». Uten bilde viser seksjonen bare teksten — vi setter ikke inn et
+produktbilde og kaller det et lagbilde. `VINDEX_FIRMA.tilsette` kan settes til
+antall ansatte; står det tomt, nevner ingressen ikke tallet.
+
+Kontaktpersonene ligger i `VINDEX_KONTAKTAR` (`js/team.js`) og vises på
+forsiden, «Om oss» og «Kontakt» — samme kort overalt, bygget av
+`vindexPersonkort()`.
+
+> ⚠️ **Direkte e-postadresser mangler.** Vi gjetter dem ikke. Står `epost` tomt,
+> bruker kortet firmaadressen. Fyll inn de riktige adressene til Magnus og Randi.
+
+Portrettene er klippet ut av skjermbilder fra hustadvika-nf.no. **Be om
+originalfilene** — de blir skarpere, og opphavsretten blir ryddig.
+
+### Historien er faktasjekket
+
+Teksten på «Om oss» følger Vindex' egen framstilling: etablert i Lillesand i
+1986 som garasjebedrift, flyttet til Farstad i 1992 med nye eiere, eneste
+produsent av VINDEX-sprosser i vinyl, produksjon i to fabrikker, CNC-fresing og
+spesiallaget produksjonsrobot, og forhandlere og selgere over hele landet.
+
+Dette rettet opp to feil jeg hadde skrevet tidligere: at fabrikken hadde ligget
+på Hustadvika siden 1986, og at det var én fabrikk.
 
 ### Miljøfyrtårn
 

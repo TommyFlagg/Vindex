@@ -18,6 +18,11 @@ const VINDEX_FIRMA = {
   garantiAr: 30,            // ekstruderte PVC-produkt
   garantiAvvikAr: 5,        // formstøypte delar, LED-lys og glass
   etablert: 1986,
+  // Starta i Lillesand i 1986, flytta til Farstad i 1992 med nye eigarar.
+  // Fabrikken har altså ikkje lege på Hustadvika sidan starten — det er ein
+  // skilnad som er verdt å ha rett når ein skriv "siden 1986".
+  flyttaTilFarstad: 1992,
+  fabrikkar: 2,
   produksjonstid: "1–4 uker, i tillegg til montering",
   facebook: "https://www.facebook.com/Vedlikeholdsfritt/",
   instagram: "",
@@ -28,7 +33,7 @@ const VINDEX_FIRMA = {
   // Bilete av folka på fabrikken, til «Hvem er vi»-seksjonen. Står feltet
   // tomt, viser seksjonen berre teksten — vi set ikkje inn eit produktbilete
   // og kallar det eit lagbilete.
-  lagbilete: "",
+  lagbilete: "assets/bilder/laget.webp",
   tilsette: null,   // tal tilsette, om de vil vise det
 };
 
