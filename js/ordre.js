@@ -81,33 +81,59 @@ const ORDRESEDDEL_REKKVERK = {
     },
     {
       id: "modell",
-      tittel: "Modell og mål",
+      tittel: "Artikler — modell og mål",
       krevMal: true,
+      hjelp:
+        "Velg modell fra prislisten og fyll inn antall meter. Modellkoden er det " +
+        "produksjonen jobber etter, så den skal alltid stå her — også når prosjektet " +
+        "er en kombinasjon av flere.",
       felt: [
-        { id: "modell1", navn: "Modell 1", type: "tekst" },
-        { id: "modell1_meter", navn: "Ant. meter", type: "tal" },
+        { id: "profil", navn: "Tverrstag", type: "valg", register: "profil",
+          hjelp: "A14 eller A19. Valget bestemmer både artikkelnummer og pris på VB-modellene." },
+        { id: "modell1", navn: "Modell 1", type: "valg", register: "modell" },
+        { id: "modell1_meter", navn: "Ant. meter", type: "tal", enhet: "lm" },
         { id: "modell1_hoyde", navn: "Høyde", type: "tal", enhet: "mm" },
-        { id: "modell2", navn: "Modell 2", type: "tekst" },
-        { id: "modell2_meter", navn: "Ant. meter", type: "tal" },
+        { id: "modell2", navn: "Modell 2", type: "valg", register: "modell" },
+        { id: "modell2_meter", navn: "Ant. meter", type: "tal", enhet: "lm" },
         { id: "modell2_hoyde", navn: "Høyde", type: "tal", enhet: "mm" },
+        { id: "modell3", navn: "Modell 3", type: "valg", register: "modell" },
+        { id: "modell3_meter", navn: "Ant. meter", type: "tal", enhet: "lm" },
+        { id: "modell3_hoyde", navn: "Høyde", type: "tal", enhet: "mm" },
         { id: "topprekke", navn: "Topprekke", type: "tekst" },
-        { id: "stakittopp", navn: "Stakittopp", type: "tekst" },
-        { id: "stolpetopp", navn: "Stolpetopp", type: "tekst" },
-        { id: "stolpetopp_stk", navn: "Stolpetopp stk", type: "tal" },
-        { id: "pyntekrans_stk", navn: "Pyntekrans stk", type: "tal" },
-        { id: "pyntekrans_splitt_stk", navn: "Pyntekrans splitt stk", type: "tal" },
+        { id: "stakittopp", navn: "Stakittopp", type: "valg", register: "stakittopp" },
+        { id: "ekstra_stakitt", navn: "Ekstra stakitt — tettere (7459)", type: "tal" },
+        { id: "ekstra_alu_topp", navn: "Ekstra alu i topp A14/A19 (7478)", type: "tal" },
       ],
     },
     {
       id: "stolper",
-      tittel: "Stolper og feste",
+      tittel: "Stolper, topper og pyntekrans",
+      hjelp:
+        "Standard eller spesial er ikke en merknad — det er to ulike artikler, og " +
+        "spesialstolpen går til produksjon i stedet for plukk. Velg derfor riktig her.",
       felt: [
-        { id: "stk_stolper", navn: "Stk stolper", type: "tal" },
-        { id: "endestolper", navn: "Endestolper", type: "tal" },
-        { id: "linjestolper", navn: "Linjestolper", type: "tal" },
-        { id: "hjornestolper", navn: "Hjørnestolper", type: "tal" },
-        { id: "spesstolper", navn: "Spes.stolper", type: "tal" },
-        { id: "spesialstolpe_forklaring", navn: "Spesialstolpe — forklaring", type: "omrade" },
+        { id: "stolpe1_type", navn: "Stolpe 1 — type", type: "valg", register: "stolpe" },
+        { id: "stolpe1_utforing", navn: "Standard eller spesial", type: "valg", register: "stolpeutforing" },
+        { id: "stolpe1_stk", navn: "Stolpe 1 — antall", type: "tal" },
+        { id: "stolpe2_type", navn: "Stolpe 2 — type", type: "valg", register: "stolpe" },
+        { id: "stolpe2_utforing", navn: "Standard eller spesial", type: "valg", register: "stolpeutforing" },
+        { id: "stolpe2_stk", navn: "Stolpe 2 — antall", type: "tal" },
+        { id: "spesialstolpe_forklaring", navn: "Spesialstolpe — forklaring", type: "omrade",
+          hjelp: "Er en stolpe merket spesial, må det stå her hva som skiller den fra standard." },
+        { id: "endestolper", navn: "Herav endestolper", type: "tal" },
+        { id: "linjestolper", navn: "Herav linjestolper", type: "tal" },
+        { id: "hjornestolper", navn: "Herav hjørnestolper", type: "tal" },
+        { id: "stolpefot_stk", navn: "Stolpefot (7359) stk", type: "tal" },
+
+        { id: "stolpetopp1", navn: "Stolpetopp 1 — type", type: "valg", register: "topp" },
+        { id: "stolpetopp1_stk", navn: "Stolpetopp 1 — antall", type: "tal" },
+        { id: "stolpetopp2", navn: "Stolpetopp 2 — type", type: "valg", register: "topp" },
+        { id: "stolpetopp2_stk", navn: "Stolpetopp 2 — antall", type: "tal" },
+
+        { id: "pyntekrans_stk", navn: "Pyntekrans (7448) stk", type: "tal" },
+        { id: "pyntekrans_splitt_stk", navn: "Pyntekrans splitt (7449) stk", type: "tal",
+          hjelp: "Splittet krans brukes der den må tres rundt en stolpe som alt står." },
+
         { id: "veggfeste_a07", navn: "Veggfeste A07", type: "tal" },
         { id: "veggfeste_a14", navn: "Veggfeste A-14", type: "tal" },
         { id: "veggfeste_a19", navn: "Veggfeste A-19", type: "tal" },
@@ -125,12 +151,16 @@ const ORDRESEDDEL_REKKVERK = {
     {
       id: "port",
       tittel: "Port",
-      hjelp: "Dødbolt, 2-veislås, stopper og håndtak leveres kun i sort.",
+      hjelp:
+        "Dødbolt, 2-veislås, stopper og håndtak leveres kun i sort. " +
+        "Port over 1,3 m anbefales ikke — det står ved hver eneste portlinje i prislisten.",
       felt: [
-        { id: "port1_type", navn: "Port type 1", type: "tekst" },
+        { id: "port1_type", navn: "Port type 1", type: "valg", register: "port" },
+        { id: "port1_stk", navn: "Port 1 — antall", type: "tal" },
         { id: "port1_hoyde", navn: "Høyde", type: "tal", enhet: "mm" },
         { id: "port1_lysmal", navn: "Lysmål port 1", type: "tal", enhet: "mm" },
-        { id: "port2_type", navn: "Port type 2", type: "tekst" },
+        { id: "port2_type", navn: "Port type 2", type: "valg", register: "port" },
+        { id: "port2_stk", navn: "Port 2 — antall", type: "tal" },
         { id: "port2_hoyde", navn: "Høyde", type: "tal", enhet: "mm" },
         { id: "port2_lysmal", navn: "Lysmål port 2", type: "tal", enhet: "mm" },
         { id: "hengsler_sort", navn: "Hengsler sort", type: "tal" },
@@ -192,8 +222,9 @@ const ORDRESEDDEL_REKKVERK = {
         { id: "kommentarer", navn: "Kommentarer", type: "omrade",
           hjelp: "Tegn skisse med forklaring av kombinasjoner (eget vedlegg), og send med bilder." },
         { id: "kunde_oppgitt_mal", navn: "Kunde har selv oppgitt alle mål på eget ansvar", type: "valg",
+          ikkjePlukk: true,
           val: [{ id: "ja", navn: "Ja" }, { id: "nei", navn: "Nei" }] },
-        { id: "hvor_fant_oss", navn: "Hvor fant du oss", type: "valg",
+        { id: "hvor_fant_oss", navn: "Hvor fant du oss", type: "valg", ikkjePlukk: true,
           val: [
             { id: "annonse", navn: "Annonse" },
             { id: "internett", navn: "Internett" },
@@ -312,6 +343,80 @@ function vindexSkjema(skjemaId) {
   return VINDEX_ORDRESKJEMA.find((s) => s.id === skjemaId) || null;
 }
 
+
+// ---------------------------------------------------------------------------
+// Felt som hentar frå prislista
+// ---------------------------------------------------------------------------
+// Eit felt kan anten ha vala sine skrivne rett inn (`val`), eller hente dei
+// frå eit register i prislista (`register`). Det siste gjer at prislista er
+// den einaste staden ein modell eller ein stolpetype må vedlikehaldast.
+
+/** Vala til eit felt, gruppert. Tom liste tyder «ingen nedtrekk — skriv sjølv». */
+function vindexFeltval(f, produktId) {
+  if (f.val) return [{ navn: "", val: f.val }];
+  if (f.register && typeof vindexRegisterval === "function")
+    return vindexRegisterval(f.register, produktId);
+  return [];
+}
+
+/**
+ * Kva verdien heiter på menneskespråk.
+ *
+ * Lageret skal lese «Port levegg ≤ 1 m», ikkje «PORT-LEVEGG-1». Finn vi ikkje
+ * verdien igjen i registeret, viser vi den rå — det er betre enn ei tom linje.
+ */
+function vindexFelttekst(f, verdi, produktId) {
+  if (verdi === undefined || verdi === null || verdi === "") return "";
+  if (f.type !== "valg") return verdi;
+  const grupper = vindexFeltval(f, produktId);
+  for (const g of grupper) {
+    const treff = (g.val || []).find((o) => String(o.id) === String(verdi));
+    if (treff) return treff.navn;
+  }
+  return verdi;
+}
+
+// ---------------------------------------------------------------------------
+// Sprosseprisen etter måla i skjemaet
+// ---------------------------------------------------------------------------
+// Sprosseprisen står i eit rutenett med bredde + høgd nedover og tal ruter
+// bortover — nøyaktig dei fire tala seljaren alt har skrive inn i måltabellen.
+// Då er det ingen grunn til at han skal slå det opp i heftet sjølv.
+//
+// Ei linje som fell utanfor tabellen blir talt som uavklart, ikkje som null
+// kroner. Ei sprosse på 5,4 meter kostar ikkje ingenting — den må prisast
+// manuelt, og då skal det stå.
+
+function vindexSprossesum(rader) {
+  const linjer = [];
+  let sum = 0;
+  let stk = 0;        // alle sprosser — frakta går på tal, ikkje på pris
+  let uavklart = 0;
+
+  (rader || []).forEach((r, i) => {
+    const antall = parseInt(r.antall, 10) || 0;
+    const b = parseFloat(r.fals_b) || 0;
+    const h = parseFloat(r.fals_h) || 0;
+    const ruter = (parseInt(r.ruter_b, 10) || 0) * (parseInt(r.ruter_h, 10) || 0);
+    if (!antall || !b || !h || !ruter) return;
+
+    const nr = r.lnr || i + 1;
+    stk += antall;
+    const treff = typeof vindexSprossepris === "function" ? vindexSprossepris(b + h, ruter) : null;
+    if (!treff) {
+      uavklart++;
+      linjer.push({ nr, antall, ruter, utanforTabellen: true });
+      return;
+    }
+    sum += treff.pris * antall;
+    linjer.push({ nr, antall, ruter, einingspris: treff.pris, sum: treff.pris * antall,
+                  rad: treff.rad, kolonne: treff.kolonne });
+  });
+
+  const frakt = typeof vindexFraktSprosser === "function" ? vindexFraktSprosser(stk) : null;
+  return { linjer, sum, stk, uavklart, frakt: frakt ? frakt.inkl : null };
+}
+
 // ---------------------------------------------------------------------------
 // Plukkliste og produksjon
 // ---------------------------------------------------------------------------
@@ -329,6 +434,7 @@ function vindexSkjema(skjemaId) {
 function vindexPlukkliste(ordre) {
   const skjema = vindexSkjema(ordre.skjemaId);
   const verdiar = ordre.felt || {};
+  const produktId = ordre.produktId;
   const plukk = [];
   const spesial = [];
 
@@ -337,8 +443,18 @@ function vindexPlukkliste(ordre) {
     seksjon.felt.forEach((f) => {
       const v = verdiar[f.id];
       if (v === undefined || v === null || v === "" || v === 0 || v === "0") return;
-      if (f.type === "omrade" || f.type === "valg") return;
-      const linje = { seksjon: seksjon.tittel, navn: f.navn, verdi: v, enhet: f.enhet || "" };
+      // Fritekst er ei melding til seljaren, ikkje ei vare. Det same gjeld dei
+      // to avkryssingane nedst i skjemaet — dei seier noko om ansvar og om kvar
+      // kunden fann oss, og har ingenting på ei plukkliste å gjere.
+      if (f.type === "omrade" || f.ikkjePlukk) return;
+      // Modellkoden er derimot det viktigaste feltet på heile seddelen: står
+      // det ikkje VBC her, veit ikkje fabrikken kva som skal lagast.
+      const linje = {
+        seksjon: seksjon.tittel,
+        navn: f.navn,
+        verdi: vindexFelttekst(f, v, produktId),
+        enhet: f.enhet || "",
+      };
       if (f.lager || seksjon.lager) plukk.push(linje);
       else spesial.push(linje);
     });

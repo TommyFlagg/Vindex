@@ -197,6 +197,49 @@ tilbudet inne i salgsverktøyet, bak innlogging, og Firestore-reglene sørger fo
 at bare selgeren som eier leadet — og admin — får lese dem. Lagerbrukere ser
 plukklisten, men ikke prisseksjonene.
 
+## Prislisten 2026
+
+`js/modellar.js` er Vindex sin egen prisliste skrevet inn som data: **PRISER
+2026 inkl. mva**, gyldig fra 01.03.2026, pluss **Sprosser 2026 inkl. 25 % mva**.
+Den dekker VB-serien, levegg, stakitt, gardsgjerde, flexigjerde, kystveggen,
+stolper, stolpetopper, pyntekrans, porter og portdeler, glass, gulv, LED-lys,
+tilleggsdeler, begge fraktabellene og hele prismatrisen for sprosser.
+
+Tre ting det er verdt å vite om hvordan den er lagt inn:
+
+**Prisene er inkl. mva.** Det er slik listen er skrevet, og slik en privatkunde
+leser prisen. Tilbudet i verktøyet sier derfor nå «Alle priser inkl. mva» og
+navngir prisgrunnlaget. Ordreinngangstallene i `js/team.js` og `js/nokkeltal.js`
+er derimot **eks. mva**, fordi de kommer fra årsrapporten — de to skal ikke
+blandes, og står med hver sin merknad.
+
+**VB-modellene har to priser, ikke én.** Hver modell finnes med A14- og
+A19-tverrstag, med hvert sitt artikkelnummer og 56 kroner mellom seg. Derfor må
+tverrstaget velges før prisen er kjent; `vindexModellpris("VBA")` uten profil
+returnerer `null` i stedet for å gjette på A14.
+
+**Portprisen følger produktfamilien, ikke modellen.** En port i VBA og en i VBF
+koster det samme — det er lysmålet og om det er rekkverk, levegg eller
+gardsgjerde som avgjør. Artikkelnummeret er derimot per modell (4508-VBA,
+4510-VBC, 4511-VBD, 4513-VBF), og det er lageret som slår det opp fra
+modellkoden på ordreseddelen. De numrene vi ikke har sett på listen, står ikke
+skrevet inn.
+
+Står det `pris: null` et sted, har vi ikke sett prisen. Da skriver selgeren den
+selv. En gjettet pris er verre enn ingen pris.
+
+### Hvor prisene brukes
+
+- **Ordreseddelen** — modell, stolpetype, stolpetopp og port er nedtrekkslister
+  hentet rett fra listen, gruppert per serie. Er registeret tomt for produktet,
+  blir feltet et skrivefelt i stedet for en tom nedtrekksliste.
+- **Tilbudet** — «Hent fra prislisten» legger artikkelen inn som en ferdig linje
+  med pris og enhet. Selgeren kan overstyre prisen på linjen.
+- **Målskjema sprosser** — prisen regnes ut løpende av målene som alt står i
+  tabellen (bredde + høyde og antall ruter), med frakt etter antall sprosser.
+  Faller en linje utenfor tabellen, står det «må prises manuelt» — ikke null
+  kroner. Boksen vises ikke for lagerbrukere.
+
 ## Slik henger leads-flyten sammen
 
 1. Kunden fyller ut skjemaet og oppgir postnummer.
@@ -705,6 +748,13 @@ Vilkårene står i `garanti.html`, gjengitt fra garantidokumentet.
 - [ ] Komprimer bildene (de er i full oppløsning, ca. 2,7 MB til sammen)
 - [ ] Fyll inn Instagram- og finn.no-lenker i `VINDEX_FIRMA`
 - [ ] Vurder om prisestimatet skal slås på (se over)
+- [ ] **Pyntekrans:** listen har to artikler — 7448 Pyntekrans (70) og 7449
+      Pyntekrans splitt (82). Begge er lagt inn som hvert sitt antallsfelt.
+      Bekreft at det er riktig, eller si fra om bare den ene skal brukes.
+- [ ] **Robotklipperhus (3149) og postkassestativ (7640)** står i prislisten,
+      men finnes ikke i produktkatalogen på nettsiden. De er lagt inn i
+      prisboken, så de kan tilbys — avklar om de også skal på nettsiden.
+- [ ] Portartikkelnumrene for VBB, VBE og VBG er ikke lest av listen ennå
 - [ ] Legg inn produktfilmen og «hør forskjellen på lyd»-videoen
 - [ ] Slå på [Firebase App Check](https://firebase.google.com/docs/app-check)
       (reCAPTCHA) — skjemaet er åpent for innsending, og App Check er
@@ -738,6 +788,7 @@ js/admin.js              Hovedkontoret: apparatet, kanaler, statistikk
 js/oppfolging.js         Kontakttemperatur, arkiv, bistand, tilbudslinjer, tips
 js/leadtekst.js          Leser et lead ut av en innlimt e-post
 js/nettverk.js           Representantkartet og «bli representant»-boksen
+js/modellar.js           Prislisten 2026 som data
 js/ordre.js              Ordreskjema, statusflyt og plukklistelogikk
 js/kalender.js           Avtaler og .ics-eksport til telefonkalender
 js/nokkeltal.js          Nøkkeltall, oppfølgingsrate og produksjonskø

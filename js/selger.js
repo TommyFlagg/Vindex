@@ -1160,16 +1160,26 @@ async function lagreNyttLead() {
 // ---------------------------------------------------------------------------
 // Ordreskjema
 // ---------------------------------------------------------------------------
-function feltHtml(f, verdi, brei) {
+function feltHtml(f, verdi, brei, produktId) {
   const v = verdi === undefined || verdi === null ? "" : String(verdi).replace(/"/g, "&quot;");
   const id = "of_" + f.id;
   let input;
   if (f.type === "omrade") input = `<textarea id="${id}" style="min-height:70px">${v}</textarea>`;
-  else if (f.type === "valg")
-    input = `<select id="${id}"><option value="">–</option>${f.val
-      .map((o) => `<option value="${o.id}"${String(o.id) === String(verdi) ? " selected" : ""}>${o.navn}</option>`)
-      .join("")}</select>`;
-  else if (f.type === "tal") input = `<input id="${id}" type="number" step="any" min="0" value="${v}">`;
+  else if (f.type === "valg") {
+    // Vala kjem anten frå feltet sjølv eller frå prislista. Har prislista
+    // ingenting å tilby for dette produktet, blir feltet eit skrivefelt —
+    // seljaren skal aldri møte ei tom nedtrekksliste.
+    const grupper = vindexFeltval(f, produktId);
+    const val = (liste) =>
+      liste
+        .map((o) => `<option value="${o.id}"${String(o.id) === String(verdi) ? " selected" : ""}>${o.navn}</option>`)
+        .join("");
+    if (!grupper.length) input = `<input id="${id}" value="${v}">`;
+    else
+      input = `<select id="${id}"><option value="">–</option>${grupper
+        .map((g) => (g.navn ? `<optgroup label="${g.navn}">${val(g.val)}</optgroup>` : val(g.val)))
+        .join("")}</select>`;
+  } else if (f.type === "tal") input = `<input id="${id}" type="number" step="any" min="0" value="${v}">`;
   else input = `<input id="${id}" value="${v}">`;
   return `<div class="field ${brei || f.type === "omrade" ? "brei" : ""}">
     <label for="${id}">${f.navn}${f.enhet ? ` <span class="optional">(${f.enhet})</span>` : ""}</label>
@@ -1206,11 +1216,41 @@ function tabellHtml(tabell, rader) {
       </table>
     </div>
     <div class="btn-row mt-1"><button class="btn btn-ghost btn-sm" id="leggTilRad">+ Legg til linje</button></div>
+    ${tabell.id === "vindu" && !erLager() ? `<div id="sprossepris" class="mt-1">${sprosseprisHtml(rader)}</div>` : ""}
+  </div>`;
+}
+
+/**
+ * Prisen på sprossene, rekna ut av måla som alt står i tabellen.
+ *
+ * Dette er eit hjelpemiddel for seljaren, ikkje eit tilbod: lista er
+ * veiledande, og prisen kan overstyrast i tilbodet. Difor står den her og
+ * ikkje i prisfelta lenger nede.
+ */
+function sprosseprisHtml(rader) {
+  const r = vindexSprossesum(rader);
+  if (!r.linjer.length) return "";
+
+  const rad = (l) =>
+    l.utanforTabellen
+      ? `<li><span>Linje ${l.nr}<br><span class="hint">${l.ruter} ruter — utenfor prislisten</span></span>
+           <span class="mengde">Må prises manuelt</span></li>`
+      : `<li><span>Linje ${l.nr}<br><span class="hint">${l.antall} stk · ${l.ruter} ruter · ${l.kolonne} ruter, ≤ ${l.rad} mm</span></span>
+           <span class="mengde">${kr(l.einingspris)} × ${l.antall} = ${kr(l.sum)}</span></li>`;
+
+  return `<div class="notice notice-info">
+    <strong>Veiledende pris etter ${VINDEX_PRISLISTE.namn}</strong>
+    <ul class="plukk-linjer mt-1">${r.linjer.map(rad).join("")}</ul>
+    <p class="mb-0"><strong>Sum sprosser: ${kr(r.sum)}</strong>${
+      r.frakt ? ` · frakt ${r.stk} sprosser: ${kr(r.frakt)}` : ""
+    }${r.uavklart ? ` · ${r.uavklart} linje${r.uavklart > 1 ? "r" : ""} må prises manuelt` : ""}</p>
+    <p class="hint mb-0">${VINDEX_PRISLISTE.mvaTekst} Prisen er veiledende — det er tilbudet som gjelder.</p>
   </div>`;
 }
 
 function opneOrdreskjema(lead, eksisterande) {
-  const skjema = vindexSkjemaFor((lead.produkt || {}).id);
+  const produktId = (lead.produkt || {}).id;
+  const skjema = vindexSkjemaFor(produktId);
   const verdiar = (eksisterande && eksisterande.felt) || {};
   const rader = (eksisterande && eksisterande.rader) || [];
   const k = lead.kunde || {};
@@ -1221,7 +1261,7 @@ function opneOrdreskjema(lead, eksisterande) {
       return `<div class="skjemaseksjon ${s.kunSeljar ? "intern" : ""}">
         <h3>${s.tittel}</h3>
         ${s.hjelp ? `<p class="hint">${s.hjelp}</p>` : ""}
-        <div class="feltrutenett">${s.felt.map((f) => feltHtml(f, verdiar[f.id])).join("")}</div>
+        <div class="feltrutenett">${s.felt.map((f) => feltHtml(f, verdiar[f.id], false, produktId)).join("")}</div>
       </div>`;
     })
     .join("");
@@ -1250,9 +1290,21 @@ function opneOrdreskjema(lead, eksisterande) {
       opneOrdreskjema(lead, { ...(eksisterande || {}), felt: data.felt, rader: data.rader.concat([{}]) });
     });
 
+  // Prisboksen skal følgje måla medan dei blir skrivne. Vi teiknar berre boksen
+  // på nytt, ikkje heile skjemaet — elles mistar seljaren markøren i feltet.
+  const prisboks = $("#sprossepris");
+  const maltabell = document.querySelector("table.maltabell");
+  if (prisboks && maltabell)
+    // Lyttaren heng på tabellen, ikkje på dialogen. Dialogen blir gjenbrukt av
+    // tilbodet og bekreftelsen, og ein lyttar som overlever der ville rekne
+    // sprossepris på felt som ikkje finst lenger.
+    maltabell.addEventListener("input", () => {
+      prisboks.innerHTML = sprosseprisHtml(samleSkjema(skjema).rader);
+    });
+
   $("#ofLukk").addEventListener("click", lukkModal);
   $("#ofSkrivUt").addEventListener("click", () => window.print());
-  $("#ofBekreft").addEventListener("click", () => bekreftOrdre(lead, skjema, eksisterande));
+  $("#ofBekreft").addEventListener("click", () => bekreftOrdre(lead, skjema, eksisterande, produktId));
 }
 
 /** Les alle felt og tabellrader ut av det opne ordreskjemaet. */
@@ -1291,9 +1343,14 @@ function samleSkjema(skjema) {
 // ---------------------------------------------------------------------------
 // Bekreftelse før bestilling
 // ---------------------------------------------------------------------------
-function bekreftOrdre(lead, skjema, eksisterande) {
+function bekreftOrdre(lead, skjema, eksisterande, produktId) {
   const data = samleSkjema(skjema);
-  const utkast = { skjemaId: skjema.id, felt: data.felt, rader: data.rader };
+  const utkast = {
+    skjemaId: skjema.id,
+    produktId: produktId || (lead.produkt || {}).id,
+    felt: data.felt,
+    rader: data.rader,
+  };
   const { plukk, spesial } = vindexPlukkliste(utkast);
 
   if (!plukk.length && !spesial.length) {
@@ -1356,6 +1413,10 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
   const ordre = {
     leadId: lead.id,
     skjemaId: skjema.id,
+    // Produktet blir lagra saman med ordren, ikkje berre henta frå leadet.
+    // Lageret opnar ordren lenge etter, og då må modell- og portnamna framleis
+    // kunne slåast opp i rett del av prislista.
+    produktId: utkast.produktId || (lead.produkt || {}).id || "",
     // Har ordren spesialproduksjon, går den til produksjon. Er alt lagervare,
     // går den rett til plukk.
     status: harSpesial ? "i_produksjon" : harPlukk ? "til_plukk" : "bekreftet",
@@ -1711,6 +1772,18 @@ function teiknTilbodsdialog(lead) {
     <div id="tilbodsskjema">
     <p class="hint">Prisene finnes bare her, aldri på nettsiden. Kunden ser ingenting
       før du deler tilbudet.</p>
+    <div class="field">
+      <label for="tbPrisbok">Hent fra prislisten ${VINDEX_PRISLISTE.namn}</label>
+      <select id="tbPrisbok">
+        <option value="">Velg en artikkel — den legges til som ny linje …</option>
+        ${vindexPrisbokGrupper()
+          .map((g) => `<optgroup label="${g.navn}">${g.val
+            .map((o) => `<option value="${o.id}">${o.navn}</option>`)
+            .join("")}</optgroup>`)
+          .join("")}
+      </select>
+      <p class="hint">Prisen kommer ferdig utfylt, men du kan overstyre den på linjen.</p>
+    </div>
     <div class="table-scroll" style="border:none">
       <table class="linjer">
         <thead><tr>
@@ -1751,7 +1824,8 @@ function teiknTilbodsdialog(lead) {
       }
       <div class="total"><span>Til kunden</span><span class="linjesum">${kr(r.sum)}</span></div>
     </div>
-    <p class="hint mt-1">Alle priser eks. mva.</p>
+    <p class="hint mt-1">${VINDEX_PRISLISTE.mvaTekst} Prisgrunnlag:
+      ${VINDEX_PRISLISTE.kjelde}.</p>
     </div>`;
 
   opneModal(
@@ -1809,9 +1883,33 @@ function teiknTilbodsdialog(lead) {
   // Lyttaren heng på skjemaet, ikkje på dialogen. Dialogen blir gjenbrukt av
   // ordreseddelen og bekreftelsen, og ein lyttar frå tilbodet ville då lese
   // etter felt som ikkje finst — og kaste feil ved kvart tastetrykk.
-  $("#tilbodsskjema").addEventListener("input", () => {
+  $("#tilbodsskjema").addEventListener("input", (e) => {
+    // Prisbok-veljaren har si eiga handtering under. Køyrer vi omteikninga her
+    // òg, blir lista teikna på nytt før valet er lese, og artikkelen forsvinn.
+    if (e.target && e.target.id === "tbPrisbok") return;
     les();
     teiknPaaNytt();
+  });
+
+  $("#tbPrisbok").addEventListener("change", (e) => {
+    const linje = vindexPrislinje(e.target.value);
+    e.target.value = "";
+    if (!linje) return;
+    les();
+    // Er den einaste linja tom, blir den fylt ut i staden for at vi legg til
+    // ei ny — elles sit seljaren att med ei blank linje øvst i tilbodet.
+    const siste = u.linjer[u.linjer.length - 1];
+    const tom = siste && !siste.navn && !siste.enhetspris;
+    const ny = {
+      ...vindexTomTilbodslinje(),
+      navn: linje.navn + (linje.kode ? " (" + linje.kode + ")" : ""),
+      antall: 1,
+      enhet: VINDEX_TILBODSENHETAR.includes(linje.enhet) ? linje.enhet : "stk",
+      enhetspris: linje.pris,
+    };
+    if (tom) u.linjer[u.linjer.length - 1] = ny;
+    else u.linjer.push(ny);
+    teiknTilbodsdialog(lead);
   });
 
   $("#tbNyLinje").addEventListener("click", () => {
@@ -1891,7 +1989,7 @@ function tilbodsHtml(lead) {
              <div class="total"><span>Sum</span><span>${kr(r.sum)}</span></div>`
       }
     </div>
-    <p class="hint mt-1">Alle priser eks. mva. ${
+    <p class="hint mt-1">${VINDEX_PRISLISTE.mvaTekst} ${
       VINDEX_FIRMA.garantiAr ? VINDEX_FIRMA.garantiAr + " års garanti." : ""
     }</p>
     ${t.notat ? `<p>${t.notat}</p>` : ""}
@@ -1938,7 +2036,7 @@ async function delTilbod(lead) {
          ? `<p class="mt-1"><a class="btn btn-sm" id="dtEpost"
               href="mailto:${k.epost}?subject=${encodeURIComponent("Tilbud fra Vindex")}&body=${encodeURIComponent(
              "Hei " + (k.navn || "") + ",\\n\\nTakk for henvendelsen. Her er tilbudet vårt på " +
-               kr(r.sum) + " eks. mva.\\n\\n" + (t.notat || "") +
+               kr(r.sum) + " inkl. mva.\\n\\n" + (t.notat || "") +
                "\\n\\nMed vennlig hilsen\\n" + app.brukar.navn + "\\n" + VINDEX_FIRMA.navn
            )}">✉️ Åpne e-post til ${k.epost}</a></p>`
          : '<p class="hint">Kunden har ingen e-postadresse registrert.</p>'
