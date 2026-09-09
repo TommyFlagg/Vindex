@@ -1196,6 +1196,18 @@ function feltHtml(f, verdi, brei, produktId) {
       input = `<select id="${id}"${f.register ? ` data-register="${f.register}"` : ""}><option value="">–</option>${grupper
         .map((g) => (g.navn ? `<optgroup label="${g.navn}">${val(g.val)}</optgroup>` : val(g.val)))
         .join("")}</select>`;
+  } else if (f.type === "hogd") {
+    // Standardhøgda skal stå der, ikkje berre synast. Er modellen valt og
+    // høgda tom, fyller vi inn den vanlege — det er ni av ti ordrar, og
+    // seljaren slepp eit tastetrykk han uansett ville teke.
+    //
+    // Talfeltet er fasiten: det er den `samleSkjema` les. Nedtrekkslista er ein
+    // snarveg som skriv inn i det, og gøymer seg når seljaren vil ha ei høgd
+    // som ikkje står i lista. Då kan dei to aldri kome i utakt.
+    const hogd = hogdverdi(verdi, produktId);
+    input = `${hogdvalHtml(id, f, hogd, produktId)}
+      <input id="${id}" type="number" step="any" min="0" value="${hogd}"
+        class="${erStandardhogd(hogd, f, produktId) ? "hidden" : ""}">`;
   } else if (f.type === "tal") input = `<input id="${id}" type="number" step="any" min="0" value="${v}">`;
   else input = `<input id="${id}" value="${v}">`;
   return `<div class="field ${brei || f.type === "omrade" ? "brei" : ""}">
@@ -1218,6 +1230,50 @@ function modellspekHtml(kode) {
   const d = vindexModelldetalj(kode);
   if (!d || !d.spesifikasjon.length) return "";
   return d.spesifikasjon.join(" · ");
+}
+
+/**
+ * Kva høgder som skal stå i lista for dette feltet.
+ *
+ * Feltet veit kva modellfelt det høyrer til, og modellen avgjer om det er
+ * rekkverkshøgder eller leveggshøgda som gjeld. Er ingen modell valt enno,
+ * viser vi rekkverkshøgdene — det er det vanlegaste, og lista blir teikna på
+ * nytt så snart modellen er valt.
+ */
+function hogdvalFor(f, modellkode) {
+  return vindexHogdval(modellkode || "");
+}
+
+/**
+ * Høgda feltet faktisk skal stå med.
+ *
+ * Er modellen kjend og høgda tom, blir standardhøgda for den familien fylt inn.
+ * Er ingen modell valt enno, står feltet tomt — ei høgd utan modell er ikkje
+ * noko produksjonen kan bruke, og skal ikkje sjå ut som eit svar.
+ */
+function hogdverdi(verdi, modellkode) {
+  if (verdi !== "" && verdi !== undefined && verdi !== null) return String(verdi);
+  return modellkode ? String(vindexHogdval(modellkode).normal) : "";
+}
+
+function erStandardhogd(verdi, f, modellkode) {
+  if (verdi === "" || verdi === undefined || verdi === null) return true;
+  return hogdvalFor(f, modellkode).standard.includes(Number(verdi));
+}
+
+function hogdvalHtml(id, f, verdi, modellkode) {
+  const val = hogdvalFor(f, modellkode);
+  const standard = erStandardhogd(verdi, f, modellkode);
+  const valt = verdi === "" || verdi === undefined || verdi === null ? "" : String(verdi);
+  return `<select id="${id}_val" data-hogdfor="${id}" data-modellfelt="${f.knytModell || ""}">
+    ${valt === "" ? '<option value="" selected>–</option>' : ""}
+    ${val.standard
+      .map((h) => `<option value="${h}"${standard && String(h) === valt ? " selected" : ""}>${h} mm${
+        h === val.normal ? " (standard)" : ""
+      }</option>`)
+      .join("")}
+    <option value="egen"${standard || valt === "" ? "" : " selected"}>Egendefinert …</option>
+  </select>`;
 }
 
 function tabellHtml(tabell, rader) {
@@ -1330,15 +1386,28 @@ function vedleggHtml(liste) {
  */
 function manglarHtml(skjema, felt, rader, fraTilbod) {
   const manglar = vindexOrdremanglar(skjema, felt, rader);
+  const varsel = vindexOrdrevarsel(skjema, felt);
+  const varselHtml = varsel
+    .map(
+      (v) => `<div class="notice notice-${v.alvor === "feil" ? "bad" : "warn"} mt-1">
+        <strong>${v.alvor === "feil" ? "Dette går ikke:" : "Avvik:"}</strong> ${v.tekst}
+        ${v.krevGodkjenning ? "<br>Du må godkjenne avviket når ordren sendes." : ""}
+      </div>`
+    )
+    .join("");
+
   if (!manglar.length)
-    return fraTilbod
-      ? `<div class="notice notice-good"><strong>Alt som trengs er fylt ut.</strong>
-           Kontroller målene, så kan ordren sendes.</div>`
-      : "";
+    return (
+      (fraTilbod && !varsel.length
+        ? `<div class="notice notice-good"><strong>Alt som trengs er fylt ut.</strong>
+             Kontroller målene, så kan ordren sendes.</div>`
+        : "") + varselHtml
+    );
+
   return `<div class="notice notice-warn">
     <strong>${manglar.length} ting gjenstår før ordren kan sendes:</strong><br>
     ${manglar.map((m) => "• " + m).join("<br>")}
-  </div>`;
+  </div>${varselHtml}`;
 }
 
 function opneOrdreskjema(lead, eksisterande) {
@@ -1369,7 +1438,9 @@ function opneOrdreskjema(lead, eksisterande) {
       return `<div class="skjemaseksjon ${s.kunSeljar ? "intern" : ""}">
         <h3>${s.tittel}</h3>
         ${s.hjelp ? `<p class="hint">${s.hjelp}</p>` : ""}
-        <div class="feltrutenett">${s.felt.map((f) => feltHtml(f, verdiar[f.id], false, produktId)).join("")}</div>
+        <div class="feltrutenett">${s.felt
+          .map((f) => feltHtml(f, verdiar[f.id], false, f.type === "hogd" ? verdiar[f.knytModell] : produktId))
+          .join("")}</div>
       </div>`;
     })
     .join("");
@@ -1434,6 +1505,47 @@ function opneOrdreskjema(lead, eksisterande) {
   $$("#modalInnhald select[data-register=\"modell\"]").forEach((sel) => {
     const spek = document.getElementById(sel.id + "_spek");
     if (spek) sel.addEventListener("change", () => (spek.textContent = modellspekHtml(sel.value)));
+
+    // Modellen avgjer kva høgder som finst. Byter seljaren frå rekkverk til
+    // levegg, skal høgdelista følgje med — og standardhøgda settast, men berre
+    // når feltet er tomt eller står på den førre standarden. Ei høgd nokon har
+    // skrive med vilje skal ingen overskrive.
+    const hogdVeljar = document.querySelector(`select[data-modellfelt="${sel.id.replace("of_", "")}"]`);
+    if (!hogdVeljar) return;
+    const hogdFelt = document.getElementById(hogdVeljar.dataset.hogdfor);
+    sel.addEventListener("change", () => {
+      const val = vindexHogdval(sel.value);
+      const naa = hogdFelt.value;
+      const varStandard = naa === "" || [900, 1000, 1100, 1300, 1800].includes(Number(naa));
+      const ny = varStandard ? String(val.normal) : naa;
+
+      hogdVeljar.innerHTML = val.standard
+        .map((h) => `<option value="${h}"${String(h) === ny ? " selected" : ""}>${h} mm${
+          h === val.normal ? " (standard)" : ""
+        }</option>`)
+        .join("") + `<option value="egen"${val.standard.includes(Number(ny)) ? "" : " selected"}>Egendefinert …</option>`;
+
+      hogdFelt.value = ny;
+      hogdFelt.classList.toggle("hidden", val.standard.includes(Number(ny)));
+      hogdFelt.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  });
+
+  // Nedtrekkslista for høgd skriv inn i talfeltet. «Egendefinert» viser
+  // talfeltet i staden for å gøyme det.
+  $$("#modalInnhald select[data-hogdfor]").forEach((veljar) => {
+    const felt = document.getElementById(veljar.dataset.hogdfor);
+    if (!felt) return;
+    veljar.addEventListener("change", () => {
+      if (veljar.value === "egen") {
+        felt.classList.remove("hidden");
+        felt.focus();
+      } else {
+        felt.value = veljar.value;
+        felt.classList.add("hidden");
+      }
+      felt.dispatchEvent(new Event("input", { bubbles: true }));
+    });
   });
 
   // Prisboksen skal følgje måla medan dei blir skrivne. Vi teiknar berre boksen
@@ -1562,9 +1674,22 @@ function bekreftOrdre(lead, skjema, eksisterande, produktId) {
 
   const k = lead.kunde || {};
   const manglar = vindexOrdremanglar(skjema, data.felt, data.rader);
+  const varsel = vindexOrdrevarsel(skjema, data.felt);
+  const feil = varsel.filter((v) => v.alvor === "feil");
+  const avvik = varsel.filter((v) => v.krevGodkjenning);
   opneModal(
     "Siste kontroll før ordren sendes",
     `${
+      feil.length
+        ? `<div class="notice notice-bad">
+             <strong>Ordren kan ikke sendes slik den står:</strong><br>
+             ${feil.map((v) => "• " + v.tekst).join("<br>")}<br>
+             <span class="hint">Dette er en produksjonsgrense, ikke en vurdering — rett målet
+               i skjemaet.</span>
+           </div>`
+        : ""
+    }
+    ${
       manglar.length
         ? `<div class="notice notice-bad">
              <strong>${manglar.length} ting er ikke fylt ut:</strong><br>
@@ -1590,6 +1715,19 @@ function bekreftOrdre(lead, skjema, eksisterande, produktId) {
        ordrevedlegg.length
          ? `<h3>Vedlegg som følger ordren</h3>${vedleggHtml(ordrevedlegg).replace(/<button[^>]*>✕<\/button>/g, "")}`
          : `<p class="hint">Ingen skisser eller bilder er lagt ved.</p>`
+     }
+     ${
+       avvik.length
+         ? `<div class="notice notice-warn mt-1">
+              <strong>Avvik som må godkjennes:</strong><br>
+              ${avvik.map((v) => "• " + v.tekst).join("<br>")}
+            </div>
+            <label class="avkryssrad mt-1">
+              <input type="checkbox" id="bkAvvik">
+              <span><strong>Jeg godkjenner avviket</strong> og har informert kunden om at
+                høyden er lavere enn normal rekkverkshøyde.</span>
+            </label>`
+         : ""
      }
      <div class="field mt-2">
        <label class="avkryssrad">
@@ -1617,13 +1755,17 @@ function bekreftOrdre(lead, skjema, eksisterande, produktId) {
     // To hakar, ikkje éin: den eine seier at måla er kontrollerte, den andre at
     // ordren kan setjast i produksjon. Det er to ulike vurderingar, og den siste
     // er den som ikkje kan gjerast om.
-    const feil = !$("#bkMal").checked
+    const stopp = varsel.some((v) => v.alvor === "feil")
+      ? "Målet må rettes før ordren kan sendes."
+      : !$("#bkMal").checked
       ? "Du må bekrefte at målene er kontrollert."
+      : avvik.length && !$("#bkAvvik").checked
+      ? "Du må godkjenne avviket fra normal rekkverkshøyde."
       : !$("#bkRiktig").checked
       ? "Du må bekrefte at ordren er riktig før den kan sendes til produksjon."
       : "";
-    if (feil) {
-      $("#bkFeil").textContent = feil;
+    if (stopp) {
+      $("#bkFeil").textContent = stopp;
       $("#bkFeil").classList.remove("hidden");
       return;
     }
@@ -1631,6 +1773,9 @@ function bekreftOrdre(lead, skjema, eksisterande, produktId) {
       kundeOppgittMal: $("#bkKunde").checked ? "ja" : "nei",
       bekreftaRiktig: true,
       manglaVedSending: manglar,
+      // Avviket blir ståande på ordren. Ringer kunden om eit halvt år og lurer
+      // på kvifor rekkverket er lågt, skal svaret finnast.
+      godkjentAvvik: avvik.length ? avvik.map((v) => v.tekst.replace(/\s+/g, " ").trim()) : null,
     }, eksisterande);
   });
 }

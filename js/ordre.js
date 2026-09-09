@@ -93,13 +93,13 @@ const ORDRESEDDEL_REKKVERK = {
         { id: "modell1", navn: "Modell 1", type: "valg", register: "modell",
           hjelp: "F.eks. VBA m/A19 — modell og håndløper velges samlet, slik prislisten er satt opp." },
         { id: "modell1_meter", navn: "Ant. meter", type: "tal", enhet: "lm" },
-        { id: "modell1_hoyde", navn: "Høyde", type: "tal", enhet: "mm" },
+        { id: "modell1_hoyde", navn: "Høyde", type: "hogd", enhet: "mm", knytModell: "modell1" },
         { id: "modell2", navn: "Modell 2", type: "valg", register: "modell" },
         { id: "modell2_meter", navn: "Ant. meter", type: "tal", enhet: "lm" },
-        { id: "modell2_hoyde", navn: "Høyde", type: "tal", enhet: "mm" },
+        { id: "modell2_hoyde", navn: "Høyde", type: "hogd", enhet: "mm", knytModell: "modell2" },
         { id: "modell3", navn: "Modell 3", type: "valg", register: "modell" },
         { id: "modell3_meter", navn: "Ant. meter", type: "tal", enhet: "lm" },
-        { id: "modell3_hoyde", navn: "Høyde", type: "tal", enhet: "mm" },
+        { id: "modell3_hoyde", navn: "Høyde", type: "hogd", enhet: "mm", knytModell: "modell3" },
         { id: "topprekke", navn: "Topprekke", type: "tekst" },
         { id: "stakittopp", navn: "Stakittopp", type: "valg", register: "stakittopp" },
         { id: "ekstra_stakitt", navn: "Ekstra stakitt — tettere", type: "tal",
@@ -446,6 +446,74 @@ function vindexSprossesum(rader) {
 
   const frakt = typeof vindexFraktSprosser === "function" ? vindexFraktSprosser(stk) : null;
   return { linjer, sum, stk, uavklart, frakt: frakt ? frakt.inkl : null };
+}
+
+// ---------------------------------------------------------------------------
+// Høgder
+// ---------------------------------------------------------------------------
+// Høgda er ikkje eit fritt tal. Rekkverk blir laga i nokre få standardhøgder,
+// og levegg i éi — og over 1,8 m blir ikkje levegg laga i det heile.
+//
+// Difor er feltet ei liste med det som finst, og eit «egendefinert» for dei
+// gongene prosjektet krev noko anna. Standardvalet sparar eit tastetrykk på dei
+// ni av ti ordrane som er heilt vanlege, og gjer samstundes at det å skrive noko
+// uvanleg blir eit medvite val.
+
+const VINDEX_HOGDER = {
+  rekkverk: {
+    standard: [900, 1000, 1100, 1300],
+    normal: 1000,
+    // Under normal rekkverkshøgde er ikkje forbode, men det er eit avvik
+    // seljaren skal ha teke stilling til — og som skal stå på ordren.
+    aatvaringUnder: 1000,
+  },
+  levegg: {
+    standard: [1800],
+    normal: 1800,
+    // Prislista: «Max høyde 1,8m». Dette er ei produksjonsgrense, ikkje ei
+    // tilråding — difor er den ei sperre og ikkje ei åtvaring.
+    maks: 1800,
+  },
+};
+
+/** Kva høgder gjeld for denne modellen? */
+function vindexHogdval(modellkode) {
+  const m = typeof vindexModell === "function" ? vindexModell(modellkode) : null;
+  if (m && m.serie === "levegg") return { ...VINDEX_HOGDER.levegg, familie: "levegg" };
+  if (m && m.serie === "kystvegg") return { ...VINDEX_HOGDER.levegg, familie: "levegg" };
+  return { ...VINDEX_HOGDER.rekkverk, familie: "rekkverk" };
+}
+
+/**
+ * Kva er gale eller verdt ei åtvaring på denne ordreseddelen?
+ *
+ * Skiljet mellom «feil» og «åtvaring» er skiljet mellom noko som ikkje kan
+ * lagast, og noko som kan lagast men som nokon må stå inne for. Ein levegg på
+ * 2 meter finst ikkje; eit rekkverk på 900 mm finst, men er eit avvik.
+ */
+function vindexOrdrevarsel(skjema, felt = {}) {
+  const varsel = [];
+  [1, 2, 3].forEach((n) => {
+    const kode = felt["modell" + n];
+    const hogd = parseFloat(felt["modell" + n + "_hoyde"]);
+    if (!kode || !hogd) return;
+    const val = vindexHogdval(kode);
+    const namn = (typeof vindexModell === "function" && (vindexModell(kode) || {}).navn) || kode;
+
+    if (val.maks && hogd > val.maks)
+      varsel.push({
+        alvor: "feil",
+        tekst: `${namn} er satt til ${hogd} mm. Levegg lages ikke høyere enn ${val.maks} mm.`,
+      });
+    else if (val.aatvaringUnder && hogd < val.aatvaringUnder)
+      varsel.push({
+        alvor: "aatvaring",
+        krevGodkjenning: true,
+        tekst: `${namn} er satt til ${hogd} mm. Det er lavere enn normal rekkverkshøyde på
+          ${val.aatvaringUnder} mm, og avviker fra sikkerhetskravene til rekkverk.`,
+      });
+  });
+  return varsel;
 }
 
 // ---------------------------------------------------------------------------

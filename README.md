@@ -316,6 +316,30 @@ spesial — fordi det er plasseringen produksjonen trenger, ikke at det er «stk
 Stolpefoten ligger i samme liste som stolpene, der selgeren leter etter den, men
 har ingen plassering: den står ikke noe sted.
 
+## Høyder
+
+Høyden er ikke et fritt tall. Rekkverk lages i noen få standardhøyder og levegg
+i én, så feltet er en liste over det som finnes, med «Egendefinert …» for de
+gangene prosjektet krever noe annet.
+
+| Familie | Standardhøyder | Fylles ut med | Grense |
+| --- | --- | --- | --- |
+| Rekkverk, stakitt, gjerde | 900, 1000, 1100, 1300 mm | 1000 mm | Under 1000 mm er et avvik som må godkjennes |
+| Levegg og kystvegg | 1800 mm | 1800 mm | **Over 1800 mm lages ikke** |
+
+Standardhøyden fylles inn så snart modellen er valgt — ikke bare vises, men
+står faktisk i feltet, siden det er riktig svar på ni av ti ordrer. Bytter
+selgeren fra rekkverk til levegg, følger listen med, men en høyde noen har
+skrevet med vilje blir aldri overskrevet.
+
+De to grensene er ulike med vilje. **Over 1800 mm på levegg blokkerer**:
+prislisten sier «Max høyde 1,8m», og det er en produksjonsgrense, ikke en
+vurdering — ordren kan ikke sendes før målet er rettet. **Under 1000 mm på
+rekkverk advarer**: det lar seg lage, men avviker fra sikkerhetskravene til
+rekkverk, og krever en egen hake i bekreftelsen — «Jeg godkjenner avviket og
+har informert kunden». Godkjenningen lagres på ordren med begrunnelsen, så
+spørsmålet kan besvares et halvt år senere.
+
 ## Én kunde, flere ordrer
 
 Kunden kjøper rekkverket i mai og porten i august. Det er to ordrer, ikke én
