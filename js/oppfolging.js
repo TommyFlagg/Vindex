@@ -297,20 +297,33 @@ function vindexRegnMontering(m = {}) {
  * inngår. Differansen blir vist som avslag, ikkje gøymd.
  */
 function vindexRegnTilbod(tilbod = {}) {
-  const linjer = (tilbod.linjer || []).map((l) => ({
-    ...l,
-    sum: Math.round((parseFloat(l.antall) || 0) * (parseFloat(l.enhetspris) || 0)),
-  }));
+  const linjer = (tilbod.linjer || []).map((l) => {
+    const antall = parseFloat(l.antall) || 0;
+    // Kva lista seier, ved sida av kva seljaren har skrive. Er linja henta frå
+    // prisboka, veit vi listeprisen; er den skriven fritt, finst det ingen
+    // listepris, og då er den skrivne prisen det næraste vi kjem.
+    const frLista = l.kode && typeof vindexPrislinje === "function" ? vindexPrislinje(l.kode) : null;
+    const listepris = frLista ? frLista.pris : null;
+    return {
+      ...l,
+      sum: Math.round(antall * (parseFloat(l.enhetspris) || 0)),
+      listepris,
+      listesum: Math.round(antall * (listepris == null ? parseFloat(l.enhetspris) || 0 : listepris)),
+      frittSett: listepris == null,
+    };
+  });
   const linjesum = linjer.reduce((n, l) => n + l.sum, 0);
+  const listesum = linjer.reduce((n, l) => n + l.listesum, 0);
 
   const rabattProsent = parseFloat(tilbod.rabattProsent) || 0;
   const rabattKr = parseFloat(tilbod.rabattKr) || Math.round((linjesum * rabattProsent) / 100);
   const etterRabatt = Math.max(0, linjesum - rabattKr);
 
-  const fastpris = tilbod.fastpris === "" || tilbod.fastpris === null || tilbod.fastpris === undefined
+  const fastprisRaa = tilbod.fastpris === "" || tilbod.fastpris === null || tilbod.fastpris === undefined
     ? null
     : parseFloat(tilbod.fastpris);
-  const harFastpris = fastpris !== null && !isNaN(fastpris) && fastpris > 0;
+  const harFastpris = fastprisRaa !== null && !isNaN(fastprisRaa) && fastprisRaa > 0;
+  const fastpris = fastprisRaa;
 
   // Prosjektprisen: det delelista eller fastprisen kjem til.
   const prosjekt = harFastpris ? Math.round(fastpris) : etterRabatt;
@@ -322,6 +335,12 @@ function vindexRegnTilbod(tilbod = {}) {
   return {
     linjer,
     linjesum,
+    // Kva delelista hadde kosta til listepris, før rabatt og fastpris. Det er
+    // dette talet seljaren treng for å sjå kva han faktisk har gitt bort.
+    listesum,
+    // Positivt tal = kunden betaler mindre enn prislista.
+    avvikFraListe: listesum - (harFastpris ? Math.round(fastpris) : etterRabatt),
+    utanforLista: linjer.filter((l) => l.navn && l.frittSett).length,
     rabattProsent,
     rabattKr,
     etterRabatt,

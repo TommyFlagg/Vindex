@@ -1266,6 +1266,26 @@ function sprosseprisHtml(rader) {
 
 const ordrekladdnokkel = (lead) => "ordre:" + lead.id;
 
+/**
+ * Kva står att på ordreseddelen — vist medan seljaren fyller ut.
+ *
+ * Delelista dekkjer varene, men ikkje måla. Indikatoren tel ned medan felta
+ * blir fylte, så seljaren ser at han nærmar seg i staden for å oppdage det
+ * fyrst i bekreftelsen.
+ */
+function manglarHtml(skjema, felt, rader, fraTilbod) {
+  const manglar = vindexOrdremanglar(skjema, felt, rader);
+  if (!manglar.length)
+    return fraTilbod
+      ? `<div class="notice notice-good"><strong>Alt som trengs er fylt ut.</strong>
+           Kontroller målene, så kan ordren sendes.</div>`
+      : "";
+  return `<div class="notice notice-warn">
+    <strong>${manglar.length} ting gjenstår før ordren kan sendes:</strong><br>
+    ${manglar.map((m) => "• " + m).join("<br>")}
+  </div>`;
+}
+
 function opneOrdreskjema(lead, eksisterande) {
   const produktId = (lead.produkt || {}).id;
   const skjema = vindexSkjemaFor(produktId);
@@ -1315,6 +1335,7 @@ function opneOrdreskjema(lead, eksisterande) {
     </div>
     ${skjema.standardar ? `<div class="notice notice-warn"><strong>Standarder:</strong> ${skjema.standardar.join(" · ")}</div>` : ""}
     ${skjema.tabell ? tabellHtml(skjema.tabell, rader) : ""}
+    <div id="ordreManglar">${manglarHtml(skjema, verdiar, rader, eksisterande && eksisterande.fraTilbod)}</div>
     ${seksjonar}
     ${skjema.vilkar ? `<p class="hint">${skjema.vilkar}</p>` : ""}
     <p class="hint">Alt du fyller ut blir husket underveis, også om du lukker vinduet.</p>
@@ -1359,8 +1380,15 @@ function opneOrdreskjema(lead, eksisterande) {
     });
 
   const lagreOrdrekladd = kladdlagrar(ordrekladdnokkel(lead), () => samleSkjema(skjema));
-  $("#ordreskjema").addEventListener("input", lagreOrdrekladd);
-  $("#ordreskjema").addEventListener("change", lagreOrdrekladd);
+  const manglarboks = $("#ordreManglar");
+  const oppdater = () => {
+    lagreOrdrekladd();
+    if (!manglarboks) return;
+    const no = samleSkjema(skjema);
+    manglarboks.innerHTML = manglarHtml(skjema, no.felt, no.rader, eksisterande && eksisterande.fraTilbod);
+  };
+  $("#ordreskjema").addEventListener("input", oppdater);
+  $("#ordreskjema").addEventListener("change", oppdater);
 
   const forkastOrdre = $("#ofForkast");
   if (forkastOrdre)
@@ -1434,9 +1462,19 @@ function bekreftOrdre(lead, skjema, eksisterande, produktId) {
       : "";
 
   const k = lead.kunde || {};
+  const manglar = vindexOrdremanglar(skjema, data.felt, data.rader);
   opneModal(
-    "Kontroller mål og ordre",
-    `<div class="notice notice-warn">
+    "Siste kontroll før ordren sendes",
+    `${
+      manglar.length
+        ? `<div class="notice notice-bad">
+             <strong>${manglar.length} ting er ikke fylt ut:</strong><br>
+             ${manglar.map((m) => "• " + m).join("<br>")}<br>
+             <span class="hint">Du kan sende likevel, men da må du bekrefte at det er med vilje.</span>
+           </div>`
+        : ""
+    }
+     <div class="notice notice-warn">
        <strong>Les gjennom før du sender.</strong> Alt som er produsert etter mål er
        spesialproduksjon og kan ikke returneres — det omfattes av forbrukerkjøpslovens
        regler om tilvirkningskjøp.
@@ -1455,23 +1493,40 @@ function bekreftOrdre(lead, skjema, eksisterande, produktId) {
          <span>Jeg har kontrollert alle mål mot kundens oppgitte mål og skisse.</span>
        </label>
        <label class="avkryssrad mt-1">
+         <input type="checkbox" id="bkRiktig">
+         <span><strong>Jeg bekrefter at ordren er riktig og kan settes i produksjon.</strong>${
+           manglar.length ? " Det som mangler ovenfor er utelatt med vilje." : ""
+         }</span>
+       </label>
+       <label class="avkryssrad mt-1">
          <input type="checkbox" id="bkKunde">
          <span>Kunden har selv oppgitt målene på eget ansvar.</span>
        </label>
      </div>
-     <p class="field-error hidden" id="bkFeil">Du må bekrefte at målene er kontrollert.</p>`,
+     <p class="field-error hidden" id="bkFeil"></p>`,
     `<button class="btn btn-ghost" id="bkTilbake">Tilbake til skjemaet</button>
      <button class="btn btn-accent" id="bkSend">Send til bestilling</button>`
   );
 
-  $("#bkTilbake").addEventListener("click", () => opneOrdreskjema(lead, utkast));
+  $("#bkTilbake").addEventListener("click", () => opneOrdreskjema(lead, { ...utkast, frisk: true }));
   $("#bkSend").addEventListener("click", async () => {
-    if (!$("#bkMal").checked) {
+    // To hakar, ikkje éin: den eine seier at måla er kontrollerte, den andre at
+    // ordren kan setjast i produksjon. Det er to ulike vurderingar, og den siste
+    // er den som ikkje kan gjerast om.
+    const feil = !$("#bkMal").checked
+      ? "Du må bekrefte at målene er kontrollert."
+      : !$("#bkRiktig").checked
+      ? "Du må bekrefte at ordren er riktig før den kan sendes til produksjon."
+      : "";
+    if (feil) {
+      $("#bkFeil").textContent = feil;
       $("#bkFeil").classList.remove("hidden");
       return;
     }
     await lagreOrdre(lead, skjema, utkast, {
       kundeOppgittMal: $("#bkKunde").checked ? "ja" : "nei",
+      bekreftaRiktig: true,
+      manglaVedSending: manglar,
     }, eksisterande);
   });
 }
@@ -1928,7 +1983,17 @@ function monteringSumHtml(r) {
  * for kvart tastetrykk utan å røre markøren i felta over.
  */
 function tilbodsumHtml(r) {
-  return `<div><span>Sum linjer</span><span class="linjesum">${kr(r.linjesum)}</span></div>
+  return `<div><span>Sum etter prisliste</span><span class="linjesum">${kr(r.listesum)}</span></div>
+    ${
+      r.utanforLista
+        ? `<div><span class="hint">${r.utanforLista} linje${r.utanforLista > 1 ? "r" : ""} står ikke i prislisten og telles med prisen du skrev</span><span></span></div>`
+        : ""
+    }
+    ${
+      r.listesum !== r.linjesum
+        ? `<div><span>Sum med prisene du skrev</span><span class="linjesum">${kr(r.linjesum)}</span></div>`
+        : ""
+    }
     ${r.rabattKr ? `<div><span>Rabatt${r.rabattProsent ? " (" + r.rabattProsent + " %)" : ""}</span><span class="linjesum">− ${kr(r.rabattKr)}</span></div>` : ""}
     ${
       r.harFastpris
@@ -1944,8 +2009,15 @@ function tilbodsumHtml(r) {
            }</span></div>`
         : ""
     }
-    <div class="total"><span>Til kunden</span><span class="linjesum">${kr(r.sum)}</span></div>
+    <div class="total"><span>Avtalt pris til kunden</span><span class="linjesum">${kr(r.sum)}</span></div>
     <div><span class="hint">Herav uten mva</span><span class="hint">${kr(vindexEksMva(r.sum))}</span></div>
+    ${
+      r.avvikFraListe
+        ? `<div class="avvik"><span>${
+            r.avvikFraListe > 0 ? "Kunden betaler mindre enn prislisten" : "Kunden betaler mer enn prislisten"
+          }</span><span class="linjesum">${r.avvikFraListe > 0 ? "− " : "+ "}${kr(Math.abs(r.avvikFraListe))}</span></div>`
+        : ""
+    }
     ${r.montering.etterAvtale ? `<div><span class="hint">Montering kommer i tillegg, etter avtale</span><span></span></div>` : ""}`;
 }
 
@@ -1959,9 +2031,15 @@ function teiknTilbodsdialog(lead) {
         <td><input data-felt="navn" value="${(linje.navn || "").replace(/"/g, "&quot;")}"
               placeholder="F.eks. Rekkverk VBC 1000 mm"></td>
         <td style="width:5.5rem"><input data-felt="antall" type="number" min="0" step="0.5" value="${linje.antall}"></td>
-        <td style="width:6rem"><select data-felt="enhet">${VINDEX_TILBODSENHETAR.map(
-          (e) => `<option value="${e}"${e === linje.enhet ? " selected" : ""}>${e}</option>`
-        ).join("")}</select></td>
+        <td style="width:8rem">${
+          vindexErStolpe(linje.kode)
+            ? `<select data-felt="plassering">${VINDEX_STOLPEPLASSERING.map(
+                (pl) => `<option value="${pl.id}"${pl.id === linje.plassering ? " selected" : ""}>${pl.navn}</option>`
+              ).join("")}</select>`
+            : `<select data-felt="enhet">${VINDEX_TILBODSENHETAR.map(
+                (e) => `<option value="${e}"${e === linje.enhet ? " selected" : ""}>${e}</option>`
+              ).join("")}</select>`
+        }</td>
         <td style="width:7rem"><input data-felt="enhetspris" type="number" min="0" step="10" value="${linje.enhetspris}"></td>
         <td class="tal linjesum">${kr(r.linjer[i].sum)}</td>
         <td style="width:2.5rem"><button class="btn btn-ghost btn-sm" data-slett="${i}"
@@ -1999,7 +2077,7 @@ function teiknTilbodsdialog(lead) {
     <div class="table-scroll" style="border:none">
       <table class="linjer">
         <thead><tr>
-          <th>Hva</th><th class="tal">Antall</th><th>Enhet</th>
+          <th>Hva</th><th class="tal">Antall</th><th>Enhet / plassering</th>
           <th class="tal">Pris per enhet</th><th class="tal">Sum</th><th></th>
         </tr></thead>
         <tbody id="tilbodsrader">${rader}</tbody>
@@ -2142,6 +2220,9 @@ function teiknTilbodsdialog(lead) {
       antall: 1,
       enhet: VINDEX_TILBODSENHETAR.includes(linje.enhet) ? linje.enhet : "stk",
       enhetspris: linje.pris,
+      // Dei fleste stolpane i eit prosjekt står på linje. Seljaren endrar dei
+      // få som er hjørne eller ende — det er raskare enn å velje alle.
+      plassering: vindexErStolpe(linje.kode) ? "linje" : "",
     };
     if (tom) u.linjer[u.linjer.length - 1] = ny;
     else u.linjer.push(ny);
@@ -2344,43 +2425,93 @@ async function delTilbod(lead) {
 
 /** Kunden sa ja: gå rett til ordreseddelen med delelista som utgangspunkt. */
 function akseptertTilbod(lead) {
-  const r = vindexRegnTilbod(lead.tilbud || {});
+  const t = lead.tilbud || {};
+  const r = vindexRegnTilbod(t);
   const skjema = vindexSkjemaFor((lead.produkt || {}).id);
+
+  // Delelista blir lest om til felt på ordreseddelen med ein gong, slik at
+  // seljaren ser kva som blir overført før han seier ja — og kva som ikkje kan
+  // overførast fordi det ikkje står der.
+  const overfort = vindexTilbodTilOrdre(t, (lead.produkt || {}).id);
+  const felt = {
+    ...overfort.felt,
+    referanse: "Tilbud " + datoTekst(t.dato),
+    pris_tilpasset: r.prosjekt,
+    pris_montering: r.montering.etterAvtale ? "" : r.montering.sum,
+    pris_total: r.sum,
+  };
+  if (overfort.uplassert.length)
+    felt.kommentarer = overfort.uplassert.map((l) => `${l.antall} ${l.enhet} ${l.navn}`).join("\n");
+
+  const manglar = vindexOrdremanglar(skjema, felt, []);
+  const overforte = Object.keys(overfort.felt).length;
 
   opneModal(
     "Kunden aksepterte",
-    `<p>Tilbudet på <strong>${kr(r.sum)}</strong> er akseptert. Neste steg er
-       ordreseddelen — «${skjema.kort}».</p>
-     <div class="notice notice-info">
-       <strong>Delelisten følger med:</strong><br>
+    `<p>Tilbudet på <strong>${kr(r.sum)}</strong> er akseptert. Ordreseddelen —
+       «${skjema.kort}» — fylles ut av delelisten, så du slipper å skrive den om igjen.</p>
+
+     <div class="notice notice-good">
+       <strong>${overforte} felt fylles ut automatisk.</strong><br>
        ${
-         r.linjer.filter((l) => l.navn).length
-           ? r.linjer.filter((l) => l.navn).map((l) => `${l.antall} ${l.enhet} ${l.navn}`).join("<br>")
-           : "Ingen linjer — bare fast prosjektpris."
+         overforte
+           ? Object.entries(overfort.felt)
+               .map(([id, v]) => `${feltnamn(skjema, id)}: ${feltvisning(skjema, id, v, (lead.produkt || {}).id)}`)
+               .join("<br>")
+           : "Delelisten har ingen linjer å overføre — bare fast prosjektpris."
        }
      </div>
-     <p class="hint">Delelisten er det du lovet kunden. Ordreseddelen er det produksjonen
-       skal lage — målene må kontrolleres der uansett.</p>`,
+
+     ${
+       overfort.uplassert.length
+         ? `<div class="notice notice-info mt-1">
+              <strong>Disse har ikke et eget felt på ordreseddelen</strong> og legges i
+              kommentarfeltet, så produksjonen ser dem:<br>
+              ${overfort.uplassert.map((l) => `${l.antall} ${l.enhet} ${l.navn}`).join("<br>")}
+            </div>`
+         : ""
+     }
+
+     ${
+       manglar.length
+         ? `<div class="notice notice-warn mt-1">
+              <strong>Dette må du fylle ut selv.</strong> Delelisten er en prisliste, ikke
+              en arbeidstegning — målene finnes ikke der:<br>
+              ${manglar.map((m) => "• " + m).join("<br>")}
+            </div>`
+         : ""
+     }
+
+     <p class="hint">Ordreseddelen er det produksjonen lager etter. Målene må kontrolleres
+       der uansett — du får en siste bekreftelse før den sendes.</p>`,
     `<button class="btn btn-ghost" id="atAvbryt">Ikke ennå</button>
      <button class="btn btn-accent" id="atOrdre">Åpne ordreseddelen</button>`
   );
 
   $("#atAvbryt").addEventListener("click", lukkModal);
   $("#atOrdre").addEventListener("click", async () => {
-    await lagreLead(lead, { tilbud: { ...(lead.tilbud || {}), akseptert: new Date().toISOString() } }, [
-      `Kunden aksepterte tilbudet på ${kr(r.sum)}.`,
+    await lagreLead(lead, { tilbud: { ...t, akseptert: new Date().toISOString() } }, [
+      `Kunden aksepterte tilbudet på ${kr(r.sum)}. Ordreseddelen fylt ut fra delelisten (${overforte} felt).`,
     ]);
-    // Delelista blir med inn i ordreseddelen som notat, slik at seljaren ikkje
-    // skriv den same spesifikasjonen to gonger.
-    opneOrdreskjema(lead, {
-      felt: {
-        referanse: "Tilbud " + datoTekst((lead.tilbud || {}).dato),
-        annet: vindexLinjerTilOrdrenotat(lead.tilbud || {}),
-        pris_total: r.sum,
-      },
-      rader: [],
-    });
+    opneOrdreskjema(lead, { felt, rader: [], frisk: true, fraTilbod: true });
   });
+}
+
+/** Namnet på eit felt slik det står i skjemaet — brukt når vi viser kva som blei overført. */
+function feltnamn(skjema, id) {
+  for (const seksjon of skjema.seksjonar) {
+    const f = seksjon.felt.find((x) => x.id === id);
+    if (f) return f.navn;
+  }
+  return id;
+}
+
+function feltvisning(skjema, id, verdi, produktId) {
+  for (const seksjon of skjema.seksjonar) {
+    const f = seksjon.felt.find((x) => x.id === id);
+    if (f) return vindexFelttekst(f, verdi, produktId);
+  }
+  return verdi;
 }
 
 // ---------------------------------------------------------------------------

@@ -332,7 +332,30 @@ const VINDEX_STOLPETYPAR = [
     gjelderProdukt: ["kystveggen"] },
   { kode: "9632", navn: "Kystvegg std. stolpe hjørne", pris: 963, utforing: "standard",
     gjelderProdukt: ["kystveggen"] },
+  // Stolpefoten står under «Diverse» i prislista, men det er ein stolpedel og
+  // blir bestilt saman med stolpane. Difor står den her, der seljaren leitar.
+  { kode: "7359", navn: "Stolpefot", pris: 376, utforing: "standard", tilbehoyr: true },
 ];
+
+// Kvar står stolpen? Det avgjer kva slags stolpe det er, og produksjonen må
+// vite talet på kvar type. Difor er dette eit val på linja, ikkje ein merknad.
+const VINDEX_STOLPEPLASSERING = [
+  { id: "linje", navn: "Linjestolpe" },
+  { id: "hjorne", navn: "Hjørnestolpe" },
+  { id: "ende", navn: "Endestolpe" },
+  { id: "spesial", navn: "Spesialstolpe" },
+];
+
+/**
+ * Er dette artikkelnummeret ein stolpe som skal plasserast?
+ *
+ * Stolpefoten står i same lista fordi den blir bestilt saman med stolpane, men
+ * den står ikkje nokon stad — den skal ikkje ha val om linje eller hjørne.
+ */
+function vindexErStolpe(kode) {
+  const st = VINDEX_STOLPETYPAR.find((x) => x.kode === String(kode || ""));
+  return !!st && !st.tilbehoyr;
+}
 
 const VINDEX_STOLPEUTFORING = [
   { id: "standard", navn: "Standard" },
@@ -446,7 +469,6 @@ const VINDEX_TILLEGGSDELAR = [
   { kode: "7459", navn: "Ekstra stakitt om det ønskes tettere", pris: 90, gruppe: "Tillegg" },
   { kode: "7478", navn: "Ekstra alu i topp A14/A19 (rekkverk og stakitt)", pris: 224, gruppe: "Tillegg" },
   { kode: "7477", navn: "Ekstra alu i topp (levegg)", pris: 153, gruppe: "Tillegg" },
-  { kode: "7359", navn: "Stolpefot", pris: 376, gruppe: "Tillegg" },
   { kode: "7557", navn: "Veggfeste A14 m/krave", pris: 85, gruppe: "Veggfeste" },
   { kode: "7376", navn: "Veggfeste A19 m/krave", pris: 85, gruppe: "Veggfeste" },
   { kode: "7556", navn: "A14 veggfeste trapp", pris: 152, gruppe: "Veggfeste" },
@@ -826,7 +848,9 @@ function vindexPrisbok() {
       })
     )
   );
-  VINDEX_STOLPETYPAR.forEach((s) => linjer.push({ gruppe: "Stolper", kode: s.kode, navn: s.navn, pris: s.pris, enhet: "stk" }));
+  VINDEX_STOLPETYPAR.forEach((s) =>
+    linjer.push({ gruppe: "Stolper", kode: s.kode, navn: s.navn, pris: s.pris, enhet: "stk" })
+  );
   VINDEX_TOPPTYPAR.forEach((t) => linjer.push({ gruppe: "Stolpetopper", kode: t.kode, navn: t.navn, pris: t.pris, enhet: "stk" }));
   VINDEX_PYNTEKRANS.forEach((p) => linjer.push({ gruppe: "Pyntekrans", kode: p.kode, navn: p.navn, pris: p.pris, enhet: "stk" }));
   VINDEX_PORTTYPAR.forEach((p) =>

@@ -281,6 +281,41 @@ selv. En gjettet pris er verre enn ingen pris.
   Faller en linje utenfor tabellen, står det «må prises manuelt» — ikke null
   kroner. Boksen vises ikke for lagerbrukere.
 
+## Fra deleliste til ordreseddel
+
+Selgeren skal skrive spesifikasjonen én gang. Når kunden aksepterer, leses
+delelisten om til felt på ordreseddelen: modellene med meter, stolpene med type
+og antall, toppene, pyntekransen, porten. To lister som skrives hver for seg
+begynner å sprike, og det er den slags avvik som ender med feil vare på bilen.
+
+Før ordreseddelen åpnes får selgeren se nøyaktig hva som overføres, hva som
+ikke har et eget felt og derfor havner i kommentarfeltet, og hva han må fylle ut
+selv. Det siste er ikke noe mekanismen kan finne på: delelisten er en prisliste,
+ikke en arbeidstegning. Høyder og lysmål står ikke der.
+
+Derfor har ordreseddelen en indikator som teller ned mens den fylles ut — «3
+ting gjenstår før ordren kan sendes» blir til «alt som trengs er fylt ut».
+Samme kontroll kjøres i bekreftelsen, som krever to haker: at målene er
+kontrollert, og at ordren er riktig og kan settes i produksjon. Det er to ulike
+vurderinger, og den siste kan ikke gjøres om. Mangler noe, kan ordren fortsatt
+sendes, men da må selgeren bekrefte at det er med vilje, og det lagres på
+ordren hva som manglet.
+
+Samme artikkel på flere linjer blir ett felt: ni stolper delt på to hjørne og
+sju ende er fortsatt én artikkel, med plasseringene talt hver for seg.
+
+### Listepris ved siden av avtalt pris
+
+Tilbudet viser hva delelisten koster etter prislisten, og hva kunden faktisk
+skal betale — med differansen imellom. Uten det ser selgeren bare sluttsummen
+og ikke hva han har gitt bort. Linjer som ikke står i prislisten telles med
+prisen han skrev, og det står hvor mange de er.
+
+Stolpelinjer har plassering i stedet for enhet — linje, hjørne, ende eller
+spesial — fordi det er plasseringen produksjonen trenger, ikke at det er «stk».
+Stolpefoten ligger i samme liste som stolpene, der selgeren leter etter den, men
+har ingen plassering: den står ikke noe sted.
+
 ## Uferdige utkast
 
 En deleliste eller en ordreseddel tar tid å fylle ut, og selgeren blir avbrutt:

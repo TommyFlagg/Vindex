@@ -449,6 +449,156 @@ function vindexSprossesum(rader) {
 }
 
 // ---------------------------------------------------------------------------
+// Frå deleliste til ordreseddel
+// ---------------------------------------------------------------------------
+// Seljaren har alt skrive kva prosjektet består av, éin gong. Når kunden seier
+// ja, skal han ikkje skrive det same om att på ordreseddelen — då blir det to
+// lister som kan sprike, og det er den slags avvik som endar med feil vare på
+// bilen.
+//
+// Difor blir delelista lest om til felt på ordreseddelen: modellane med meter,
+// stolpane med type og tal, toppane, pyntekransen, porten. Det som ikkje finst
+// på delelista — måla — kan ingen mekanisme finne på, og blir difor merkt som
+// noko seljaren må fylle ut sjølv.
+
+function vindexTilbodTilOrdre(tilbod, produktId) {
+  const rekna = typeof vindexRegnTilbod === "function" ? vindexRegnTilbod(tilbod || {}) : { linjer: [] };
+  const felt = {};
+  const uplassert = [];
+  // Same artikkel kan stå på fleire linjer — ni stolpar delt på to hjørne og
+  // sju ende er framleis éin artikkel. Då skal dei i same feltet med samla tal,
+  // og plasseringane teljast kvar for seg.
+  const plassar = { modell: {}, stolpe: {}, topp: {}, port: {} };
+  const slott = (slag, kode, maks) => {
+    if (plassar[slag][kode]) return { n: plassar[slag][kode], ny: false };
+    const brukt = Object.keys(plassar[slag]).length;
+    if (brukt >= maks) return null;
+    plassar[slag][kode] = brukt + 1;
+    return { n: brukt + 1, ny: true };
+  };
+  const plassering = { linje: 0, hjorne: 0, ende: 0, spesial: 0 };
+  let harSpesialstolpe = false;
+
+  (rekna.linjer || []).filter((l) => l.navn).forEach((l) => {
+    const kode = String(l.kode || "");
+    const antall = parseFloat(l.antall) || 0;
+    if (!kode || !antall) return uplassert.push(l);
+
+    // Modell — nummeret på linja er artikkelnummeret til modellen.
+    const modell = typeof vindexAlleModellar === "function"
+      ? vindexAlleModellar().find((m) => m.artikkel === kode)
+      : null;
+    if (modell) {
+      const pl = slott("modell", kode, 3);
+      if (!pl) return uplassert.push(l);
+      felt["modell" + pl.n] = modell.kode;
+      felt["modell" + pl.n + "_meter"] = (felt["modell" + pl.n + "_meter"] || 0) + antall;
+      return;
+    }
+
+    // Stolpe. Plasseringa på linja seier kva slag det er, og produksjonen
+    // treng talet på kvar type — ikkje berre totalen.
+    const stolpe = typeof VINDEX_STOLPETYPAR !== "undefined"
+      ? VINDEX_STOLPETYPAR.find((st) => st.kode === kode)
+      : null;
+    if (stolpe) {
+      if (stolpe.tilbehoyr) {
+        felt.stolpefot_stk = (felt.stolpefot_stk || 0) + antall;
+        return;
+      }
+      if (l.plassering && plassering[l.plassering] !== undefined) plassering[l.plassering] += antall;
+      if (l.plassering === "spesial" || stolpe.utforing === "spesial") harSpesialstolpe = true;
+      const pl = slott("stolpe", kode, 2);
+      if (!pl) {
+        // Fleire enn to stolpetypar får ikkje plass i skjemaet. Talet blir med
+        // i plasseringane, men linja må seljaren sjå på sjølv.
+        return uplassert.push(l);
+      }
+      felt["stolpe" + pl.n + "_type"] = stolpe.kode;
+      felt["stolpe" + pl.n + "_stk"] = (felt["stolpe" + pl.n + "_stk"] || 0) + antall;
+      if (pl.ny || l.plassering === "spesial")
+        felt["stolpe" + pl.n + "_utforing"] =
+          l.plassering === "spesial" ? "spesial" : stolpe.utforing || "standard";
+      return;
+    }
+
+    // Stolpetopp.
+    if (typeof VINDEX_TOPPTYPAR !== "undefined" && VINDEX_TOPPTYPAR.some((t) => t.kode === kode)) {
+      const pl = slott("topp", kode, 2);
+      if (!pl) return uplassert.push(l);
+      felt["stolpetopp" + pl.n] = kode;
+      felt["stolpetopp" + pl.n + "_stk"] = (felt["stolpetopp" + pl.n + "_stk"] || 0) + antall;
+      return;
+    }
+
+    // Pyntekrans — to artiklar, kvar sitt felt.
+    if (kode === "7448") { felt.pyntekrans_stk = (felt.pyntekrans_stk || 0) + antall; return; }
+    if (kode === "7449") { felt.pyntekrans_splitt_stk = (felt.pyntekrans_splitt_stk || 0) + antall; return; }
+
+    // Port.
+    if (typeof VINDEX_PORTTYPAR !== "undefined" && VINDEX_PORTTYPAR.some((pt) => pt.kode === kode)) {
+      const pl = slott("port", kode, 2);
+      if (!pl) return uplassert.push(l);
+      felt["port" + pl.n + "_type"] = kode;
+      felt["port" + pl.n + "_stk"] = (felt["port" + pl.n + "_stk"] || 0) + antall;
+      return;
+    }
+
+    // Alt anna — glas, lys, veggfeste, frittskrivne linjer. Dei finst det ikkje
+    // eit sikkert felt for, og skal difor synast, ikkje gøymast.
+    uplassert.push(l);
+  });
+
+  if (plassering.linje) felt.linjestolper = plassering.linje;
+  if (plassering.hjorne) felt.hjornestolper = plassering.hjorne;
+  if (plassering.ende) felt.endestolper = plassering.ende;
+  if (harSpesialstolpe && !felt.spesialstolpe_forklaring)
+    felt.spesialstolpe_forklaring = "Spesialstolpe valgt i delelisten — beskriv hva som avviker.";
+
+  return { felt, uplassert, rekna };
+}
+
+/**
+ * Kva står att før ordreseddelen kan sendast?
+ *
+ * Delelista er ei prisliste, ikkje ei arbeidsteikning. Meter kan hentast
+ * derifrå, men høgder og lysmål kan berre kome frå seljaren — og ein
+ * ordreseddel utan høgde blir ein telefon frå produksjonen, ikkje eit produkt.
+ */
+function vindexOrdremanglar(skjema, felt = {}, rader = []) {
+  const manglar = [];
+  const har = (id) => felt[id] !== undefined && felt[id] !== null && felt[id] !== "" && felt[id] !== 0;
+
+  [1, 2, 3].forEach((n) => {
+    if (!har("modell" + n)) return;
+    if (!har("modell" + n + "_meter")) manglar.push(`Antall meter for modell ${n}`);
+    if (!har("modell" + n + "_hoyde")) manglar.push(`Høyde for modell ${n}`);
+  });
+
+  [1, 2].forEach((n) => {
+    if (!har("port" + n + "_type")) return;
+    if (!har("port" + n + "_lysmal")) manglar.push(`Lysmål for port ${n}`);
+    if (!har("port" + n + "_hoyde")) manglar.push(`Høyde for port ${n}`);
+  });
+
+  [1, 2].forEach((n) => {
+    if (har("stolpe" + n + "_type") && !har("stolpe" + n + "_stk"))
+      manglar.push(`Antall for stolpe ${n}`);
+  });
+
+  if (felt.stolpe1_utforing === "spesial" || felt.stolpe2_utforing === "spesial") {
+    const t = String(felt.spesialstolpe_forklaring || "");
+    if (!t.trim() || /beskriv hva som avviker/i.test(t))
+      manglar.push("Forklaring på spesialstolpen");
+  }
+
+  if (skjema && skjema.tabell && !(rader || []).length)
+    manglar.push("Målene for hvert vindu i måltabellen");
+
+  return manglar;
+}
+
+// ---------------------------------------------------------------------------
 // Plukkliste og produksjon
 // ---------------------------------------------------------------------------
 
