@@ -83,6 +83,11 @@ function vindexProfil(id) {
 // ---------------------------------------------------------------------------
 // Modellane
 // ---------------------------------------------------------------------------
+// Kvar modell har detaljsida si i prispermen, og det er derifrå portane,
+// stakittdistansen og profilmåla under er henta. Portnummeret er per modell —
+// ein VBB-port er artikkel 4509, ein VBD-port er 4511 — mens prisen er den
+// same for heile familien. Difor ligg nummeret på modellen og prisen i
+// portregisteret lenger nede.
 
 const VINDEX_MODELLSERIAR = [
   {
@@ -90,6 +95,12 @@ const VINDEX_MODELLSERIAR = [
     navn: "Rekkverk og gjerde",
     gjelderProdukt: ["rekkverk", "glassrekkverk", "gjerde"],
     enhet: "lm",
+    // Felles for hele VB-serien, så det ikke gjentas på hver eneste modell.
+    spesifikasjon: [
+      "A14 tverrstag 50,8 × 88,5 mm topp/bunn",
+      "Evt. A19 tverrstag i topp 50,8/88,5 × 88,5 mm",
+      "A01 stolpe 127 × 127 mm — A01 spesial for trapp/skrå",
+    ],
     // Hver modell står to ganger — én gang per håndløper, slik prislisten selv
     // er satt opp. Det er kombinasjonen som er artikkelen, ikke modellen alene.
     modellar: [
@@ -104,12 +115,62 @@ const VINDEX_MODELLSERIAR = [
       { kode: "VBE-A14", basis: "VBE", profil: "A14", navn: "VBE m/A14", mal: "38,1 × 38,1 – 3 tverrstag", artikkel: "7415", pris: 1579 },
       { kode: "VBE-A19", basis: "VBE", profil: "A19", navn: "VBE m/A19", mal: "38,1 × 38,1 – 3 tverrstag", artikkel: "7634", pris: 1635 },
       { kode: "VBF-A14", basis: "VBF", profil: "A14", navn: "VBF m/A14", mal: "22,2 × 152,4", artikkel: "7438", pris: 1162 },
+      // Detaljsiden for VBF skriver «7630 VBF m/A19». 7630 er VBA m/A19 både i
+      // hovedlisten og på VBA-siden, så det er en trykkfeil der. Vi holder oss
+      // til hovedlistens 7635 — prisen er den samme på begge sidene.
       { kode: "VBF-A19", basis: "VBF", profil: "A19", navn: "VBF m/A19", mal: "22,2 × 152,4", artikkel: "7635", pris: 1218 },
-      { kode: "VBG-A14", basis: "VBG", profil: "A14", navn: "VBG m/A14", mal: "Glass", artikkel: "7471", pris: 816,
-        merknad: "Glasset kommer i tillegg — se glassdelene." },
-      { kode: "VBG-A19", basis: "VBG", profil: "A19", navn: "VBG m/A19", mal: "Glass", artikkel: "7636", pris: 872,
-        merknad: "Glasset kommer i tillegg — se glassdelene." },
+      { kode: "VBG-A14", basis: "VBG", profil: "A14", navn: "VBG m/A14", mal: "Glass", artikkel: "7471", pris: 816 },
+      { kode: "VBG-A19", basis: "VBG", profil: "A19", navn: "VBG m/A19", mal: "Glass", artikkel: "7636", pris: 872 },
     ],
+    // Per grunnmodell: porter, ekstra stakitt og det som skiller modellene.
+    // Begge håndløperne deler dette, så det står én gang.
+    detaljar: {
+      VBA: {
+        porter: [{ maks: 1, artikkel: "4508-VBA" }, { maks: 1.5, artikkel: "4538-VBA" }],
+        ekstraStakitt: "7459",
+        spesifikasjon: ["A11 stakitt 38,1 × 38,1 mm", "Distanse mellom stakitt ca. 64 mm",
+                        "Alu i nedre tverrstag er inkludert"],
+      },
+      VBB: {
+        porter: [{ maks: 1, artikkel: "4509-VBB" }, { maks: 1.5, artikkel: "4539-VBB" }],
+        ekstraStakitt: "7463",
+        spesifikasjon: ["A17 stakitt 22,2 × 38,1 mm", "Distanse mellom stakitt ca. 64 mm",
+                        "Alu i nedre tverrstag er inkludert"],
+      },
+      VBC: {
+        porter: [{ maks: 1, artikkel: "4510-VBC" }, { maks: 1.5, artikkel: "4540-VBC" }],
+        ekstraStakitt: "7460",
+        spesifikasjon: ["A15 stakitt 22,2 × 76,2 mm", "Distanse mellom stakitt ca. 73 mm",
+                        "Alu. forsterkning i nedre tverrstag er inkludert"],
+      },
+      VBD: {
+        porter: [{ maks: 1, artikkel: "4511-VBD" }, { maks: 1.5, artikkel: "4541-VBD" }],
+        ekstraStakitt: "7462–7463",
+        spesifikasjon: ["A17 stakitt smal 22,2 × 38,1 mm", "A16 stakitt bred 22,2 × 152,4 mm",
+                        "Distanse mellom stakitt ca. 59 mm", "Alu i nedre tverrstag er inkludert"],
+      },
+      VBE: {
+        porter: [{ maks: 1, artikkel: "4512-VBE" }, { maks: 1.5, artikkel: "4542-VBE" }],
+        ekstraStakitt: "7459",
+        spesifikasjon: ["A11 stakitt 38,1 × 38,1 mm", "Distanse mellom stakitt ca. 76 mm",
+                        "Alu i nedre tverrstag er inkludert"],
+      },
+      VBF: {
+        porter: [{ maks: 1, artikkel: "4513-VBF" }, { maks: 1.5, artikkel: "4543-VBF" }],
+        ekstraStakitt: "7462",
+        spesifikasjon: ["A16 stakitt 22,2 × 152,4 mm", "Distanse mellom stakitt ca. 76 mm",
+                        "Alu i nedre tverrstag er inkludert"],
+      },
+      VBG: {
+        // VBG er den ene modellen i serien som ikke har port i prislisten.
+        // Det er ikke noe vi mangler — siden har ingen portlinje.
+        porter: [],
+        spesifikasjon: ["Glasset kommer i tillegg — se glassdelene",
+                        "Maks c/c stolpe 1760 mm — glasset må da være 10,76 mm herdet og laminert",
+                        "Alu i øvre og nedre tverrstag er inkludert",
+                        "Ingen port i prislisten"],
+      },
+    },
   },
   {
     id: "levegg",
@@ -117,10 +178,26 @@ const VINDEX_MODELLSERIAR = [
     gjelderProdukt: ["levegg"],
     enhet: "lm",
     modellar: [
-      { kode: "TETT", navn: "Tett", artikkel: "7425", pris: 1660 },
-      { kode: "FLETTVERK", navn: "Flettverk", artikkel: "7628", pris: 2189 },
-      { kode: "A11", navn: "A11", artikkel: "7431", pris: 2198 },
-      { kode: "A15", navn: "A15", artikkel: "7549", pris: 2168 },
+      { kode: "TETT", navn: "Tett", artikkel: "7425", pris: 1660,
+        porter: [{ maks: 1, artikkel: "4525" }, { maks: 1.5, artikkel: "4555" }],
+        spesifikasjon: ["A02 tverrstag topp/bunn 50,8 × 152,4 mm", "A03 panel 22,2 × 152,6 mm",
+                        "A01 stolpe 127 × 127 mm", "Maks c/c stolpe 1,8 m", "Maks høyde 1,8 m",
+                        "Alu i nedre tverrstag er inkludert"] },
+      { kode: "FLETTVERK", navn: "Flettverk", artikkel: "7628", pris: 2189,
+        porter: [{ maks: 1, artikkel: "4526" }, { maks: 1.5, artikkel: "4556" }],
+        spesifikasjon: ["A25 tverrstag topp 50,8 × 88,5 mm", "A24 tverrstag midten 50,8 × 152,4 mm",
+                        "A02 tverrstag bunn 50,8 × 152,4 mm", "A03 panel 22,2 × 152,6 mm",
+                        "A26 gitter 302 × 2307/1669 mm", "Maks c/c stolpe 1,8 m", "Maks høyde 1,8 m"] },
+      // Detaljsidene for A11 og A15 er ikke fotografert. Prislisten viser
+      // 4527–4528 og 4557–4558 til levegg-pris, og tett og flettverk har alt
+      // tatt 4525/4526 og 4555/4556 — så disse to hører til her. Det er utledet
+      // av nummerrekken, ikke lest av en merket linje, og er merket usikkert.
+      { kode: "A11", navn: "A11", artikkel: "7431", pris: 2198,
+        porter: [{ maks: 1, artikkel: "4527–4528", usikker: true },
+                 { maks: 1.5, artikkel: "4557–4558", usikker: true }] },
+      { kode: "A15", navn: "A15", artikkel: "7549", pris: 2168,
+        porter: [{ maks: 1, artikkel: "4527–4528", usikker: true },
+                 { maks: 1.5, artikkel: "4557–4558", usikker: true }] },
     ],
   },
   {
@@ -128,13 +205,42 @@ const VINDEX_MODELLSERIAR = [
     navn: "Stakitt og gjerde",
     gjelderProdukt: ["gjerde"],
     enhet: "lm",
+    spesifikasjon: [
+      "A14 tverrstag 50,8 × 88,5 mm topp/bunn",
+      "A01 stolpe 127 × 127 mm — A01 spesial for trapp/skrå",
+      "Valgfri stakitt-topp: 7227 spiss, 7228 halvflat, 7229 flat",
+    ],
     modellar: [
-      { kode: "STAKITT", navn: "Stakitt", artikkel: "7577", pris: 1231 },
-      { kode: "STAKITT-BUET", navn: "Stakitt buet", artikkel: "7578", pris: 1256 },
-      { kode: "STAKITT-GJ-A11", navn: "Stakitt gj.gående A11", artikkel: "7572", pris: 1481 },
-      { kode: "STAKITT-GJ-A15", navn: "Stakitt gj.gående A15", artikkel: "7574", pris: 1481 },
-      { kode: "STAKITT-GJB-A11", navn: "Stakitt gj.gå. buet A11", artikkel: "7573", pris: 1498 },
-      { kode: "STAKITT-GJB-A15", navn: "Stakitt gj.gå. buet A15", artikkel: "7575", pris: 1498 },
+      { kode: "STAKITT", navn: "Stakitt rett utenpåliggende", artikkel: "7577", pris: 1231,
+        porter: [{ maks: 1, artikkel: "4504" }, { maks: 1.5, artikkel: "4534" }],
+        ekstraStakitt: "7460",
+        spesifikasjon: ["A15 stakitt 22,2 × 76,2 mm", "Distanse mellom stakitt ca. 73 mm",
+                        "Egnet i skrått terreng"] },
+      { kode: "STAKITT-BUET", navn: "Stakitt buet", artikkel: "7578", pris: 1256,
+        porter: [{ maks: 1, artikkel: "4505" }, { maks: 1.5, artikkel: "4535" }],
+        ekstraStakitt: "7460",
+        spesifikasjon: ["A15 stakitt 22,2 × 76,2 mm", "Distanse mellom stakitt ca. 73 mm",
+                        "Egnet i skrått terreng"] },
+      { kode: "STAKITT-GJ-A11", navn: "Stakitt rett gj.gående m/A11", artikkel: "7572", pris: 1481,
+        porter: [{ maks: 1, artikkel: "4500–4502" }, { maks: 1.5, artikkel: "4530–4532" }],
+        ekstraStakitt: "7462–7459",
+        spesifikasjon: ["A11 stakitt 38,1 × 38,1 mm", "Distanse mellom stakitt ca. 73 mm",
+                        "Stakitt-topp A11: 7230 spiss, 7231 flat",
+                        "Port over 1,5 m på forespørsel"] },
+      { kode: "STAKITT-GJ-A15", navn: "Stakitt rett gj.gående m/A15", artikkel: "7574", pris: 1481,
+        porter: [{ maks: 1, artikkel: "4500–4502" }, { maks: 1.5, artikkel: "4530–4532" }],
+        ekstraStakitt: "7462–7459",
+        spesifikasjon: ["A15 stakitt 22,2 × 76,2 mm", "Distanse mellom stakitt ca. 73 mm",
+                        "Port over 1,5 m på forespørsel"] },
+      { kode: "STAKITT-GJB-A11", navn: "Stakitt buet gj.gående m/A11", artikkel: "7573", pris: 1498,
+        porter: [{ maks: 1, artikkel: "4501–4503" }, { maks: 1.5, artikkel: "4531–4533" }],
+        ekstraStakitt: "7460–7459",
+        spesifikasjon: ["A11 stakitt 38,1 × 38,1 mm", "Distanse mellom stakitt ca. 73 mm",
+                        "Stakitt-topp A11: 7230 spiss, 7231 flat"] },
+      { kode: "STAKITT-GJB-A15", navn: "Stakitt buet gj.gående m/A15", artikkel: "7575", pris: 1498,
+        porter: [{ maks: 1, artikkel: "4501–4503" }, { maks: 1.5, artikkel: "4531–4533" }],
+        ekstraStakitt: "7460–7459",
+        spesifikasjon: ["A15 stakitt 22,2 × 76,2 mm", "Distanse mellom stakitt ca. 73 mm"] },
     ],
   },
   {
@@ -142,13 +248,21 @@ const VINDEX_MODELLSERIAR = [
     navn: "Gardsgjerde",
     gjelderProdukt: ["gardsgjerde"],
     enhet: "lm",
+    spesifikasjon: [
+      "A07 tverrstag 50,8 × 152,4 mm",
+      "A01 stolpe 127 × 127 mm",
+      "På lave gjerder kan A14 tverrstag brukes, 50,8 × 88,5 mm",
+    ],
     modellar: [
       { kode: "GARD-2", navn: "Gardsgjerde 2 stag", artikkel: "7417", pris: 544,
-        merknad: "Anbefalt høyde 0,7–1 m" },
+        porter: [{ maks: 1, artikkel: "4520" }, { maks: 1.5, artikkel: "4550" }, { maks: 2, artikkel: "4580" }],
+        spesifikasjon: ["Anbefalt høyde 0,7–1 m"] },
       { kode: "GARD-3", navn: "Gardsgjerde 3 stag", artikkel: "7420", pris: 742,
-        merknad: "Anbefalt høyde 0,9–1,2 m" },
+        porter: [{ maks: 1, artikkel: "4521" }, { maks: 1.5, artikkel: "4551" }, { maks: 2, artikkel: "4581" }],
+        spesifikasjon: ["Anbefalt høyde 0,9–1,2 m"] },
       { kode: "GARD-4", navn: "Gardsgjerde 4 stag", artikkel: "7422", pris: 945,
-        merknad: "Anbefalt høyde 1,1–1,5 m" },
+        porter: [{ maks: 1, artikkel: "4522" }, { maks: 1.5, artikkel: "4552" }, { maks: 2, artikkel: "4582" }],
+        spesifikasjon: ["Anbefalt høyde 1,1–1,5 m"] },
     ],
   },
   {
@@ -158,7 +272,9 @@ const VINDEX_MODELLSERIAR = [
     enhet: "stk",
     modellar: [
       { kode: "FLEXI", navn: "Flexigjerde inkl. krok", artikkel: "7589", pris: 1248,
-        merknad: "Valgfri høyde opp til 1,2 m. Maks c/c stolpe 2 m." },
+        spesifikasjon: ["A14 tverrstag 50,8 × 88,5 mm", "A15 stakitt 22,2 × 76,2 mm",
+                        "A08 stolpe 101,6 × 101,6 mm", "Hvitlakkert fot med bunnplate 30 cm",
+                        "Valgfri høyde opp til 1,2 m", "Maks c/c stolpe 2 m"] },
     ],
   },
   {
@@ -224,9 +340,11 @@ const VINDEX_TOPPTYPAR = [
 // Toppen på sjølve stakitten, ikkje på stolpen. Prislista viser desse tre uten
 // eigen pris — dei følgjer stakitten — så her står det ingen pris.
 const VINDEX_STAKITTOPPAR = [
-  { kode: "7227", navn: "Spisse topper", pris: null },
-  { kode: "7228", navn: "Halvflate topper", pris: null },
-  { kode: "7229", navn: "Flate topper", pris: null },
+  { kode: "7227", navn: "Spisse topper (A15)", pris: null },
+  { kode: "7228", navn: "Halvflate topper (A15)", pris: null },
+  { kode: "7229", navn: "Flate topper (A15)", pris: null },
+  { kode: "7230", navn: "Spisse topper (A11)", pris: null },
+  { kode: "7231", navn: "Flat topp (A11)", pris: null },
 ];
 
 // ---------------------------------------------------------------------------
@@ -252,43 +370,43 @@ const VINDEX_PYNTEKRANS = [
 // ligg åtvaringa på dei breie portane her òg.
 
 const VINDEX_PORTTYPAR = [
-  { kode: "PORT-REKK-1", navn: "Port rekkverk/stakitt ≤ 1 m", pris: 3867,
+  { kode: "PORT-REKK-1", maks: 1, navn: "Port rekkverk/stakitt ≤ 1 m", pris: 3867,
     gjelderProdukt: ["rekkverk", "glassrekkverk", "gjerde", "porter"] },
-  { kode: "PORT-REKK-15", navn: "Port rekkverk/stakitt ≤ 1,5 m", pris: 4457,
+  { kode: "PORT-REKK-15", maks: 1.5, navn: "Port rekkverk/stakitt ≤ 1,5 m", pris: 4457,
     gjelderProdukt: ["rekkverk", "glassrekkverk", "gjerde", "porter"],
     aatvaring: "Port over 1,3 m anbefales ikke." },
-  { kode: "PORT-REKK-2", navn: "Port rekkverk/stakitt 2 m", pris: 5094, paaForesporsel: true,
+  { kode: "PORT-REKK-2", maks: 2, navn: "Port rekkverk/stakitt 2 m", pris: 5094, paaForesporsel: true,
     gjelderProdukt: ["rekkverk", "glassrekkverk", "gjerde", "porter"],
     aatvaring: "Port over 1,3 m anbefales ikke." },
 
-  { kode: "PORT-LEVEGG-1", navn: "Port levegg ≤ 1 m", pris: 4584,
+  { kode: "PORT-LEVEGG-1", maks: 1, navn: "Port levegg ≤ 1 m", pris: 4584,
     gjelderProdukt: ["levegg", "porter"] },
-  { kode: "PORT-LEVEGG-15", navn: "Port levegg ≤ 1,5 m", pris: 4967, paaForesporsel: true,
+  { kode: "PORT-LEVEGG-15", maks: 1.5, navn: "Port levegg ≤ 1,5 m", pris: 4967, paaForesporsel: true,
     gjelderProdukt: ["levegg", "porter"],
     aatvaring: "Port over 1,3 m anbefales ikke." },
 
-  { kode: "4520", navn: "Port gardsgjerde 2 stag ≤ 1 m", pris: 3867,
+  { kode: "4520", maks: 1, navn: "Port gardsgjerde 2 stag ≤ 1 m", pris: 3867,
     gjelderProdukt: ["gardsgjerde", "porter"] },
-  { kode: "4550", navn: "Port gardsgjerde 2 stag ≤ 1,5 m", pris: 4139,
+  { kode: "4550", maks: 1.5, navn: "Port gardsgjerde 2 stag ≤ 1,5 m", pris: 4139,
     gjelderProdukt: ["gardsgjerde", "porter"],
     aatvaring: "Port over 1,3 m anbefales ikke." },
-  { kode: "4580", navn: "Port gardsgjerde 2 stag 2 m", pris: 4457, paaForesporsel: true,
+  { kode: "4580", maks: 2, navn: "Port gardsgjerde 2 stag 2 m", pris: 4457, paaForesporsel: true,
     gjelderProdukt: ["gardsgjerde", "porter"],
     aatvaring: "Port over 1,3 m anbefales ikke." },
-  { kode: "4521", navn: "Port gardsgjerde 3 stag ≤ 1 m", pris: 4457,
+  { kode: "4521", maks: 1, navn: "Port gardsgjerde 3 stag ≤ 1 m", pris: 4457,
     gjelderProdukt: ["gardsgjerde", "porter"] },
-  { kode: "4551", navn: "Port gardsgjerde 3 stag ≤ 1,5 m", pris: 4712,
+  { kode: "4551", maks: 1.5, navn: "Port gardsgjerde 3 stag ≤ 1,5 m", pris: 4712,
     gjelderProdukt: ["gardsgjerde", "porter"],
     aatvaring: "Port over 1,3 m anbefales ikke." },
-  { kode: "4581", navn: "Port gardsgjerde 3 stag 2 m", pris: 4967, paaForesporsel: true,
+  { kode: "4581", maks: 2, navn: "Port gardsgjerde 3 stag 2 m", pris: 4967, paaForesporsel: true,
     gjelderProdukt: ["gardsgjerde", "porter"],
     aatvaring: "Port over 1,3 m anbefales ikke." },
-  { kode: "4522", navn: "Port gardsgjerde 4 stag ≤ 1 m", pris: 4584,
+  { kode: "4522", maks: 1, navn: "Port gardsgjerde 4 stag ≤ 1 m", pris: 4584,
     gjelderProdukt: ["gardsgjerde", "porter"] },
-  { kode: "4552", navn: "Port gardsgjerde 4 stag ≤ 1,5 m", pris: 4839,
+  { kode: "4552", maks: 1.5, navn: "Port gardsgjerde 4 stag ≤ 1,5 m", pris: 4839,
     gjelderProdukt: ["gardsgjerde", "porter"],
     aatvaring: "Port over 1,3 m anbefales ikke." },
-  { kode: "4582", navn: "Port gardsgjerde 4 stag 2 m", pris: 5094, paaForesporsel: true,
+  { kode: "4582", maks: 2, navn: "Port gardsgjerde 4 stag 2 m", pris: 5094, paaForesporsel: true,
     gjelderProdukt: ["gardsgjerde", "porter"],
     aatvaring: "Port over 1,3 m anbefales ikke." },
 ];
@@ -311,7 +429,8 @@ const VINDEX_PORTDELAR = [
 
 const VINDEX_TILLEGGSDELAR = [
   { kode: "7459", navn: "Ekstra stakitt om det ønskes tettere", pris: 90, gruppe: "Tillegg" },
-  { kode: "7478", navn: "Ekstra alu i topp A14/A19", pris: 224, gruppe: "Tillegg" },
+  { kode: "7478", navn: "Ekstra alu i topp A14/A19 (rekkverk og stakitt)", pris: 224, gruppe: "Tillegg" },
+  { kode: "7477", navn: "Ekstra alu i topp (levegg)", pris: 153, gruppe: "Tillegg" },
   { kode: "7359", navn: "Stolpefot", pris: 376, gruppe: "Tillegg" },
   { kode: "7557", navn: "Veggfeste A14 m/krave", pris: 85, gruppe: "Veggfeste" },
   { kode: "7376", navn: "Veggfeste A19 m/krave", pris: 85, gruppe: "Veggfeste" },
@@ -588,6 +707,42 @@ function vindexModellpris(kode, profil) {
 function vindexModellartikkel(kode, profil) {
   const m = vindexModell(kode, profil);
   return m ? m.artikkel || null : null;
+}
+
+/**
+ * Detaljane som gjeld ein modell: portar, ekstra stakitt og spesifikasjon.
+ *
+ * For VB-serien står dette per grunnmodell, sidan A14 og A19 deler alt anna
+ * enn håndløparen. For dei andre seriane står det på modellen sjølv.
+ */
+function vindexModelldetalj(kode, profil) {
+  const m = vindexModell(kode, profil);
+  if (!m) return null;
+  const serie = VINDEX_MODELLSERIAR.find((x) => x.id === m.serie) || {};
+  const frSerie = (serie.detaljar || {})[m.basis || m.kode] || {};
+  return {
+    modell: m,
+    porter: m.porter || frSerie.porter || [],
+    ekstraStakitt: m.ekstraStakitt || frSerie.ekstraStakitt || null,
+    // Serien sin spesifikasjon gjeld alle modellane i den, modellen sin eigen
+    // kjem etter — det som skil denne modellen frå naboen.
+    spesifikasjon: (serie.spesifikasjon || []).concat(frSerie.spesifikasjon || m.spesifikasjon || []),
+  };
+}
+
+/**
+ * Artikkelnummeret på porten til ein modell.
+ *
+ * Prisen på porten følgjer produktfamilien og lysmålet, men nummeret lageret
+ * skal plukke etter er per modell: ein VBB-port er 4509, ein VBD-port er 4511.
+ * Difor må begge to vere kjende før vi kan svare.
+ */
+function vindexPortartikkel(modellkode, portkode) {
+  const d = vindexModelldetalj(modellkode);
+  if (!d || !d.porter.length) return null;
+  const port = VINDEX_PORTTYPAR.find((p) => p.kode === portkode);
+  if (!port || port.maks == null) return null;
+  return d.porter.find((p) => p.maks === port.maks) || null;
 }
 
 /** Har vi prisar i det heile? Styrer om verktøyet lovar ei utrekning. */

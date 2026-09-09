@@ -234,12 +234,18 @@ modell 2 kan ha hver sin håndløper, og at det ikke går an å velge en modell 
 «VBA» + profil som eget argument; `vindexModellpris("VBA")` uten håndløper
 returnerer `null` i stedet for å gjette på A14.
 
-**Portprisen følger produktfamilien, ikke modellen.** En port i VBA og en i VBF
-koster det samme — det er lysmålet og om det er rekkverk, levegg eller
-gardsgjerde som avgjør. Artikkelnummeret er derimot per modell (4508-VBA,
-4510-VBC, 4511-VBD, 4513-VBF), og det er lageret som slår det opp fra
-modellkoden på ordreseddelen. De numrene vi ikke har sett på listen, står ikke
-skrevet inn.
+**Portprisen følger produktfamilien, men artikkelnummeret følger modellen.**
+En port i VBA og en i VBF koster det samme — det er lysmålet og om det er
+rekkverk, levegg eller gardsgjerde som avgjør prisen. Nummeret lageret plukker
+etter er derimot modellens eget: 4508-VBA, 4509-VBB, 4510-VBC, 4511-VBD,
+4512-VBE, 4513-VBF, og +30 for 1,5 m. Derfor ligger prisen i portregisteret og
+nummeret på modellen, og plukklisten setter dem sammen: velger selgeren VBB og
+en port på 1 m, står det «Port rekkverk/stakitt ≤ 1 m · art. 4509-VBB». Det
+samme gjelder ekstra stakitt, som er 7459, 7460, 7462 eller 7463 avhengig av
+modell.
+
+**VBG har ingen port.** Det er ikke noe som mangler i listen — glassrekkverket
+er den ene modellen i serien uten portlinje.
 
 Står det `pris: null` et sted, har vi ikke sett prisen. Da skriver selgeren den
 selv. En gjettet pris er verre enn ingen pris.
@@ -251,6 +257,10 @@ selv. En gjettet pris er verre enn ingen pris.
   for produktet, blir feltet et skrivefelt i stedet for en tom nedtrekksliste.
 - **Tilbudet** — «Hent fra prislisten» legger artikkelen inn som en ferdig linje
   med pris og enhet. Selgeren kan overstyre prisen på linjen.
+- **Modellfeltet** — under nedtrekkslisten står det som skiller modellen fra
+  naboen: stakittprofil, avstand mellom stakittene, maks c/c stolpe og høyde.
+  Det er spørsmålene kunden stiller mens hun er på telefonen, og de sto ellers
+  bare i permen.
 - **Målskjema sprosser** — prisen regnes ut løpende av målene som alt står i
   tabellen (bredde + høyde og antall ruter), med frakt etter antall sprosser.
   Faller en linje utenfor tabellen, står det «må prises manuelt» — ikke null
@@ -767,12 +777,17 @@ Vilkårene står i `garanti.html`, gjengitt fra garantidokumentet.
 - [ ] **Robotklipperhus (3149) og postkassestativ (7640)** står i prislisten,
       men finnes ikke i produktkatalogen på nettsiden. De er lagt inn i
       prisboken, så de kan tilbys — avklar om de også skal på nettsiden.
-- [ ] **Portartikkelnumrene for VBB, VBE og VBG mangler fortsatt.** Portene
-      ligger i 45xx-serien (4508-VBA, 4510-VBC, 4511-VBD, 4513-VBF), mens 7409,
-      7415 og 7471 er rekkverksartiklene for VBB, VBE og VBG m/A14 — de står
-      allerede inne som det. Mangler bare portlinjene fra de tre sidene.
-      Portprisen er uansett riktig, siden den følger produktfamilien og
-      lysmålet, ikke modellen.
+- [ ] **Trykkfeil i prislisten:** detaljsiden for VBF skriver «7630 VBF m/A19».
+      7630 er VBA m/A19, både i hovedlisten og på VBA-siden. Vi bruker
+      hovedlistens 7635 — prisen er 1.218 begge steder. Verdt å rette i permen.
+- [ ] **Overlappende portnumre for gjennomgående stakitt:** listen oppgir
+      4500–4502 til rett gj.gående (7572/7574) og 4501–4503 til buet gj.gående
+      (7573/7575). De to rekkene overlapper. Skrevet inn slik det står.
+- [ ] **Portnumrene for levegg A11 og A15** er utledet, ikke lest: listen viser
+      4527–4528 og 4557–4558 til levegg-pris, og tett og flettverk har alt tatt
+      4525/4526 og 4555/4556. Merket usikkert i koden, og plukklisten skriver
+      «bekreftes mot prislisten». Detaljsidene for A11 og A15 er ikke
+      fotografert.
 - [ ] Legg inn produktfilmen og «hør forskjellen på lyd»-videoen
 - [ ] Slå på [Firebase App Check](https://firebase.google.com/docs/app-check)
       (reCAPTCHA) — skjemaet er åpent for innsending, og App Check er

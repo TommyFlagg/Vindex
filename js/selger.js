@@ -1176,7 +1176,7 @@ function feltHtml(f, verdi, brei, produktId) {
         .join("");
     if (!grupper.length) input = `<input id="${id}" value="${v}">`;
     else
-      input = `<select id="${id}"><option value="">–</option>${grupper
+      input = `<select id="${id}"${f.register ? ` data-register="${f.register}"` : ""}><option value="">–</option>${grupper
         .map((g) => (g.navn ? `<optgroup label="${g.navn}">${val(g.val)}</optgroup>` : val(g.val)))
         .join("")}</select>`;
   } else if (f.type === "tal") input = `<input id="${id}" type="number" step="any" min="0" value="${v}">`;
@@ -1184,8 +1184,23 @@ function feltHtml(f, verdi, brei, produktId) {
   return `<div class="field ${brei || f.type === "omrade" ? "brei" : ""}">
     <label for="${id}">${f.navn}${f.enhet ? ` <span class="optional">(${f.enhet})</span>` : ""}</label>
     ${input}
+    ${f.register === "modell" ? `<p class="hint modellspek" id="${id}_spek">${modellspekHtml(verdi)}</p>` : ""}
     ${f.hjelp ? `<p class="hint">${f.hjelp}</p>` : ""}
   </div>`;
+}
+
+/**
+ * Det som skiller denne modellen fra naboen, rett under nedtrekkslisten.
+ *
+ * Stakittprofil, avstand mellom stakittene, maks c/c stolpe. Dette er det
+ * kunden spør om mens selgeren har henne på telefonen, og det står ellers bare
+ * i permen. Er ingen modell valgt, står linjen tom i stedet for å ta plass.
+ */
+function modellspekHtml(kode) {
+  if (!kode || typeof vindexModelldetalj !== "function") return "";
+  const d = vindexModelldetalj(kode);
+  if (!d || !d.spesifikasjon.length) return "";
+  return d.spesifikasjon.join(" · ");
 }
 
 function tabellHtml(tabell, rader) {
@@ -1289,6 +1304,14 @@ function opneOrdreskjema(lead, eksisterande) {
       const data = samleSkjema(skjema);
       opneOrdreskjema(lead, { ...(eksisterande || {}), felt: data.felt, rader: data.rader.concat([{}]) });
     });
+
+  // Spesifikasjonen under modellfeltet skal følgje valet. Lyttaren heng på
+  // sjølve nedtrekkslista, som blir laga på nytt kvar gong dialogen opnar —
+  // då forsvinn den med elementet, og kan ikkje overleve inn i neste dialog.
+  $$("#modalInnhald select[data-register=\"modell\"]").forEach((sel) => {
+    const spek = document.getElementById(sel.id + "_spek");
+    if (spek) sel.addEventListener("change", () => (spek.textContent = modellspekHtml(sel.value)));
+  });
 
   // Prisboksen skal følgje måla medan dei blir skrivne. Vi teiknar berre boksen
   // på nytt, ikkje heile skjemaet — elles mistar seljaren markøren i feltet.

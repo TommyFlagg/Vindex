@@ -102,8 +102,10 @@ const ORDRESEDDEL_REKKVERK = {
         { id: "modell3_hoyde", navn: "Høyde", type: "tal", enhet: "mm" },
         { id: "topprekke", navn: "Topprekke", type: "tekst" },
         { id: "stakittopp", navn: "Stakittopp", type: "valg", register: "stakittopp" },
-        { id: "ekstra_stakitt", navn: "Ekstra stakitt — tettere (7459)", type: "tal" },
-        { id: "ekstra_alu_topp", navn: "Ekstra alu i topp A14/A19 (7478)", type: "tal" },
+        { id: "ekstra_stakitt", navn: "Ekstra stakitt — tettere", type: "tal",
+          hjelp: "Artikkelnummeret følger modellen (7459, 7460, 7462, 7463 …) og settes på plukklisten." },
+        { id: "ekstra_alu_topp", navn: "Ekstra alu i topp", type: "tal",
+          hjelp: "7478 for rekkverk og stakitt (224), 7477 for levegg (153)." },
       ],
     },
     {
@@ -361,6 +363,34 @@ function vindexFeltval(f, produktId) {
 }
 
 /**
+ * Artikkelnummeret lageret skal plukke etter, når det avheng av modellen.
+ *
+ * To ting på ordreseddelen har eit nummer som varierer med modellen sjølv om
+ * prisen er den same: porten (ein VBB-port er 4509, ein VBD-port er 4511) og
+ * ekstra stakitt (7459, 7460, 7462, 7463 …). Uten dette må lageret slå opp
+ * modellen i permen for å finne nummeret — og det er akkurat den slags steg
+ * som blir hoppa over ein travel dag.
+ */
+function vindexArtikkelhint(feltId, verdiar) {
+  if (typeof vindexModelldetalj !== "function") return "";
+  const modell = verdiar.modell1 || verdiar.modell2 || verdiar.modell3;
+  if (!modell) return "";
+
+  if (feltId === "port1_type" || feltId === "port2_type") {
+    const treff = vindexPortartikkel(modell, verdiar[feltId]);
+    if (!treff) return "";
+    return ` · art. ${treff.artikkel}${treff.usikker ? " (bekreftes mot prislisten)" : ""}`;
+  }
+
+  if (feltId === "ekstra_stakitt") {
+    const d = vindexModelldetalj(modell);
+    return d && d.ekstraStakitt ? ` · art. ${d.ekstraStakitt}` : "";
+  }
+
+  return "";
+}
+
+/**
  * Kva verdien heiter på menneskespråk.
  *
  * Lageret skal lese «Port levegg ≤ 1 m», ikkje «PORT-LEVEGG-1». Finn vi ikkje
@@ -453,7 +483,7 @@ function vindexPlukkliste(ordre) {
       const linje = {
         seksjon: seksjon.tittel,
         navn: f.navn,
-        verdi: vindexFelttekst(f, v, produktId),
+        verdi: vindexFelttekst(f, v, produktId) + vindexArtikkelhint(f.id, verdiar),
         enhet: f.enhet || "",
       };
       if (f.lager || seksjon.lager) plukk.push(linje);
