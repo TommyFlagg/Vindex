@@ -1766,30 +1766,119 @@ function opneTilbod(lead) {
     fastpris: t.fastpris || "",
     gyldigTil: t.gyldigTil || "",
     notat: t.notat || "",
+    montering: {
+      timar: (t.montering || {}).timar || "",
+      reisetimar: (t.montering || {}).reisetimar || "",
+      menn: (t.montering || {}).menn || "",
+      fastsum: (t.montering || {}).fastsum || "",
+      rabattProsent: (t.montering || {}).rabattProsent || "",
+      etterAvtale: !!(t.montering || {}).etterAvtale,
+    },
   };
   teiknTilbodsdialog(lead);
 }
 
 /**
- * Minner om monteringsrabatten når timene passerer grensen.
+ * Montering og reise — eige felt, eigen sum.
  *
- * Prislisten sier at over 20 timer pr. mann kan det gis inntil 20 % rabatt.
- * En rabatt ingen husker på er en rabatt kunden aldri får — og det er kunden
- * som merker det, ikke selgeren. Derfor sier verktøyet fra selv, med beløpet
- * ferdig regnet ut, men uten å trekke det fra: det er selgerens vurdering om
- * rabatten skal gis.
+ * Montering er ikkje ei linje i delelista. Det er arbeid, det blir avtalt for
+ * seg, og ofte er timane ikkje kjende før nokon har vore på staden. Difor kan
+ * feltet stå som «etter avtale» heilt til det er avklart, utan at tilbodet
+ * blir ugyldig eller summen blir feil.
  */
-function monteringsvarselHtml(linjer) {
-  const timeline = (linjer || []).find((l) => l.kode === VINDEX_MONTERING.timepris.kode);
-  if (!timeline) return "";
-  const rabatt = vindexMonteringsrabatt(timeline.antall);
-  if (!rabatt) return "";
+function monteringsfeltHtml(m, r) {
+  const sats = VINDEX_MONTERING;
+  const av = m.etterAvtale;
+  return `<fieldset class="monteringsfelt mt-2">
+    <legend>Montering og reise</legend>
+    <label class="avkryssrad">
+      <input type="checkbox" id="tbMontAvtale"${av ? " checked" : ""}>
+      <span>Etter avtale — settes ikke i tilbudet ennå</span>
+    </label>
+    <div class="feltrutenett mt-1${av ? " hidden" : ""}" id="montFelt">
+      <div class="field"><label for="tbMontTimar">Monteringstimer pr. mann</label>
+        <input id="tbMontTimar" type="number" min="0" step="0.5" value="${m.timar}">
+        <p class="hint">${vindexKr(sats.timepris.pris)} pr. time (${sats.timepris.kode})</p></div>
+      <div class="field"><label for="tbMontReise">Reisetimer pr. mann</label>
+        <input id="tbMontReise" type="number" min="0" step="0.5" value="${m.reisetimar}">
+        <p class="hint">${vindexKr(sats.reisetid.pris)} pr. time (${sats.reisetid.kode})</p></div>
+      <div class="field"><label for="tbMontMenn">Antall montører</label>
+        <input id="tbMontMenn" type="number" min="1" step="1" value="${m.menn}" placeholder="1"></div>
+      <div class="field"><label for="tbMontRabatt">Rabatt på montering (%)</label>
+        <input id="tbMontRabatt" type="number" min="0" max="${r.maksRabatt}" step="1" value="${m.rabattProsent}">
+        <p class="hint">Maks ${r.maksRabatt} % — og bare over ${sats.rabattFraTimar} timer pr. mann.</p></div>
+      <div class="field brei"><label for="tbMontFast">Fast sum for montering (kr)</label>
+        <input id="tbMontFast" type="number" min="0" step="100" value="${m.fastsum}">
+        <p class="hint">Fylles denne ut, overstyrer den timeberegningen.</p></div>
+    </div>
+    <div id="montSum">${monteringSumHtml(r)}</div>
+    <p class="hint mb-0">${sats.inkluderer} ${sats.reisemerknad}</p>
+  </fieldset>`;
+}
 
-  const maks = Math.round((timeline.sum * rabatt.prosent) / 100);
-  return `<div class="notice notice-info mt-1">
-    <strong>${rabatt.timar} monteringstimer pr. mann.</strong> ${rabatt.tekst}
-    Det utgjør inntil ${kr(maks)} på monteringslinjen. Du velger selv om den skal gis.
-  </div>`;
+/**
+ * Den utrekna delen av monteringsfeltet.
+ *
+ * Skilt ut for seg fordi den inneheld ingen skrivefelt: då kan den teiknast
+ * på nytt for kvart tastetrykk utan at markøren i talfeltet blir flytta.
+ */
+function monteringSumHtml(r) {
+  const sats = VINDEX_MONTERING;
+  // Ingen timar, ingen fast sum, ingen avtale — då er det ingenting å vise.
+  // Ein sum på null kroner ser ut som eit svar, og det er det ikkje.
+  if (!r.oppgitt) return "";
+  if (r.etterAvtale)
+    return `<p class="hint mb-0">Kunden ser «Etter avtale» på monteringslinjen, og summen
+      nedenfor gjelder materiell.</p>`;
+
+  const menn = r.menn > 1 ? "montører" : "montør";
+  return `<div class="tilbodsum tilbodsum-liten mt-1">
+      ${
+        r.harFastsum
+          ? `<div><span>Fast sum montering</span><span>${kr(r.fastsum)}</span></div>`
+          : `<div><span>Montering ${r.timar || 0} t × ${r.menn} ${menn}</span><span>${kr(r.arbeid)}</span></div>
+             <div><span>Reisetid ${r.reisetimar || 0} t × ${r.menn} ${menn}</span><span>${kr(r.reise)}</span></div>`
+      }
+      ${r.rabattKr ? `<div><span>Rabatt (${r.rabattProsent} %)</span><span>− ${kr(r.rabattKr)}</span></div>` : ""}
+      <div class="total"><span>Sum montering og reise</span><span>${kr(r.sum)}</span></div>
+    </div>
+    ${
+      r.kanFaaRabatt && !r.rabattProsent
+        ? `<div class="notice notice-info mt-1">
+             <strong>${r.timar} timer pr. mann.</strong> ${sats.rabattTekst}
+             Det utgjør inntil ${kr(Math.round((r.foerRabatt * r.maksRabatt) / 100))}.
+             Du velger selv om den skal gis.
+           </div>`
+        : ""
+    }`;
+}
+
+/**
+ * Summane nedst i tilbodsdialogen.
+ *
+ * Som monteringssummen: ingen skrivefelt her inne, så den kan teiknast på nytt
+ * for kvart tastetrykk utan å røre markøren i felta over.
+ */
+function tilbodsumHtml(r) {
+  return `<div><span>Sum linjer</span><span class="linjesum">${kr(r.linjesum)}</span></div>
+    ${r.rabattKr ? `<div><span>Rabatt${r.rabattProsent ? " (" + r.rabattProsent + " %)" : ""}</span><span class="linjesum">− ${kr(r.rabattKr)}</span></div>` : ""}
+    ${
+      r.harFastpris
+        ? `<div class="avvik"><span>Fast prosjektpris i stedet for ${kr(r.etterRabatt)}</span>
+             <span class="linjesum">${r.avvik > 0 ? "− " + kr(r.avvik) : r.avvik < 0 ? "+ " + kr(-r.avvik) : "±0"}</span></div>`
+        : ""
+    }
+    ${
+      r.montering.oppgitt
+        ? `<div><span>Materiell</span><span class="linjesum">${kr(r.prosjekt)}</span></div>
+           <div><span>Montering og reise</span><span class="linjesum">${
+             r.montering.etterAvtale ? "Etter avtale" : kr(r.montering.sum)
+           }</span></div>`
+        : ""
+    }
+    <div class="total"><span>Til kunden</span><span class="linjesum">${kr(r.sum)}</span></div>
+    <div><span class="hint">Herav uten mva</span><span class="hint">${kr(vindexEksMva(r.sum))}</span></div>
+    ${r.montering.etterAvtale ? `<div><span class="hint">Montering kommer i tillegg, etter avtale</span><span></span></div>` : ""}`;
 }
 
 function teiknTilbodsdialog(lead) {
@@ -1858,19 +1947,9 @@ function teiknTilbodsdialog(lead) {
           placeholder="Leveringstid, forbehold, hva som er inkludert …">${u.notat || ""}</textarea></div>
     </div>
 
-    <div class="tilbodsum">
-      <div><span>Sum linjer</span><span class="linjesum">${kr(r.linjesum)}</span></div>
-      ${r.rabattKr ? `<div><span>Rabatt${r.rabattProsent ? " (" + r.rabattProsent + " %)" : ""}</span><span class="linjesum">− ${kr(r.rabattKr)}</span></div>` : ""}
-      ${
-        r.harFastpris
-          ? `<div class="avvik"><span>Fast prosjektpris i stedet for ${kr(r.etterRabatt)}</span>
-               <span class="linjesum">${r.avvik > 0 ? "− " + kr(r.avvik) : r.avvik < 0 ? "+ " + kr(-r.avvik) : "±0"}</span></div>`
-          : ""
-      }
-      <div class="total"><span>Til kunden</span><span class="linjesum">${kr(r.sum)}</span></div>
-      <div><span class="hint">Herav uten mva</span><span class="hint">${kr(vindexEksMva(r.sum))}</span></div>
-    </div>
-    ${monteringsvarselHtml(r.linjer)}
+    ${monteringsfeltHtml(u.montering, r.montering)}
+
+    <div class="tilbodsum mt-2" id="tbSummar">${tilbodsumHtml(r)}</div>
     <p class="hint mt-1">Prisene i listen er inkl. mva — det er det privatkunden
       betaler. Tallet uten mva står ved siden av, for de tilfellene du trenger det.
       Prisgrunnlag: ${VINDEX_PRISLISTE.kjelde}.</p>
@@ -1907,25 +1986,45 @@ function teiknTilbodsdialog(lead) {
     u.fastpris = verdiAv("#tbFastpris");
     u.gyldigTil = verdiAv("#tbGyldig");
     u.notat = verdiAv("#tbNotat");
+
+    const avtale = $("#tbMontAvtale");
+    u.montering = {
+      timar: verdiAv("#tbMontTimar"),
+      reisetimar: verdiAv("#tbMontReise"),
+      menn: verdiAv("#tbMontMenn"),
+      fastsum: verdiAv("#tbMontFast"),
+      rabattProsent: verdiAv("#tbMontRabatt"),
+      // «Etter avtale» skjuler felta, men lèt dei stå i skjemaet — timane
+      // seljaren alt har skrive blir difor med, og kjem tilbake om han
+      // ombestemmer seg.
+      etterAvtale: avtale ? avtale.checked : false,
+    };
   };
 
-  const teiknPaaNytt = () => {
-    const aktiv = document.activeElement;
-    const merke = aktiv && aktiv.closest("tr[data-linje]")
-      ? { linje: aktiv.closest("tr[data-linje]").dataset.linje, felt: aktiv.dataset.felt }
-      : aktiv && aktiv.id
-      ? { id: aktiv.id }
-      : null;
-    teiknTilbodsdialog(lead);
-    if (!merke) return;
-    const attende = merke.id
-      ? document.getElementById(merke.id)
-      : document.querySelector(`tr[data-linje="${merke.linje}"] [data-felt="${merke.felt}"]`);
-    if (attende) {
-      attende.focus();
-      if (attende.setSelectionRange && attende.type !== "number" && attende.type !== "date")
-        attende.setSelectionRange(attende.value.length, attende.value.length);
-    }
+  /**
+   * Oppdater berre tala som er rekna ut — aldri felta seljaren skriv i.
+   *
+   * Før teikna vi heile dialogen på nytt for kvart tastetrykk, og sette
+   * markøren tilbake etterpå. Det gjekk ikkje på talfelt: `setSelectionRange`
+   * finst ikkje på `input[type=number]`, så markøren hamna på plass null, og
+   * «25» kom ut som «52». No blir skrivefelta ståande urørte, og berre
+   * summane bytta ut.
+   */
+  const oppdaterSummar = () => {
+    const rekna = vindexRegnTilbod(u);
+    rekna.linjer.forEach((l, i) => {
+      const celle = document.querySelector(`tr[data-linje="${i}"] .linjesum`);
+      if (celle) celle.textContent = kr(l.sum);
+    });
+    const summar = $("#tbSummar");
+    if (summar) summar.innerHTML = tilbodsumHtml(rekna);
+    const montSum = $("#montSum");
+    if (montSum) montSum.innerHTML = monteringSumHtml(rekna.montering);
+    const rabattKr = $("#tbRabattKr");
+    if (rabattKr)
+      rabattKr.placeholder = rekna.rabattProsent
+        ? String(Math.round((rekna.linjesum * rekna.rabattProsent) / 100))
+        : "";
   };
 
   // Lyttaren heng på skjemaet, ikkje på dialogen. Dialogen blir gjenbrukt av
@@ -1936,7 +2035,14 @@ function teiknTilbodsdialog(lead) {
     // òg, blir lista teikna på nytt før valet er lese, og artikkelen forsvinn.
     if (e.target && e.target.id === "tbPrisbok") return;
     les();
-    teiknPaaNytt();
+    // «Etter avtale» viser og skjuler felta over. Det er einaste gongen
+    // strukturen endrar seg, og då held det å skru klassa av og på — vi treng
+    // framleis ikkje teikne felta på nytt.
+    if (e.target && e.target.id === "tbMontAvtale") {
+      const felt = $("#montFelt");
+      if (felt) felt.classList.toggle("hidden", e.target.checked);
+    }
+    oppdaterSummar();
   });
 
   $("#tbPrisbok").addEventListener("change", (e) => {
@@ -1992,6 +2098,12 @@ function teiknTilbodsdialog(lead) {
       fastpris: rekna.fastpris,
       gyldigTil: u.gyldigTil,
       notat: u.notat.trim(),
+      montering: {
+        ...u.montering,
+        // Summen blir lagra ferdig rekna, så ordreseddelen og statistikken
+        // slepp å rekne den ut på nytt frå satsar som kan ha endra seg.
+        sum: rekna.montering.sum,
+      },
       sum: rekna.sum,
       dato: new Date().toISOString(),
       av: app.brukar.navn,
@@ -2034,15 +2146,31 @@ function tilbodsHtml(lead) {
     <div class="tilbodsum">
       ${
         r.harFastpris
-          ? `<div class="total"><span>Fast pris for hele prosjektet</span><span>${kr(r.sum)}</span></div>`
-          : `${r.rabattKr ? `<div><span>Sum</span><span>${kr(r.linjesum)}</span></div>
+          ? `<div><span>Fast pris for materiell</span><span>${kr(r.prosjekt)}</span></div>`
+          : `${r.rabattKr ? `<div><span>Sum materiell</span><span>${kr(r.linjesum)}</span></div>
                <div><span>Rabatt</span><span>− ${kr(r.rabattKr)}</span></div>` : ""}
-             <div class="total"><span>Sum</span><span>${kr(r.sum)}</span></div>`
+             <div><span>${r.rabattKr ? "Materiell etter rabatt" : "Sum materiell"}</span><span>${kr(r.prosjekt)}</span></div>`
       }
+      ${
+        r.montering.oppgitt
+          ? `<div><span>Montering og reise</span><span>${
+              r.montering.etterAvtale ? "Etter avtale" : kr(r.montering.sum)
+            }</span></div>`
+          : ""
+      }
+      <div class="total"><span>${r.montering.etterAvtale ? "Sum materiell" : "Sum"}</span><span>${kr(r.sum)}</span></div>
     </div>
     <p class="hint mt-1">${VINDEX_PRISLISTE.mvaTekst} Sum uten mva: ${kr(vindexEksMva(r.sum))}. ${
       VINDEX_FIRMA.garantiAr ? VINDEX_FIRMA.garantiAr + " års garanti." : ""
     }</p>
+    ${
+      r.montering.etterAvtale
+        ? `<p class="hint">Montering og reise avtales særskilt og kommer i tillegg til summen over.</p>`
+        : r.montering.oppgitt
+        ? `<p class="hint">Montering utføres av Vindex. ${VINDEX_MONTERING.inkluderer}
+             ${VINDEX_MONTERING.reisemerknad}</p>`
+        : ""
+    }
     ${t.notat ? `<p>${t.notat}</p>` : ""}
     <p class="mt-2">Med vennlig hilsen<br><strong>${seljar.navn}</strong><br>
       ${seljar.telefon || ""} ${seljar.epost ? "· " + seljar.epost : ""}</p>
@@ -2087,7 +2215,9 @@ async function delTilbod(lead) {
          ? `<p class="mt-1"><a class="btn btn-sm" id="dtEpost"
               href="mailto:${k.epost}?subject=${encodeURIComponent("Tilbud fra Vindex")}&body=${encodeURIComponent(
              "Hei " + (k.navn || "") + ",\\n\\nTakk for henvendelsen. Her er tilbudet vårt på " +
-               kr(r.sum) + " inkl. mva (" + kr(vindexEksMva(r.sum)) + " eks. mva).\\n\\n" + (t.notat || "") +
+               kr(r.sum) + " inkl. mva (" + kr(vindexEksMva(r.sum)) + " eks. mva)." +
+               (r.montering.etterAvtale ? " Montering og reise avtales særskilt og kommer i tillegg." : "") +
+               "\\n\\n" + (t.notat || "") +
                "\\n\\nMed vennlig hilsen\\n" + app.brukar.navn + "\\n" + VINDEX_FIRMA.navn
            )}">✉️ Åpne e-post til ${k.epost}</a></p>`
          : '<p class="hint">Kunden har ingen e-postadresse registrert.</p>'

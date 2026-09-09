@@ -234,6 +234,62 @@ const vindexTomTilbodslinje = () => ({
 });
 
 /**
+ * Montering og reise — eit eige rekneskap, ved sida av delelista.
+ *
+ * Montering er ikkje ei vare i prosjektet, den er ein avtale for seg. Difor
+ * har den eiga rad i tilbodet med eigen sum, og kan stå som «etter avtale»
+ * når timane ikkje er kjende enno — som dei ofte ikkje er før nokon har vore
+ * på staden.
+ *
+ * Timeprisen gjeld per mann, så både timane og talet montørar må med. Set
+ * seljaren ein fast sum, overstyrer den utrekninga.
+ */
+function vindexRegnMontering(m = {}) {
+  const sats = typeof VINDEX_MONTERING === "object" ? VINDEX_MONTERING : null;
+  const menn = Math.max(1, parseInt(m.menn, 10) || 1);
+  const timar = parseFloat(m.timar) || 0;
+  const reisetimar = parseFloat(m.reisetimar) || 0;
+  const etterAvtale = !!m.etterAvtale;
+
+  const arbeid = sats ? Math.round(timar * sats.timepris.pris * menn) : 0;
+  const reise = sats ? Math.round(reisetimar * sats.reisetid.pris * menn) : 0;
+
+  const fastsumRaa = m.fastsum === "" || m.fastsum === null || m.fastsum === undefined
+    ? null
+    : parseFloat(m.fastsum);
+  const harFastsum = fastsumRaa !== null && !isNaN(fastsumRaa) && fastsumRaa > 0;
+  const foerRabatt = harFastsum ? Math.round(fastsumRaa) : arbeid + reise;
+
+  // Rabatten er avgrensa til det prislista opnar for. Skriv nokon 50, blir det
+  // 20 — grensa høyrer heime i utrekninga, ikkje i eit felt seljaren kan
+  // overstyre utan at nokon ser det.
+  const maksRabatt = sats ? sats.rabattProsent : 0;
+  const rabattProsent = Math.min(Math.max(parseFloat(m.rabattProsent) || 0, 0), maksRabatt);
+  const rabattKr = Math.round((foerRabatt * rabattProsent) / 100);
+
+  return {
+    menn,
+    timar,
+    reisetimar,
+    arbeid,
+    reise,
+    harFastsum,
+    fastsum: harFastsum ? Math.round(fastsumRaa) : null,
+    foerRabatt,
+    rabattProsent,
+    rabattKr,
+    maksRabatt,
+    etterAvtale,
+    // «Etter avtale» tel ikkje med i totalen — det er heile poenget med den.
+    sum: etterAvtale ? 0 : Math.max(0, foerRabatt - rabattKr),
+    // Har seljaren teke stilling til montering i det heile?
+    oppgitt: etterAvtale || foerRabatt > 0,
+    // Over grensa kan det gjevast rabatt. Vi seier frå, men gjer det ikkje.
+    kanFaaRabatt: sats && timar > sats.rabattFraTimar,
+  };
+}
+
+/**
  * Rekn ut eit tilbod frå linjene.
  *
  * Rekkefølgja er: linjesum -> rabatt -> fastpris. Set seljaren ein fast pris,
@@ -256,7 +312,12 @@ function vindexRegnTilbod(tilbod = {}) {
     : parseFloat(tilbod.fastpris);
   const harFastpris = fastpris !== null && !isNaN(fastpris) && fastpris > 0;
 
-  const sum = harFastpris ? Math.round(fastpris) : etterRabatt;
+  // Prosjektprisen: det delelista eller fastprisen kjem til.
+  const prosjekt = harFastpris ? Math.round(fastpris) : etterRabatt;
+
+  // Montering ligg utanfor prosjektprisen og blir lagt til på slutten, slik at
+  // kunden ser kva som er materiell og kva som er arbeid.
+  const montering = vindexRegnMontering(tilbod.montering);
 
   return {
     linjer,
@@ -268,9 +329,11 @@ function vindexRegnTilbod(tilbod = {}) {
     fastpris: harFastpris ? Math.round(fastpris) : null,
     // Positivt tal = kunden betaler mindre enn linjene summerer seg til.
     avvik: harFastpris ? etterRabatt - Math.round(fastpris) : 0,
-    sum,
-    // Eit tilbod utan linjer og utan fastpris er ikkje eit tilbod.
-    gyldig: linjer.some((l) => l.navn && l.sum > 0) || harFastpris,
+    prosjekt,
+    montering,
+    sum: prosjekt + montering.sum,
+    // Eit tilbod utan linjer, utan fastpris og utan montering er ikkje eit tilbod.
+    gyldig: linjer.some((l) => l.navn && l.sum > 0) || harFastpris || montering.oppgitt,
   };
 }
 

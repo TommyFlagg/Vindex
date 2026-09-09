@@ -261,11 +261,21 @@ selv. En gjettet pris er verre enn ingen pris.
   naboen: stakittprofil, avstand mellom stakittene, maks c/c stolpe og høyde.
   Det er spørsmålene kunden stiller mens hun er på telefonen, og de sto ellers
   bare i permen.
-- **Montering** — timeprisen (3200) og reisetiden (3201) er egne linjer i
-  prisboken. Passerer monteringstimene 20 pr. mann, sier tilbudet fra om
-  20 %-rabatten prislisten åpner for, med beløpet ferdig regnet ut. Den trekkes
-  ikke fra automatisk — det er selgerens vurdering. Men en rabatt ingen husker
-  på er en rabatt kunden aldri får.
+- **Montering og reise** — eget felt med egen sum, utenfor delelisten.
+  Montering er ikke en vare i prosjektet, det er arbeid som avtales for seg, og
+  ofte er timene ikke kjent før noen har vært på stedet. Derfor kan feltet stå
+  som **etter avtale**: tilbudet er fortsatt gyldig, summen gjelder materiell,
+  og kunden ser «Etter avtale» på monteringslinjen med en setning om at det
+  kommer i tillegg. Ellers regnes den ut av timepris (3200, 1.036) og reisetid
+  (3201, 519), begge pr. mann, ganget med antall montører. Passerer timene 20
+  pr. mann, sier feltet fra om 20 %-rabatten prislisten åpner for, med beløpet
+  ferdig regnet ut. Den trekkes ikke fra automatisk — det er selgerens
+  vurdering. Men en rabatt ingen husker på er en rabatt kunden aldri får.
+  Rabattfeltet tar heller ikke imot mer enn de 20 prosentene listen tillater.
+
+  Summen vises som materiell + montering, ikke som ett tall, både i verktøyet og
+  på kundens ark. Montering står bevisst ikke i prisboken selgeren plukker
+  artikler fra — den hører til her, ikke som en linje blant rekkverksmeterne.
 - **Målskjema sprosser** — prisen regnes ut løpende av målene som alt står i
   tabellen (bredde + høyde og antall ruter), med frakt etter antall sprosser.
   Faller en linje utenfor tabellen, står det «må prises manuelt» — ikke null

@@ -807,7 +807,12 @@ function vindexHarPrisliste() {
   return vindexAlleModellar().some((m) => m.pris != null);
 }
 
-/** Alle artiklane i lista, flatt — brukt av prisoppslaget i tilbodet. */
+/**
+ * Alle artiklane i lista, flatt — brukt av prisoppslaget i tilbodet.
+ *
+ * Montering står med vilje ikkje her. Den er ikkje ei vare i prosjektet, men
+ * ein avtale for seg, og har eige felt med eigen sum i tilbodet.
+ */
 function vindexPrisbok() {
   const linjer = [];
   VINDEX_MODELLSERIAR.forEach((s) =>
@@ -830,9 +835,6 @@ function vindexPrisbok() {
   VINDEX_PORTDELAR.forEach((p) => linjer.push({ gruppe: "Portdeler", kode: p.kode, navn: p.navn, pris: p.pris, enhet: "stk" }));
   VINDEX_TILLEGGSDELAR.forEach((d) => linjer.push({ gruppe: d.gruppe, kode: d.kode, navn: d.navn, pris: d.pris, enhet: d.enhet || "stk" }));
   VINDEX_SPROSSETILLEGG.forEach((d) => linjer.push({ gruppe: "Sprossetillegg", kode: d.kode, navn: d.navn, pris: d.pris, enhet: d.enhet }));
-  [VINDEX_MONTERING.timepris, VINDEX_MONTERING.reisetid].forEach((d) =>
-    linjer.push({ gruppe: "Montering", kode: d.kode, navn: d.navn, pris: d.pris, enhet: d.enhet })
-  );
   return linjer.filter((l) => l.pris != null);
 }
 

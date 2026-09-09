@@ -1768,3 +1768,20 @@ ul.hakeliste li::before {
   box-shadow: var(--shadow-sm);
 }
 body.tema-mork .repskjema { background: var(--surface); border-color: var(--border); }
+
+/* Montering og reise — eige felt i tilbodet, med eigen sum.
+   Ramma er der for å seie at dette ikkje er ei linje i delelista. */
+.monteringsfelt {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: .9rem 1rem 1rem;
+  margin: 0;
+}
+.monteringsfelt legend {
+  padding: 0 .4rem;
+  font-weight: 600;
+  font-size: .95rem;
+}
+.monteringsfelt .field { margin-bottom: 0; }
+.tilbodsum-liten { font-size: .95rem; }
+.tilbodsum-liten .total { font-size: 1rem; }
