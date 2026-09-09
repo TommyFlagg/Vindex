@@ -219,8 +219,29 @@ e-post. I **+ Nytt lead** ligger derfor en innlimingsboks: kopier hele e-posten
 — headere og signatur og alt — og trykk **Les ut feltene**.
 
 `js/leadtekst.js` finner navn, telefon, e-post, adresse, postnummer, poststed,
-melding, produkt og omfang. Den takler både «Navn: …»-skjemaer og ren fritekst,
-og den fjerner sitert svar, «Sendt fra min iPhone» og signaturer før den leser.
+melding, produkt og omfang. Den fjerner sitert svar, «Sendt fra min iPhone» og
+signaturer før den leser, og takler tre former:
+
+| Form | Ser slik ut |
+|---|---|
+| Etikett med kolon | `Navn: Ola Nordmann` |
+| Etikett på egen linje | `Navn`, blank linje, `Ola Nordmann` |
+| Ren fritekst | «Ring meg på 41528963, bor i 5003 Bergen» |
+
+**Formen med etiketten på egen linje er den vi faktisk får** fra det gamle
+skjemaet, og den er standarden i de fleste skjemamotorer. Den var ikke støttet
+i første versjon — navn og gateadresse falt gjennom — og ble lagt inn etter at
+en ekte e-post ble testet.
+
+To detaljer som betyr noe i praksis:
+
+- **Etiketten kan være et helt spørsmål.** «Velg hvilke produkt du ønsker
+  tilbud på» leses som produktfeltet. Nøkkelordsøket gjelder bare korte linjer
+  uten setningstegn, så vanlig brødtekst blir ikke tolket som en etikett.
+- **Skjemaer avslutter gjerne med en personvernbolk.** «Personvern» og lignende
+  står i en stoppliste, slik at «Ved innsending samtykker du til vår
+  personvernerklæring» ikke havner i kundens meldingsfelt.
+- **Ett «Sted»-felt med både postnummer og sted** — «5918 Frekhaug» — deles i to.
 
 To ting den gjør *ikke*, med vilje:
 
