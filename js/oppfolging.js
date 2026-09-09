@@ -222,7 +222,7 @@ function vindexOpneBistand(leads) {
 // Seljaren set opp linjene sjølv — det er han som veit kva prosjektet krev.
 // Summen blir rekna ut, men kan overstyrast med ein fast prosjektpris. Prisar
 // finst berre her, aldri på nettsida.
-const VINDEX_TILBODSENHETAR = ["stk", "lm", "m²", "sett", "time", "pakke"];
+const VINDEX_TILBODSENHETAR = ["stk", "lm", "m²", "sett", "time", "pakke", "seksjoner"];
 
 /** Ei tom linje, slik at skjemaet alltid har noko å teikne. */
 const vindexTomTilbodslinje = () => ({
@@ -350,14 +350,27 @@ function vindexRegnTilbod(tilbod = {}) {
     // prisboka, veit vi listeprisen; er den skriven fritt, finst det ingen
     // listepris, og då er den skrivne prisen det næraste vi kjem.
     const frLista = l.kode && typeof vindexPrislinje === "function" ? vindexPrislinje(l.kode) : null;
-    const listepris = frLista ? frLista.pris : null;
+    // Listeprisen må vere per same eining som linja blir talt i. Ei linje med
+    // standardseksjonar er talt i seksjonar, og då er listeprisen prisen for
+    // ein seksjon — ikkje meterprisen. Elles samanliknar vi 14 seksjonar med
+    // 14 meter, og avviket mot prislista blir bare tull.
+    const listepris = !frLista
+      ? null
+      : l.seksjonslengd && typeof vindexStandardpris === "function" && l.modellkode
+      ? (vindexStandardpris(l.modellkode, l.seksjonslengd) || {}).pris ?? frLista.pris
+      : frLista.pris;
     return {
       ...l,
       sum: Math.round(antall * (parseFloat(l.enhetspris) || 0)),
       listepris,
       listesum: Math.round(antall * (listepris == null ? parseFloat(l.enhetspris) || 0 : listepris)),
       frittSett: listepris == null,
-      maksRabatt: typeof vindexMaksRabatt === "function" ? vindexMaksRabatt(l.kode) : 100,
+      // Utføringa avgjer rabattgrensa: ein standardseksjon frå hylla toler 35 %,
+      // den same modellen kappa etter mål toler 25 %.
+      maksRabatt: typeof vindexMaksRabatt === "function" ? vindexMaksRabatt(l.kode, l.utforing) : 100,
+      // Løpemeter, uansett korleis linja er selt. Standardlinjer er talde i
+      // seksjonar, og då er meterane seksjonar × lengd.
+      meter: l.seksjonslengd ? (antall * l.seksjonslengd) / 1000 : null,
     };
   });
   const linjesum = linjer.reduce((n, l) => n + l.sum, 0);

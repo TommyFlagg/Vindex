@@ -538,6 +538,27 @@ function vindexOrdrevarsel(skjema, felt = {}) {
 // på delelista — måla — kan ingen mekanisme finne på, og blir difor merkt som
 // noko seljaren må fylle ut sjølv.
 
+/**
+ * Kva felt på ordreseddelen ein standardseksjon høyrer til.
+ *
+ * Feltnamna kjem frå papirskjemaet, der standardseksjonane alltid har hatt
+ * eiga rubrikk under «Standard seksjoner» — merkte som lagervare, slik at dei
+ * går til plukk og ikkje til produksjon. Vi treng berre å finne rett rubrikk.
+ *
+ * Passar ikkje lengda nokon rubrikk, returnerer vi null, og linja går til
+ * modellfelta som ein seksjon etter mål. Det er den trygge vegen: ein seksjon
+ * som blir produsert når den kunne vore plukka kostar pengar, men ein seksjon
+ * som blir plukka når den skulle vore produsert kjem i feil lengd.
+ */
+function vindexStandardfelt(modell, lengdMm) {
+  const kart = {
+    vb: { 1800: "std_rekkverk_18m", 2100: "std_rekkverk_21m" },
+    stakitt: { 2000: "std_stakitt_2m", 2300: "std_stakitt_23m" },
+    levegg: { 1800: "std_levegg_18m", 1500: "std_levegg_overgang" },
+  };
+  return (kart[modell.serie] || {})[lengdMm] || null;
+}
+
 function vindexTilbodTilOrdre(tilbod, produktId) {
   const rekna = typeof vindexRegnTilbod === "function" ? vindexRegnTilbod(tilbod || {}) : { linjer: [] };
   const felt = {};
@@ -561,11 +582,21 @@ function vindexTilbodTilOrdre(tilbod, produktId) {
     const antall = parseFloat(l.antall) || 0;
     if (!kode || !antall) return uplassert.push(l);
 
-    // Modell — nummeret på linja er artikkelnummeret til modellen.
+    // Modell. Her deler vegen seg, og det er det viktigaste vegskiljet på heile
+    // ordreseddelen: ein standardseksjon ligg på lager og skal plukkast, ein
+    // seksjon etter mål skal til CNC. Seljaren har alt teke det valet på linja
+    // i delelista, så her er det berre å følgje det.
     const modell = typeof vindexAlleModellar === "function"
       ? vindexAlleModellar().find((m) => m.artikkel === kode)
       : null;
     if (modell) {
+      const stdFelt = l.seksjonslengd ? vindexStandardfelt(modell, l.seksjonslengd) : null;
+      if (stdFelt) {
+        felt[stdFelt] = (felt[stdFelt] || 0) + antall;
+        // Tverrstaget må lageret vite om, sjølv når seksjonen er standard.
+        if (modell.profil && !felt.std_rekkverk_a) felt.std_rekkverk_a = modell.profil;
+        return;
+      }
       const pl = slott("modell", kode, 3);
       if (!pl) return uplassert.push(l);
       felt["modell" + pl.n] = modell.kode;

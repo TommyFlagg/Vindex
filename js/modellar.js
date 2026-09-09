@@ -554,6 +554,66 @@ function vindexMonteringsrabatt(timar) {
 }
 
 // ---------------------------------------------------------------------------
+// Standard seksjon eller etter mål
+// ---------------------------------------------------------------------------
+// Dette er det viktigaste skiljet i heile sortimentet, og det går ikkje mellom
+// modellar — det går mellom to måtar å selje same modellen på:
+//
+//   STANDARD  Ferdige seksjonar i faste lengder. Ligg på lager, er rimelegare,
+//             toler meir rabatt, og går til plukk.
+//   ETTER MÅL Seksjonar kappa til kundens c/c-mål. Går til CNC-produksjon,
+//             toler mindre rabatt, og har lengre leveringstid.
+//
+// Same skiljet avgjer prisband, rabattgrense og om ordren går til lageret eller
+// til produksjonen. Difor blir det valt éin gong — på linja i delelista — og så
+// følgjer resten av seg sjølv. Skulle det stått tre stader, ville dei tre kome
+// i utakt den dagen nokon gløymde den eine.
+
+const VINDEX_STANDARDLENGDER = {
+  // Rekkverk og glasrekkverk
+  vb: [1800, 2100],
+  // Stakitt og gjerde
+  stakitt: [2000, 2300],
+  // Levegg — 1,5 m er overgangsseksjonen
+  levegg: [1800, 1500],
+};
+
+/** Kva standardlengder finst for denne modellen? Tom liste = berre etter mål. */
+function vindexStandardlengder(modellkode) {
+  const m = vindexModell(modellkode);
+  return (m && VINDEX_STANDARDLENGDER[m.serie]) || [];
+}
+
+/** Er dette ein modell som kan seljast som standardseksjon? */
+function vindexHarStandard(modellkode) {
+  return vindexStandardlengder(modellkode).length > 0;
+}
+
+/**
+ * Utføringane ei modellinje kan ha, klare for ei nedtrekksliste.
+ *
+ * «Etter mål» står fyrst fordi det er det som alltid går an. Standardlengdene
+ * kjem etter, med lengda i klartekst — «Standard 1,8 m» seier meir enn «1800».
+ */
+function vindexUtforingsval(modellkode) {
+  const val = [{ id: "maal", navn: "Etter mål (lm)", lengd: null }];
+  vindexStandardlengder(modellkode).forEach((mm) =>
+    val.push({
+      id: "std-" + mm,
+      navn: `Standard ${String(mm / 1000).replace(".", ",")} m`,
+      lengd: mm,
+    })
+  );
+  return val;
+}
+
+/** Lengda i mm ei utføring står for, eller null når den er etter mål. */
+function vindexUtforingslengd(utforing) {
+  const m = String(utforing || "").match(/^std-(\d+)$/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+// ---------------------------------------------------------------------------
 // Rabattgrenser
 // ---------------------------------------------------------------------------
 // Kor mykje som kan gjevast bort avheng av kva slags vare det er. Ein seksjon
@@ -588,20 +648,42 @@ const VINDEX_PRODUSERTE_GRUPPER = [
  * har skrive sjølv — går vi ut frå at det er ein standardartikkel. Det er den
  * midtre grensa, og den som gjer minst skade om vi gjettar feil.
  */
-function vindexRabattgruppe(kode, gruppe) {
+function vindexRabattgruppe(kode, gruppe, utforing) {
   const n = String(kode || "");
   if (VINDEX_UTAN_RABATT.includes(n)) return VINDEX_RABATTGRUPPER[3];
   if (gruppe === "LED-lys") return VINDEX_RABATTGRUPPER[2];
   // Spesialstolpen blir laga for kvar ordre, sjølv om den står blant stolpane.
   if (n === "7501") return VINDEX_RABATTGRUPPER[0];
-  if (VINDEX_PRODUSERTE_GRUPPER.includes(gruppe)) return VINDEX_RABATTGRUPPER[0];
+  if (VINDEX_PRODUSERTE_GRUPPER.includes(gruppe)) {
+    // Ein ferdig standardseksjon frå hylla er ikkje produsert etter mål, og
+    // toler difor den same rabatten som andre lagervarer — sjølv om det er
+    // same modellen som elles blir laga på CNC.
+    if (utforing && utforing !== "maal") return VINDEX_RABATTGRUPPER[1];
+    return VINDEX_RABATTGRUPPER[0];
+  }
   return VINDEX_RABATTGRUPPER[1];
 }
 
 /** Maks rabatt i prosent for ein artikkel. Ukjend artikkel = standardgrensa. */
-function vindexMaksRabatt(kode) {
+function vindexMaksRabatt(kode, utforing) {
   const linje = typeof vindexPrislinje === "function" ? vindexPrislinje(kode) : null;
-  return vindexRabattgruppe(kode, linje ? linje.gruppe : null).maks;
+  return vindexRabattgruppe(kode, linje ? linje.gruppe : null, utforing).maks;
+}
+
+/**
+ * Kva ein standardseksjon kostar.
+ *
+ * PRISEN ER IKKJE I LISTA. Prislista 2026 gir meterpris, og Vindex seier at
+ * standardseksjonar er rimelegare enn same lengda etter mål — men kor mykje
+ * rimelegare står ikkje nokon stad eg har sett. Difor reknar vi meterprisen
+ * ganga lengda, merkjer det som eit estimat, og lèt seljaren overstyre.
+ *
+ * Kjem standardprisane, er dette den einaste staden som må endrast.
+ */
+function vindexStandardpris(modellkode, lengdMm) {
+  const meterpris = vindexModellpris(modellkode);
+  if (meterpris == null || !lengdMm) return null;
+  return { pris: Math.round((meterpris * lengdMm) / 1000), estimat: true };
 }
 
 // ---------------------------------------------------------------------------

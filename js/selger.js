@@ -2363,6 +2363,30 @@ function opneTilbod(lead) {
 }
 
 /**
+ * Seier frå om standardseksjonar i delelista.
+ *
+ * To ting seljaren treng å vite: kor mange løpemeter seksjonane utgjer — for
+ * det er det kunden tenkjer i — og at prisen på ein standardseksjon er rekna
+ * av meterprisen, ikkje henta frå ei standardliste. Den lista har vi ikkje
+ * fått, og då skal det stå, ikkje gøymast bak eit tal som ser sikkert ut.
+ */
+function standardvarselHtml(r) {
+  const std = r.linjer.filter((l) => l.navn && l.seksjonslengd);
+  if (!std.length) return "";
+  const meter = std.reduce((n, l) => n + (l.meter || 0), 0);
+  return `<div class="notice notice-info mt-1">
+    <strong>${std.length} linje${std.length > 1 ? "r" : ""} med standardseksjoner</strong>
+    — til sammen ${String(Math.round(meter * 10) / 10).replace(".", ",")} løpemeter.
+    De går til plukk på lager, ikke til produksjon, og tåler
+    ${VINDEX_RABATTGRUPPER[1].maks} % rabatt mot ${VINDEX_RABATTGRUPPER[0].maks} % på
+    seksjoner etter mål.
+    <br><span class="hint">Prisen er regnet som meterpris × lengde. Prislisten for
+    2026 oppgir ikke egen pris på standardseksjoner — får vi den, blir dette
+    eksakt. Overstyr på linjen i mellomtiden.</span>
+  </div>`;
+}
+
+/**
  * Listeprisen rett under delelista, i liten skrift.
  *
  * Summen står i bunnen òg, men den er langt nede når lista er lang. Her ser
@@ -2801,11 +2825,17 @@ function teiknTilbodsdialog(lead) {
         <td><input data-felt="navn" value="${(linje.navn || "").replace(/"/g, "&quot;")}"
               placeholder="F.eks. Rekkverk VBC 1000 mm"></td>
         <td style="width:5.5rem"><input data-felt="antall" type="number" min="0" step="0.5" value="${linje.antall}"></td>
-        <td style="width:8rem">${
+        <td style="width:9rem">${
           vindexErStolpe(linje.kode)
             ? `<select data-felt="plassering">${VINDEX_STOLPEPLASSERING.map(
                 (pl) => `<option value="${pl.id}"${pl.id === linje.plassering ? " selected" : ""}>${pl.navn}</option>`
               ).join("")}</select>`
+            : linje.modellkode && vindexHarStandard(linje.modellkode)
+            ? // Modellinjer: éin veljar som avgjer alt. Prisband, rabattgrense og
+              // om ordren går til plukk eller til CNC følgjer av dette valet.
+              `<select data-felt="utforing" data-modell="${linje.modellkode}">${vindexUtforingsval(linje.modellkode)
+                .map((v) => `<option value="${v.id}"${v.id === (linje.utforing || "maal") ? " selected" : ""}>${v.navn}</option>`)
+                .join("")}</select>`
             : `<select data-felt="enhet">${VINDEX_TILBODSENHETAR.map(
                 (e) => `<option value="${e}"${e === linje.enhet ? " selected" : ""}>${e}</option>`
               ).join("")}</select>`
@@ -2857,6 +2887,7 @@ function teiknTilbodsdialog(lead) {
       <button class="btn btn-ghost btn-sm" id="tbNyLinje">+ Legg til linje</button>
     </div>
     <p class="hint mt-1 mb-0" id="tbListepris">${listeprisHtml(r)}</p>
+    <div id="tbStandardvarsel">${standardvarselHtml(r)}</div>
 
     <div class="feltrutenett mt-2">
       <div class="field"><label for="tbRabattP">Rabatt (%)</label>
@@ -2905,13 +2936,33 @@ function teiknTilbodsdialog(lead) {
   // seljaren skriv. Fokuset blir sett tilbake der han var.
   const les = () => {
     $$("#tilbodsrader tr").forEach((rad, i) => {
+      const linje = u.linjer[i];
+      const foerUtforing = linje.utforing;
       rad.querySelectorAll("[data-felt]").forEach((felt) => {
         const verdi = felt.value;
-        u.linjer[i][felt.dataset.felt] =
+        linje[felt.dataset.felt] =
           felt.dataset.felt === "antall" || felt.dataset.felt === "enhetspris"
             ? verdi === "" ? "" : parseFloat(verdi)
             : verdi;
       });
+
+      // Byter seljaren mellom «etter mål» og ein standardlengd, byter både
+      // eininga og prisen betydning: 24 løpemeter er ikkje 24 seksjoner.
+      // Difor blir prisen sett på nytt — men berre når valet faktisk endra seg,
+      // så ein pris seljaren har overstyrt ikkje blir skriven over.
+      if (linje.modellkode && linje.utforing !== foerUtforing) {
+        const lengd = vindexUtforingslengd(linje.utforing);
+        linje.seksjonslengd = lengd;
+        if (lengd) {
+          const std = vindexStandardpris(linje.modellkode, lengd);
+          linje.enhet = "seksjoner";
+          if (std) linje.enhetspris = std.pris;
+        } else {
+          linje.enhet = "lm";
+          const m = vindexModellpris(linje.modellkode);
+          if (m != null) linje.enhetspris = m;
+        }
+      }
     });
     const verdiAv = (id) => {
       const el = $(id);
@@ -2970,6 +3021,8 @@ function teiknTilbodsdialog(lead) {
     if (fraktSum) fraktSum.innerHTML = fraktSumHtml(rekna.frakt);
     const listeboks = $("#tbListepris");
     if (listeboks) listeboks.innerHTML = listeprisHtml(rekna);
+    const stdboks = $("#tbStandardvarsel");
+    if (stdboks) stdboks.innerHTML = standardvarselHtml(rekna);
     const rabattKr = $("#tbRabattKr");
     if (rabattKr)
       rabattKr.placeholder = rekna.rabattProsent
@@ -2991,6 +3044,15 @@ function teiknTilbodsdialog(lead) {
     if (e.target && e.target.id === "tbMontAvtale") {
       const felt = $("#montFelt");
       if (felt) felt.classList.toggle("hidden", e.target.checked);
+    }
+    // Utføringa er det einaste valet som endrar eit anna felt på same linja.
+    // Ein select har ingen markør å miste, så vi skriv den nye prisen rett inn
+    // i staden for å teikne heile skjemaet på nytt.
+    if (e.target && e.target.dataset && e.target.dataset.felt === "utforing") {
+      const rad = e.target.closest("tr[data-linje]");
+      const i = rad && parseInt(rad.dataset.linje, 10);
+      const prisfelt = rad && rad.querySelector('[data-felt="enhetspris"]');
+      if (prisfelt && u.linjer[i]) prisfelt.value = u.linjer[i].enhetspris;
     }
     if (e.target && e.target.id === "tbFraktKjelde") {
       const valt = e.target.value;
@@ -3018,6 +3080,10 @@ function teiknTilbodsdialog(lead) {
       // Artikkelnummeret blir med på linja, ikkje berre i namnet: det er slik
       // verktøyet kan kjenne igjen monteringstimane og minne om rabatten.
       kode: linje.kode || "",
+      // Modellkoden på linja gjer at vi kan tilby standardlengdene som finst
+      // for nettopp denne modellen — og at ordreseddelen veit kva den er.
+      modellkode: (vindexAlleModellar().find((m) => m.artikkel === linje.kode) || {}).kode || "",
+      utforing: "maal",
       navn: linje.navn + (linje.kode ? " (" + linje.kode + ")" : ""),
       antall: 1,
       enhet: VINDEX_TILBODSENHETAR.includes(linje.enhet) ? linje.enhet : "stk",

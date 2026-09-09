@@ -434,6 +434,40 @@ satt før frakten var kjent ville stilltiende spist opp transporten. Feltet
 heter nå **fast pris for materiellet**, erstatter listeprisen på delelisten, og
 frakt og montering legges til etterpå. Summen viser begge deler hver for seg.
 
+## Standard seksjon eller etter mål
+
+Dette er det viktigste skillet i hele sortimentet, og det går ikke mellom
+modeller — det går mellom to måter å selge den samme modellen på:
+
+| | Standard seksjon | Etter mål |
+| --- | --- | --- |
+| Lengder | Rekkverk 1800/2100 mm · Gjerde 2000/2300 mm · Levegg 1800 mm (1500 overgang) | Kundens c/c-mål |
+| Pris | Rimeligere | Meterpris |
+| Maks rabatt | 35 % | 25 % |
+| Går til | Plukk på lager | CNC-produksjon |
+| Leveringstid | Kort | Lengre |
+
+Valget tas **én gang**, på linjen i delelisten, i den samme nedtrekkslisten der
+enheten ellers står. Så følger resten av seg selv: prisbåndet, rabattgrensen, og
+om ordreseddelen legger linjen under «Standard seksjoner» (plukk) eller i
+modellfeltene (produksjon). Sto det tre steder, ville de tre kommet i utakt den
+dagen noen glemte den ene.
+
+Delelisten sier fra når den inneholder standardseksjoner, og regner om til
+løpemeter — for det er det kunden tenker i. Fjorten seksjoner à 1,8 m er 25,2
+meter.
+
+**Prisen på standardseksjoner er ikke i prislisten.** 2026-listen oppgir
+meterpris, og Vindex sier at standardseksjoner er rimeligere — men ikke hvor
+mye. Til den kommer regner verktøyet meterpris × lengde, sier tydelig at det er
+et estimat, og lar selgeren overstyre på linjen. `vindexStandardpris()` er den
+eneste funksjonen som må endres når prisene kommer.
+
+Faller en lengde utenfor tabellen, går linjen til modellfeltene som en seksjon
+etter mål. Det er den trygge veien: en seksjon som produseres når den kunne vært
+plukket koster penger, men en seksjon som plukkes når den skulle vært produsert
+kommer i feil lengde.
+
 ## Rabattgrenser
 
 Hvor mye som kan gis bort avhenger av hva slags vare det er, og grensen hører
@@ -441,7 +475,8 @@ hjemme i verktøyet, ikke i hodet til hver enkelt selger:
 
 | Varegruppe | Maks rabatt |
 | --- | --- |
-| Spesial- og produserte seksjoner (VB-serien, levegg, stakitt, gardsgjerde, kystveggen, porter, sprossetillegg, spesialstolpe 7501) | 25 % |
+| Seksjoner etter mål (VB-serien, levegg, stakitt, gardsgjerde, kystveggen, porter, spesialstolpe 7501) | 25 % |
+| **Standardseksjoner av de samme modellene** | 35 % |
 | Standard artikler (stolper, topper, pyntekrans, glass, gulv, flexigjerde, tilleggsdeler) | 35 % |
 | Lys og strømdeler (hele 44xx-serien) | 40 % |
 | Stålfot 7359, stolpe- og veggfester (7557, 7376, 7556, 7564, 7535), porthengsler (4423, 4434) | 0 % |
