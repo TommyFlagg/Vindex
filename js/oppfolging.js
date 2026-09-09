@@ -334,9 +334,14 @@ function vindexRegnFrakt(f = {}) {
 /**
  * Rekn ut eit tilbod frå linjene.
  *
- * Rekkefølgja er: linjesum -> rabatt -> fastpris. Set seljaren ein fast pris,
- * overstyrer den alt anna, men linjene blir ståande så kunden ser kva som
- * inngår. Differansen blir vist som avslag, ikkje gøymd.
+ * Rekkefølgja er: linjesum -> rabatt -> fastpris -> frakt og montering.
+ *
+ * Fastprisen gjeld materiellet, ikkje heile prosjektet. Frakt og montering har
+ * eigne felt og blir lagde til etterpå — elles ville ein fast pris sett før
+ * frakta var kjend, stilltiande ete opp transporten.
+ *
+ * Linjene blir ståande sjølv om fastprisen overstyrer summen, så kunden ser kva
+ * som inngår. Differansen blir vist som avslag, ikkje gøymd.
  */
 function vindexRegnTilbod(tilbod = {}) {
   const linjer = (tilbod.linjer || []).map((l) => {

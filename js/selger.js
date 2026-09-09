@@ -616,7 +616,11 @@ function visDetalj(id) {
   const k = l.kunde || {};
   const p = l.produkt || {};
   const skjema = vindexSkjemaFor(p.id);
-  const ordre = app.ordrar.find((o) => o.leadId === l.id);
+  // Fleire ordrar per kunde er normalen, ikkje unntaket: kunden kjøper
+  // rekkverket i mai og porten i august. Kvar ordre har si eiga levering og
+  // si eiga produksjonskø, så dei skal stå kvar for seg.
+  const ordrar = app.ordrar.filter((o) => o.leadId === l.id);
+  const ordre = ordrar[0];
   const tilvalg = Object.entries(p.tilvalg || {})
     .map(([n, v]) => `<dt>${n}</dt><dd>${v}</dd>`)
     .join("");
@@ -730,7 +734,7 @@ function visDetalj(id) {
       ${
         rekna.gyldig
           ? `<div class="notice ${t.deltMedKunde ? "notice-good" : "notice-info"}">
-               <strong>${kr(rekna.sum)}</strong>${rekna.harFastpris ? " (fast prosjektpris)" : ""}
+               <strong>${kr(rekna.sum)}</strong>${rekna.harFastpris ? " (fast materiellpris)" : ""}
                · ${rekna.linjer.filter((x) => x.navn).length} linjer
                · ${
                  t.deltMedKunde
@@ -774,9 +778,20 @@ function visDetalj(id) {
 
       <h3 class="mt-2">Ordre</h3>
       ${
-        ordre
-          ? `<p>Ordre <strong>${ordre.id}</strong> — ${vindexOrdrestatusNavn(ordre.status)}.
-             <button class="btn btn-ghost btn-sm no-print" data-apneordre="${ordre.id}">Åpne ordreskjema</button></p>`
+        ordrar.length
+          ? `${ordrar
+               .map(
+                 (o) => `<p>Ordre <strong>${o.id}</strong> — ${vindexOrdrestatusNavn(o.status)}
+                   <span class="hint">· ${datoTekst(o.opprettet)}</span>
+                   <button class="btn btn-ghost btn-sm no-print" data-apneordre="${o.id}">Åpne og rediger</button></p>`
+               )
+               .join("")}
+             <div class="btn-row no-print">
+               <button class="btn btn-ghost btn-sm" id="apneSkjema">+ Ny ordre på samme kunde</button>
+             </div>
+             <p class="hint">Mersalg blir en ny ordre, ikke en endring av den forrige — den
+               har sin egen levering og sin egen plass i produksjonskøen. Rettelser på det
+               som allerede er bestilt gjør du i ordren over.</p>`
           : `<p class="hint">Ingen ordre registrert. Ordreskjemaet for dette produktet er
              «${skjema.kort}».</p>
              <div class="btn-row no-print"><button class="btn btn-accent btn-sm" id="apneSkjema">Fyll ut ${skjema.kort}</button></div>`
@@ -1949,7 +1964,7 @@ function konfetti() {
 // Tilbod bygd på ei deleliste
 // ---------------------------------------------------------------------------
 // Seljaren set opp linjene sjølv. Summen blir rekna ut medan han skriv, og kan
-// overstyrast med ein fast prosjektpris — då blir linjene ståande som
+// overstyrast med ein fast materiellpris — då blir linjene ståande som
 // spesifikasjon, og differansen vist som avslag i staden for å bli gøymd.
 //
 // Ingenting av dette når kunden før seljaren trykker «Del med kunden». Eit
@@ -2216,7 +2231,7 @@ function tilbodsumHtml(r) {
     ${r.rabattKr ? `<div><span>Rabatt${r.rabattProsent ? " (inntil " + r.rabattProsent + " %)" : ""}</span><span class="linjesum">− ${kr(r.rabattKr)}</span></div>` : ""}
     ${
       r.harFastpris
-        ? `<div class="avvik"><span>Fast prosjektpris i stedet for ${kr(r.etterRabatt)}</span>
+        ? `<div class="avvik"><span>Fast materiellpris i stedet for ${kr(r.etterRabatt)}</span>
              <span class="linjesum">${r.avvik > 0 ? "− " + kr(r.avvik) : r.avvik < 0 ? "+ " + kr(-r.avvik) : "±0"}</span></div>`
         : ""
     }
@@ -2345,9 +2360,10 @@ function teiknTilbodsdialog(lead) {
       <div class="field"><label for="tbRabattKr">Rabatt (kr)</label>
         <input id="tbRabattKr" type="number" min="0" step="100" value="${u.rabattKr}"
           placeholder="${r.rabattProsent ? Math.round((r.linjesum * r.rabattProsent) / 100) : ""}"></div>
-      <div class="field"><label for="tbFastpris">Fast pris for hele prosjektet (kr)</label>
+      <div class="field"><label for="tbFastpris">Fast pris for materiellet (kr)</label>
         <input id="tbFastpris" type="number" min="0" step="100" value="${u.fastpris}">
-        <p class="hint">Fylles denne ut, overstyrer den summen av linjene.</p></div>
+        <p class="hint">Erstatter listeprisen på delelisten. Frakt og montering
+          kommer i tillegg — de har egne felt lenger nede.</p></div>
       <div class="field"><label for="tbGyldig">Gyldig til</label>
         <input id="tbGyldig" type="date" value="${u.gyldigTil}"></div>
       <div class="field brei"><label for="tbNotat">Notat til kunden</label>
@@ -2544,7 +2560,7 @@ function teiknTilbodsdialog(lead) {
   $("#tbLagre").addEventListener("click", async () => {
     les();
     const rekna = vindexRegnTilbod(u);
-    if (!rekna.gyldig) return melding("Legg inn minst én linje med pris, eller en fast prosjektpris.", "warn");
+    if (!rekna.gyldig) return melding("Legg inn minst én linje med pris, eller en fast pris for materiellet.", "warn");
 
     const tilbud = {
       ...(lead.tilbud || {}),
@@ -2567,7 +2583,7 @@ function teiknTilbodsdialog(lead) {
       av: app.brukar.navn,
     };
     await lagreLead(lead, { tilbud }, [
-      `Tilbud satt opp: ${kr(rekna.sum)}${rekna.harFastpris ? " (fast prosjektpris)" : ""}, ${
+      `Tilbud satt opp: ${kr(rekna.sum)}${rekna.harFastpris ? " (fast materiellpris)" : ""}, ${
         tilbud.linjer.length
       } linjer. Ikke delt med kunden ennå.`,
     ]);
@@ -2705,7 +2721,7 @@ async function delTilbod(lead) {
 
   opneModal(
     "Del tilbudet med kunden",
-    `<p>Tilbudet på <strong>${kr(r.sum)}</strong>${r.harFastpris ? " (fast prosjektpris)" : ""}
+    `<p>Tilbudet på <strong>${kr(r.sum)}</strong>${r.harFastpris ? " (fast materiellpris)" : ""}
        blir markert som sendt til <strong>${k.navn}</strong>.</p>
      <p class="hint">Verktøyet sender ingenting selv — du sender tilbudet slik du pleier,
        på e-post eller i posten. Dette registrerer at det er gjort, slik at oppfølgingen
@@ -2781,7 +2797,7 @@ function akseptertTilbod(lead) {
            ? Object.entries(overfort.felt)
                .map(([id, v]) => `${feltnamn(skjema, id)}: ${feltvisning(skjema, id, v, (lead.produkt || {}).id)}`)
                .join("<br>")
-           : "Delelisten har ingen linjer å overføre — bare fast prosjektpris."
+           : "Delelisten har ingen linjer å overføre — bare fast pris for materiellet."
        }
      </div>
 

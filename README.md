@@ -316,6 +316,24 @@ spesial — fordi det er plasseringen produksjonen trenger, ikke at det er «stk
 Stolpefoten ligger i samme liste som stolpene, der selgeren leter etter den, men
 har ingen plassering: den står ikke noe sted.
 
+## Én kunde, flere ordrer
+
+Kunden kjøper rekkverket i mai og porten i august. Det er to ordrer, ikke én
+ordre som endres: hver har sin egen levering og sin egen plass i
+produksjonskøen, og den første skal ikke endre seg fordi den andre kom til.
+
+Derfor lister kundekortet alle ordrene på kunden, hver med sin egen «Åpne og
+rediger», og har alltid en «+ Ny ordre på samme kunde». Rettelser på det som
+allerede er bestilt gjør man i ordren selv; mersalg blir en ny.
+
+## Fast pris gjelder materiellet
+
+Feltet het «fast pris for hele prosjektet» fra den gang alt lå i delelisten.
+Etter at frakt og montering fikk egne felt var det navnet feil: en fast pris
+satt før frakten var kjent ville stilltiende spist opp transporten. Feltet
+heter nå **fast pris for materiellet**, erstatter listeprisen på delelisten, og
+frakt og montering legges til etterpå. Summen viser begge deler hver for seg.
+
 ## Rabattgrenser
 
 Hvor mye som kan gis bort avhenger av hva slags vare det er, og grensen hører
