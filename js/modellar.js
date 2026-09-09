@@ -883,8 +883,9 @@ function vindexHarPrisliste() {
 /**
  * Alle artiklane i lista, flatt — brukt av prisoppslaget i tilbodet.
  *
- * Montering står med vilje ikkje her. Den er ikkje ei vare i prosjektet, men
- * ein avtale for seg, og har eige felt med eigen sum i tilbodet.
+ * To ting står med vilje ikkje her. Montering er ikkje ei vare i prosjektet,
+ * men ein avtale for seg. Og sprossene har eit heilt eige måleskjema med si
+ * eiga prismatrise — dei blir prisa der, ikkje som linjer i ei deleliste.
  */
 function vindexPrisbok() {
   const linjer = [];
@@ -909,7 +910,6 @@ function vindexPrisbok() {
   );
   VINDEX_PORTDELAR.forEach((p) => linjer.push({ gruppe: "Portdeler", kode: p.kode, navn: p.navn, pris: p.pris, enhet: "stk" }));
   VINDEX_TILLEGGSDELAR.forEach((d) => linjer.push({ gruppe: d.gruppe, kode: d.kode, navn: d.navn, pris: d.pris, enhet: d.enhet || "stk" }));
-  VINDEX_SPROSSETILLEGG.forEach((d) => linjer.push({ gruppe: "Sprossetillegg", kode: d.kode, navn: d.navn, pris: d.pris, enhet: d.enhet }));
   return linjer.filter((l) => l.pris != null);
 }
 

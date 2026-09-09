@@ -316,6 +316,36 @@ spesial — fordi det er plasseringen produksjonen trenger, ikke at det er «stk
 Stolpefoten ligger i samme liste som stolpene, der selgeren leter etter den, men
 har ingen plassering: den står ikke noe sted.
 
+## Sprosser har sitt eget tilbud
+
+Sprosser er ikke en linje i en deleliste. De har et eget måleskjema med tolv
+linjer, sin egen prismatrise etter mål og rutetall, egne tillegg, og de bestilles
+til vinduer — ikke til et uterom. Derfor er de tatt ut av prisboken selgeren
+plukker artikler fra, og har fått en egen knapp ved siden av «Sett opp
+deleliste».
+
+Skjemaet følger papirets «Målskjema Sprosser»: antall, falsmål B × H, ruter B ×
+H, midtstolpe, sprosseverk, omramming, losholt, buer, hengsler, type, flukting
+og tegning/type-nr. **Midtstolpe og losholt manglet** i den forrige versjonen —
+da måtte selgeren skrive dem i merknadsfeltet, der produksjonen ikke leter etter
+mål.
+
+### Vinduet tegnes av tallene
+
+Hver linje tegnes opp mens selgeren skriver: rammen i valgt omramming,
+sprosseverket i riktig tykkelse, buer på toppen (E/D/T) og hengselmerker på den
+siden som er valgt. Målestokken følger falsmålene, så et bredt vindu tegnes
+bredt.
+
+Tegningen er laget av bestillingen, ikke ved siden av den. Den kan derfor ikke
+vise noe annet enn det som faktisk blir produsert — og selgeren slipper å
+beskrive «tre ruter i bredden, to i høyden, med bue» på telefonen.
+
+Papirskjemaets ni nummererte standardtyper er **ikke** lagt inn: jeg har sett
+miniatyrene, ikke hvilken rutedeling hver av dem står for, og et gjettet
+typenummer på en ordreseddel er verre enn et tomt felt. Feltet står som fritekst,
+slik det gjør på papiret. Send meg hva de ni betyr, så blir de valgbare.
+
 ## Dagens salgstips
 
 35 tips som roterer, ett per dag, likt for alle. **Byttet skjer klokka 16, ikke
@@ -1057,6 +1087,7 @@ js/nettverk.js           Representantkartet og «bli representant»-boksen
 js/modellar.js           Prislisten 2026 som data, med rabattgrenser
 js/vedlegg.js            Bilder og filer på ordren
 js/provisjon.js          Provisjonsruta (satser mangler)
+js/sprosser.js           Sprossetegning og linjepris
 js/ordre.js              Ordreskjema, statusflyt og plukklistelogikk
 js/kalender.js           Avtaler og .ics-eksport til telefonkalender
 js/nokkeltal.js          Nøkkeltall, oppfølgingsrate og produksjonskø

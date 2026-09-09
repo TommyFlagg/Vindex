@@ -317,10 +317,18 @@ const ORDRESEDDEL_SPROSSER = {
       { id: "fals_h", navn: "Falsmål H", type: "tal", enhet: "mm", bredde: "5.5rem" },
       { id: "ruter_b", navn: "Ruter B", type: "tal", bredde: "4.5rem" },
       { id: "ruter_h", navn: "Ruter H", type: "tal", bredde: "4.5rem" },
+      // Papirskjemaet har midtstolpe og losholt som eigne kolonnar, med val
+      // mellom 34, 64 og 84 mm. Dei mangla her, og då måtte seljaren skrive
+      // dei i merknadsfeltet — der produksjonen ikkje leitar etter mål.
+      { id: "midtstolpe", navn: "Midtst.", type: "valg", bredde: "5.5rem",
+        val: [{ id: "", navn: "–" }, { id: "34", navn: "34" }, { id: "64", navn: "64" }, { id: "84", navn: "84" }] },
       { id: "sprosseverk", navn: "Sprosseverk", type: "valg", bredde: "6.5rem",
-        val: [{ id: "22", navn: "22 mm" }, { id: "29", navn: "29 mm" }, { id: "34", navn: "34 mm" }] },
+        val: [{ id: "22", navn: "22 mm" }, { id: "29", navn: "29 mm" }, { id: "34", navn: "34 mm" },
+              { id: "64", navn: "64 mm" }, { id: "84", navn: "84 mm" }] },
       { id: "omramming", navn: "Omram.", type: "valg", bredde: "6.5rem",
         val: [{ id: "29", navn: "29 mm" }, { id: "34", navn: "34 mm" }, { id: "64", navn: "64 mm" }, { id: "84", navn: "84 mm" }] },
+      { id: "losholt", navn: "Losholt", type: "valg", bredde: "5.5rem",
+        val: [{ id: "", navn: "–" }, { id: "34", navn: "34" }, { id: "64", navn: "64" }, { id: "84", navn: "84" }] },
       { id: "buer", navn: "Buer", type: "valg", bredde: "5rem",
         val: [{ id: "", navn: "–" }, { id: "E", navn: "E" }, { id: "D", navn: "D" }, { id: "T", navn: "T" }] },
       { id: "hengsler", navn: "Hengsler", type: "valg", bredde: "5.5rem",
@@ -329,6 +337,7 @@ const ORDRESEDDEL_SPROSSER = {
         val: [{ id: "V", navn: "V — Vindex" }, { id: "C", navn: "C — Combi" }] },
       { id: "flukting_nr", navn: "Flukting M/Ln", type: "tekst", bredde: "6rem" },
       { id: "flukting_verdi", navn: "Fluktingsverdi", type: "tekst", bredde: "6rem" },
+      { id: "type_nr", navn: "Tegning / type nr.", type: "tekst", bredde: "7rem" },
     ],
   },
 };

@@ -841,6 +841,9 @@ function visDetalj(id) {
       ${provisjonsrute(l, rekna)}
       <div class="btn-row mt-1 no-print">
         <button class="btn btn-sm" id="opneTilbod">${rekna.gyldig ? "Rediger tilbudet" : "Sett opp deleliste"}</button>
+        <button class="btn btn-sm btn-ghost" id="opneSprosser">${
+          (l.sprossetilbod || {}).rader ? "Rediger sprossetilbudet" : "Sprossetilbud"
+        }</button>
         ${rekna.gyldig ? '<button class="btn btn-ghost btn-sm" id="visTilbod">Vis tilbudet</button>' : ""}
         ${
           rekna.gyldig && !t.deltMedKunde
@@ -1037,6 +1040,9 @@ function koplaDetalj(l) {
       teikn();
       melding("Lagret.");
     });
+
+  const sprosseknapp = $("#opneSprosser");
+  if (sprosseknapp) sprosseknapp.addEventListener("click", () => opneSprossetilbod(l));
 
   const apneSkjema = $("#apneSkjema");
   if (apneSkjema) apneSkjema.addEventListener("click", () => opneOrdreskjema(l));
@@ -2371,6 +2377,215 @@ function listeprisHtml(r) {
   if (r.utanforLista)
     bit.push(`${r.utanforLista} linje${r.utanforLista > 1 ? "r" : ""} står ikke i prislisten`);
   return bit.join(" · ");
+}
+
+// ---------------------------------------------------------------------------
+// Sprossetilbod
+// ---------------------------------------------------------------------------
+// Sprosser er ikkje ei linje i ei deleliste. Dei har eit eige måleskjema med
+// tolv linjer, ei eiga prismatrise etter mål og rutetal, og eigne tillegg —
+// og dei blir bestilte til vindauge, ikkje til eit uterom. Difor har dei eigen
+// knapp ved sida av delelista, og eige tilbod.
+//
+// Kvar linje blir teikna opp medan seljaren skriv. Ei sprosse er vanskeleg å
+// snakke om og lett å teikne.
+
+let sprosseutkast = null;
+const sprossekladdnokkel = (lead) => "sprosser:" + lead.id;
+
+function opneSprossetilbod(lead) {
+  const lagra = lead.sprossetilbod || {};
+  sprosseutkast = {
+    rader: (lagra.rader || []).map((r) => ({ ...r })),
+    merknader: lagra.merknader || "",
+    onsketLevering: lagra.onsketLevering || "",
+  };
+  const kladd = hentKladd(sprossekladdnokkel(lead));
+  let fraKladd = null;
+  if (kladd && (!lagra.dato || new Date(kladd.tid) > new Date(lagra.dato))) {
+    sprosseutkast = { ...sprosseutkast, ...kladd.data };
+    fraKladd = kladd.tid;
+  }
+  if (!sprosseutkast.rader.length) sprosseutkast.rader = [{}, {}, {}];
+  teiknSprossedialog(lead, fraKladd);
+}
+
+const SPROSSEKOLONNAR = () => vindexSkjema("sprosser").tabell.kolonner;
+
+function sprosseradHtml(rad, i) {
+  const kol = SPROSSEKOLONNAR();
+  const felt = (k) => {
+    const id = `sp_${i}_${k.id}`;
+    const v = rad[k.id] === undefined ? (k.id === "lnr" ? i + 1 : "") : String(rad[k.id]).replace(/"/g, "&quot;");
+    if (k.type === "valg")
+      return `<select id="${id}" data-sprad="${i}" data-spfelt="${k.id}">${k.val
+        .map((o) => `<option value="${o.id}"${String(o.id) === String(rad[k.id] || "") ? " selected" : ""}>${o.navn}</option>`)
+        .join("")}</select>`;
+    if (k.type === "tal")
+      return `<input id="${id}" type="number" min="0" step="1" value="${v}" data-sprad="${i}" data-spfelt="${k.id}">`;
+    return `<input id="${id}" value="${v}" data-sprad="${i}" data-spfelt="${k.id}">`;
+  };
+
+  const pris = vindexSprosselinjepris(rad);
+  return `<div class="sprosselinje">
+    <div class="sprossefigurboks">${vindexSprossegrafikk(rad) || '<span class="hint">Fyll inn mål og ruter</span>'}</div>
+    <div class="sprossefelt">
+      ${kol
+        .filter((k) => k.id !== "lnr")
+        .map((k) => `<label class="field"><span>${k.navn}${k.enhet ? " (" + k.enhet + ")" : ""}</span>${felt(k)}</label>`)
+        .join("")}
+    </div>
+    <div class="sprossepris">
+      <span class="hint">Linje ${i + 1}</span>
+      ${
+        !pris
+          ? '<span class="hint">–</span>'
+          : pris.utanforTabellen
+          ? '<span class="hint">Utenfor prislisten<br>må prises manuelt</span>'
+          : `<strong>${kr(pris.sum)}</strong>
+             <span class="hint">${pris.antall} × ${kr(pris.einingspris)}${
+               pris.tilleggsum ? "<br>+ tillegg " + kr(pris.tilleggsum) : ""
+             }</span>`
+      }
+      <button class="btn btn-ghost btn-sm" data-spslett="${i}" aria-label="Slett linje ${i + 1}">✕</button>
+    </div>
+  </div>`;
+}
+
+function sprossesumHtml(u) {
+  const linjer = u.rader.map(vindexSprosselinjepris).filter(Boolean);
+  const sum = linjer.reduce((n, l) => n + (l.sum || 0), 0);
+  const stk = linjer.reduce((n, l) => n + (l.antall || 0), 0);
+  const uavklart = linjer.filter((l) => l.utanforTabellen).length;
+  const frakt = vindexFraktSprosser(stk);
+
+  return `<div class="tilbodsum mt-1" id="sprosseSum">
+    <div><span>Antall sprosser</span><span>${stk || "–"}</span></div>
+    <div><span>Sprosser</span><span class="linjesum">${kr(sum)}</span></div>
+    ${frakt ? `<div><span>Frakt (${stk} sprosser)</span><span class="linjesum">${kr(frakt.inkl)}</span></div>` : ""}
+    <div class="total"><span>Sum</span><span class="linjesum">${kr(sum + (frakt ? frakt.inkl : 0))}</span></div>
+    <div><span class="hint">Herav uten mva</span><span class="hint">${kr(vindexEksMva(sum + (frakt ? frakt.inkl : 0)))}</span></div>
+    ${uavklart ? `<div><span class="hint">${uavklart} linje${uavklart > 1 ? "r" : ""} må prises manuelt</span><span></span></div>` : ""}
+  </div>`;
+}
+
+function teiknSprossedialog(lead, fraKladd) {
+  const u = sprosseutkast;
+  const skjema = vindexSkjema("sprosser");
+
+  opneModal(
+    "Sprossetilbud til " + ((lead.kunde || {}).navn || "kunden"),
+    `<div id="sprosseskjema">
+      ${
+        fraKladd
+          ? `<div class="notice notice-info"><strong>Fortsetter der du slapp.</strong>
+               Lagret ${sidanTekst(fraKladd)}.</div>`
+          : ""
+      }
+      <div class="notice notice-warn">
+        <strong>Standarder:</strong> ${skjema.standardar.join(" · ")}
+      </div>
+      <div id="sprosselinjer">${u.rader.map(sprosseradHtml).join("")}</div>
+      <div class="btn-row mt-1"><button class="btn btn-ghost btn-sm" id="spNyLinje">+ Legg til vindu</button></div>
+      <div class="feltrutenett mt-2">
+        <div class="field"><label for="spLevering">Ønsket levering</label>
+          <input id="spLevering" value="${(u.onsketLevering || "").replace(/"/g, "&quot;")}"></div>
+        <div class="field brei"><label for="spMerknader">Merknader</label>
+          <textarea id="spMerknader" style="min-height:60px">${u.merknader || ""}</textarea></div>
+      </div>
+      <div id="sprosseSumBoks">${sprossesumHtml(u)}</div>
+      <p class="hint">${VINDEX_PRISLISTE.mvaTekst} Prisgrunnlag: Sprosser 2026.</p>
+    </div>`,
+    `<button class="btn btn-ghost" id="spAvbryt">Lukk</button>
+     <button class="btn" id="spSkrivUt">Skriv ut</button>
+     <button class="btn btn-accent" id="spLagre">Lagre sprossetilbudet</button>`
+  );
+
+  const lagreKladden = kladdlagrar(sprossekladdnokkel(lead), () => sprosseutkast);
+
+  // Berre figuren og prisen på linja blir teikna på nytt medan seljaren skriv —
+  // aldri felta. Same grunn som i delelista: markøren skal bli ståande.
+  const oppdaterLinje = (i) => {
+    const boks = document.querySelectorAll(".sprosselinje")[i];
+    if (!boks) return;
+    boks.querySelector(".sprossefigurboks").innerHTML =
+      vindexSprossegrafikk(u.rader[i]) || '<span class="hint">Fyll inn mål og ruter</span>';
+    const pris = vindexSprosselinjepris(u.rader[i]);
+    const prisboks = boks.querySelector(".sprossepris");
+    const knapp = prisboks.querySelector("[data-spslett]").outerHTML;
+    prisboks.innerHTML =
+      `<span class="hint">Linje ${i + 1}</span>` +
+      (!pris
+        ? '<span class="hint">–</span>'
+        : pris.utanforTabellen
+        ? '<span class="hint">Utenfor prislisten<br>må prises manuelt</span>'
+        : `<strong>${kr(pris.sum)}</strong><span class="hint">${pris.antall} × ${kr(pris.einingspris)}${
+            pris.tilleggsum ? "<br>+ tillegg " + kr(pris.tilleggsum) : ""
+          }</span>`) +
+      knapp;
+    kopleSlett();
+    $("#sprosseSumBoks").innerHTML = sprossesumHtml(u);
+  };
+
+  const kopleSlett = () =>
+    $$("#sprosselinjer [data-spslett]").forEach((b) =>
+      b.addEventListener("click", () => {
+        u.rader.splice(parseInt(b.dataset.spslett, 10), 1);
+        if (!u.rader.length) u.rader.push({});
+        lagreKladd(sprossekladdnokkel(lead), u);
+        teiknSprossedialog(lead, null);
+      })
+    );
+  kopleSlett();
+
+  $("#sprosseskjema").addEventListener("input", (e) => {
+    const felt = e.target.dataset ? e.target.dataset.spfelt : null;
+    if (felt) {
+      const i = parseInt(e.target.dataset.sprad, 10);
+      u.rader[i] = { ...u.rader[i], [felt]: e.target.value };
+      oppdaterLinje(i);
+    }
+    u.merknader = ($("#spMerknader") || {}).value || "";
+    u.onsketLevering = ($("#spLevering") || {}).value || "";
+    lagreKladden();
+  });
+
+  $("#spNyLinje").addEventListener("click", () => {
+    u.rader.push({});
+    lagreKladd(sprossekladdnokkel(lead), u);
+    teiknSprossedialog(lead, null);
+  });
+
+  $("#spAvbryt").addEventListener("click", lukkModal);
+  $("#spSkrivUt").addEventListener("click", () => window.print());
+  $("#spLagre").addEventListener("click", async () => {
+    const linjer = u.rader.map(vindexSprosselinjepris).filter(Boolean);
+    if (!linjer.length) return melding("Fyll inn minst ett vindu med mål og ruter.", "warn");
+
+    const stk = linjer.reduce((n, l) => n + (l.antall || 0), 0);
+    const sum = linjer.reduce((n, l) => n + (l.sum || 0), 0);
+    const frakt = vindexFraktSprosser(stk);
+
+    await lagreLead(
+      lead,
+      {
+        sprossetilbod: {
+          rader: u.rader.filter((r) => Object.values(r).some((v) => v !== "" && v !== undefined)),
+          merknader: u.merknader,
+          onsketLevering: u.onsketLevering,
+          antall: stk,
+          sum: sum + (frakt ? frakt.inkl : 0),
+          dato: new Date().toISOString(),
+          av: app.brukar.navn,
+        },
+      },
+      [`Sprossetilbud satt opp: ${stk} sprosser, ${kr(sum + (frakt ? frakt.inkl : 0))}.`]
+    );
+    slettKladd(sprossekladdnokkel(lead));
+    lukkModal();
+    teikn();
+    melding("Sprossetilbudet er lagret.");
+  });
 }
 
 /**

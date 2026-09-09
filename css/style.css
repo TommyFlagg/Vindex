@@ -1849,3 +1849,46 @@ body.tema-mork .repskjema { background: var(--surface); border-color: var(--bord
 @media (prefers-reduced-motion: reduce) {
   .likeknapp.hopp .likehjarte { animation: none; }
 }
+
+/* Sprossetilbodet: figur til venstre, felt i midten, pris til høgre.
+   Figuren er teikna av dei same tala som står i felta — den kan difor ikkje
+   vise noko anna enn det som blir bestilt. */
+.sprosselinje {
+  display: grid;
+  grid-template-columns: 170px 1fr 8.5rem;
+  gap: 1rem;
+  align-items: start;
+  padding: .8rem 0;
+  border-top: 1px solid var(--border);
+}
+.sprosselinje:first-child { border-top: none; }
+.sprossefigurboks {
+  display: grid; place-items: center;
+  min-height: 140px; padding: .5rem;
+  background: var(--primary-soft); border-radius: var(--radius-sm);
+}
+.sprossefelt {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); gap: .5rem .75rem;
+}
+.sprossefelt .field { margin: 0; }
+.sprossefelt .field span { display: block; font-size: .78rem; color: var(--muted); margin-bottom: .15rem; }
+.sprossefelt input, .sprossefelt select { width: 100%; }
+.sprossepris { text-align: right; display: grid; gap: .2rem; justify-items: end; align-content: start; }
+.sprossepris strong { font-size: 1.05rem; }
+
+.sprossefigur { max-width: 100%; height: auto; }
+.sprossefigur .sp-glas { fill: #cfe3ee; }
+.sprossefigur .sp-verk { fill: #fff; stroke: #9fb6c2; stroke-width: .5; }
+.sprossefigur .sp-ramme { fill: none; stroke: #fff; }
+.sprossefigur .sp-bue { fill: none; stroke: #fff; stroke-linecap: round; }
+.sprossefigur .sp-hengsel { fill: var(--accent-tekst); }
+.sprossefigur .sp-tal { font-size: 9px; fill: var(--muted); text-anchor: end; }
+body.tema-mork .sprossefigur .sp-glas { fill: #24485c; }
+body.tema-mork .sprossefigur .sp-verk { fill: #eef2f3; stroke: #7e97a5; }
+body.tema-mork .sprossefigur .sp-ramme,
+body.tema-mork .sprossefigur .sp-bue { stroke: #eef2f3; }
+
+@media (max-width: 720px) {
+  .sprosselinje { grid-template-columns: 1fr; }
+  .sprossepris { justify-items: start; text-align: left; }
+}
