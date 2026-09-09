@@ -188,16 +188,24 @@ const VINDEX_MODELLSERIAR = [
         spesifikasjon: ["A25 tverrstag topp 50,8 × 88,5 mm", "A24 tverrstag midten 50,8 × 152,4 mm",
                         "A02 tverrstag bunn 50,8 × 152,4 mm", "A03 panel 22,2 × 152,6 mm",
                         "A26 gitter 302 × 2307/1669 mm", "Maks c/c stolpe 1,8 m", "Maks høyde 1,8 m"] },
-      // Detaljsidene for A11 og A15 er ikke fotografert. Prislisten viser
-      // 4527–4528 og 4557–4558 til levegg-pris, og tett og flettverk har alt
-      // tatt 4525/4526 og 4555/4556 — så disse to hører til her. Det er utledet
-      // av nummerrekken, ikke lest av en merket linje, og er merket usikkert.
+      // A11 og A15 deler side i permen, og deler også portnummer: listen
+      // oppgir 4527–4528 og 4557–4558 for begge.
       { kode: "A11", navn: "A11", artikkel: "7431", pris: 2198,
-        porter: [{ maks: 1, artikkel: "4527–4528", usikker: true },
-                 { maks: 1.5, artikkel: "4557–4558", usikker: true }] },
+        porter: [{ maks: 1, artikkel: "4527–4528" }, { maks: 1.5, artikkel: "4557–4558" }],
+        spesifikasjon: ["A14 tverrstag topp 50,8 × 88,5 mm",
+                        "A02 tverrstag midten og bunn 50,8 × 152,4 mm",
+                        "A03 panel 22,2 × 152,6 mm", "A11 stakitt 38,1 × 38,1 mm",
+                        "Avstand mellom spilene ca. 93,5 mm",
+                        "Maks c/c stolpe 1,8 m", "Maks høyde 1,8 m",
+                        "Alu i nedre tverrstag er inkludert"] },
       { kode: "A15", navn: "A15", artikkel: "7549", pris: 2168,
-        porter: [{ maks: 1, artikkel: "4527–4528", usikker: true },
-                 { maks: 1.5, artikkel: "4557–4558", usikker: true }] },
+        porter: [{ maks: 1, artikkel: "4527–4528" }, { maks: 1.5, artikkel: "4557–4558" }],
+        spesifikasjon: ["A14 tverrstag topp 50,8 × 88,5 mm",
+                        "A02 tverrstag midten og bunn 50,8 × 152,4 mm",
+                        "A03 panel 22,2 × 152,6 mm", "A15 stakitt 22,2 × 76,2 mm",
+                        "Avstand mellom spilene ca. 82,8 mm",
+                        "Maks c/c stolpe 1,8 m", "Maks høyde 1,8 m",
+                        "Alu i nedre tverrstag er inkludert"] },
     ],
   },
   {
@@ -282,9 +290,16 @@ const VINDEX_MODELLSERIAR = [
     navn: "Kystveggen",
     gjelderProdukt: ["kystveggen"],
     enhet: "m²",
+    spesifikasjon: [
+      "Total lengde × høyde = pr. m² vegg",
+      "Std c/c stolpe 1,2 m — maks 1,5 m",
+      "Std høyde 1,8 m — maks 1,8 m",
+      "Monteres med tre-plugg, støpes eller settes i bakken",
+      "Topper: 7536 flat innvendig 72 kr, 7539 flat utvendig 82 kr",
+    ],
     modellar: [
       { kode: "KYST-VEGG", navn: "Kystvegg pr. m² vegg", artikkel: "9610", pris: 784 },
-      { kode: "KYST-PAKKE", navn: "Std. pakke 1,8 × 1,2 m", artikkel: "9640", pris: 1099, enhet: "stk" },
+      { kode: "KYST-PAKKE", navn: "Std. stakittpakke 1,8 × 1,2 m", artikkel: "9640", pris: 1099, enhet: "stk" },
     ],
   },
 ];
@@ -473,6 +488,48 @@ const VINDEX_TILLEGGSDELAR = [
   { kode: "7640", navn: "Postkassestativ 1630 × 716 mm, 4 kasser og info.tavle",
     pris: 11426, frakt: 1402, gruppe: "Hus og stativ" },
 ];
+
+// ---------------------------------------------------------------------------
+// Montering
+// ---------------------------------------------------------------------------
+// Vindex monterer sjølv, og timeprisen står i lista. To ting seljaren må hugse
+// på, og som difor står her og ikkje berre i permen:
+//
+//  1. Reisetida mellom arbeidsstad og overnattingsstad er ein eigen artikkel.
+//     Montørane skal helst overnatte innan ein time frå arbeidsstaden, men
+//     nokre stader er det vanskeleg — og då blir reisetida lengre. Det er verdt
+//     å nemne for kunden før tilbodet, ikkje etter.
+//  2. Over 20 timar per mann kan det gjevast inntil 20 % rabatt. Ein rabatt
+//     ingen hugsar på er ein rabatt kunden aldri får, så verktøyet minner om
+//     den sjølv når timane passerer grensa.
+
+const VINDEX_MONTERING = {
+  timepris: { kode: "3200", navn: "Montering, time pr. mann", pris: 1036, enhet: "time" },
+  reisetid: { kode: "3201", navn: "Reisetid arbeidssted–overnattingssted, pr. mann", pris: 519, enhet: "time" },
+  inkluderer: "Lønnskostnader, verktøy, bil, overnatting, diett m.m.",
+  rabattFraTimar: 20,
+  rabattProsent: 20,
+  rabattTekst: "Overstiger arbeidstimene 20 timer pr. mann, kan det gis inntil 20 % rabatt.",
+  reisemerknad:
+    "Montørene tilstrebes overnatting innen 1 time fra arbeidsstedet. Noen steder " +
+    "kan det være vanskelig, og reisetiden kan bli lengre.",
+};
+
+/**
+ * Bør det gjevast monteringsrabatt på dette tilbodet?
+ *
+ * Regelen gjeld timane per mann, ikkje summen — så det er talet i
+ * timelinja som avgjer.
+ */
+function vindexMonteringsrabatt(timar) {
+  const n = parseFloat(timar) || 0;
+  if (n <= VINDEX_MONTERING.rabattFraTimar) return null;
+  return {
+    timar: n,
+    prosent: VINDEX_MONTERING.rabattProsent,
+    tekst: VINDEX_MONTERING.rabattTekst,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Frakt
@@ -773,6 +830,9 @@ function vindexPrisbok() {
   VINDEX_PORTDELAR.forEach((p) => linjer.push({ gruppe: "Portdeler", kode: p.kode, navn: p.navn, pris: p.pris, enhet: "stk" }));
   VINDEX_TILLEGGSDELAR.forEach((d) => linjer.push({ gruppe: d.gruppe, kode: d.kode, navn: d.navn, pris: d.pris, enhet: d.enhet || "stk" }));
   VINDEX_SPROSSETILLEGG.forEach((d) => linjer.push({ gruppe: "Sprossetillegg", kode: d.kode, navn: d.navn, pris: d.pris, enhet: d.enhet }));
+  [VINDEX_MONTERING.timepris, VINDEX_MONTERING.reisetid].forEach((d) =>
+    linjer.push({ gruppe: "Montering", kode: d.kode, navn: d.navn, pris: d.pris, enhet: d.enhet })
+  );
   return linjer.filter((l) => l.pris != null);
 }
 

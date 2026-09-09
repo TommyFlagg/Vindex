@@ -261,6 +261,11 @@ selv. En gjettet pris er verre enn ingen pris.
   naboen: stakittprofil, avstand mellom stakittene, maks c/c stolpe og høyde.
   Det er spørsmålene kunden stiller mens hun er på telefonen, og de sto ellers
   bare i permen.
+- **Montering** — timeprisen (3200) og reisetiden (3201) er egne linjer i
+  prisboken. Passerer monteringstimene 20 pr. mann, sier tilbudet fra om
+  20 %-rabatten prislisten åpner for, med beløpet ferdig regnet ut. Den trekkes
+  ikke fra automatisk — det er selgerens vurdering. Men en rabatt ingen husker
+  på er en rabatt kunden aldri får.
 - **Målskjema sprosser** — prisen regnes ut løpende av målene som alt står i
   tabellen (bredde + høyde og antall ruter), med frakt etter antall sprosser.
   Faller en linje utenfor tabellen, står det «må prises manuelt» — ikke null
@@ -783,11 +788,9 @@ Vilkårene står i `garanti.html`, gjengitt fra garantidokumentet.
 - [ ] **Overlappende portnumre for gjennomgående stakitt:** listen oppgir
       4500–4502 til rett gj.gående (7572/7574) og 4501–4503 til buet gj.gående
       (7573/7575). De to rekkene overlapper. Skrevet inn slik det står.
-- [ ] **Portnumrene for levegg A11 og A15** er utledet, ikke lest: listen viser
-      4527–4528 og 4557–4558 til levegg-pris, og tett og flettverk har alt tatt
-      4525/4526 og 4555/4556. Merket usikkert i koden, og plukklisten skriver
-      «bekreftes mot prislisten». Detaljsidene for A11 og A15 er ikke
-      fotografert.
+- [ ] **1 krones avvik på 9600 Kystvegg stolpe linje/hjørne:** hovedlisten sier
+      1.481, detaljsiden sier 1.480. Vi bruker hovedlistens 1.481. Verdt et
+      blikk i permen.
 - [ ] Legg inn produktfilmen og «hør forskjellen på lyd»-videoen
 - [ ] Slå på [Firebase App Check](https://firebase.google.com/docs/app-check)
       (reCAPTCHA) — skjemaet er åpent for innsending, og App Check er

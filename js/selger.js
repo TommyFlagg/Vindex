@@ -1770,6 +1770,28 @@ function opneTilbod(lead) {
   teiknTilbodsdialog(lead);
 }
 
+/**
+ * Minner om monteringsrabatten når timene passerer grensen.
+ *
+ * Prislisten sier at over 20 timer pr. mann kan det gis inntil 20 % rabatt.
+ * En rabatt ingen husker på er en rabatt kunden aldri får — og det er kunden
+ * som merker det, ikke selgeren. Derfor sier verktøyet fra selv, med beløpet
+ * ferdig regnet ut, men uten å trekke det fra: det er selgerens vurdering om
+ * rabatten skal gis.
+ */
+function monteringsvarselHtml(linjer) {
+  const timeline = (linjer || []).find((l) => l.kode === VINDEX_MONTERING.timepris.kode);
+  if (!timeline) return "";
+  const rabatt = vindexMonteringsrabatt(timeline.antall);
+  if (!rabatt) return "";
+
+  const maks = Math.round((timeline.sum * rabatt.prosent) / 100);
+  return `<div class="notice notice-info mt-1">
+    <strong>${rabatt.timar} monteringstimer pr. mann.</strong> ${rabatt.tekst}
+    Det utgjør inntil ${kr(maks)} på monteringslinjen. Du velger selv om den skal gis.
+  </div>`;
+}
+
 function teiknTilbodsdialog(lead) {
   const u = tilbodsutkast;
   const r = vindexRegnTilbod(u);
@@ -1848,6 +1870,7 @@ function teiknTilbodsdialog(lead) {
       <div class="total"><span>Til kunden</span><span class="linjesum">${kr(r.sum)}</span></div>
       <div><span class="hint">Herav uten mva</span><span class="hint">${kr(vindexEksMva(r.sum))}</span></div>
     </div>
+    ${monteringsvarselHtml(r.linjer)}
     <p class="hint mt-1">Prisene i listen er inkl. mva — det er det privatkunden
       betaler. Tallet uten mva står ved siden av, for de tilfellene du trenger det.
       Prisgrunnlag: ${VINDEX_PRISLISTE.kjelde}.</p>
@@ -1927,6 +1950,9 @@ function teiknTilbodsdialog(lead) {
     const tom = siste && !siste.navn && !siste.enhetspris;
     const ny = {
       ...vindexTomTilbodslinje(),
+      // Artikkelnummeret blir med på linja, ikkje berre i namnet: det er slik
+      // verktøyet kan kjenne igjen monteringstimane og minne om rabatten.
+      kode: linje.kode || "",
       navn: linje.navn + (linje.kode ? " (" + linje.kode + ")" : ""),
       antall: 1,
       enhet: VINDEX_TILBODSENHETAR.includes(linje.enhet) ? linje.enhet : "stk",
