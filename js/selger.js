@@ -18,6 +18,7 @@ import {
   settTeiknar, settOppstart, teikn, visDemohint,
   lastData, startDemo, tid, datoTekst, nesteAvtale,
   lagreLead, melding, opneModal, lukkModal, demoLagreOrdre, demoNullstill,
+  lagreKladd, hentKladd, slettKladd, kladdlagrar, sidanTekst,
 } from "./verktoy-felles.js";
 
 settTeiknar(() => teiknAlt());
@@ -1263,11 +1264,26 @@ function sprosseprisHtml(rader) {
   </div>`;
 }
 
+const ordrekladdnokkel = (lead) => "ordre:" + lead.id;
+
 function opneOrdreskjema(lead, eksisterande) {
   const produktId = (lead.produkt || {}).id;
   const skjema = vindexSkjemaFor(produktId);
-  const verdiar = (eksisterande && eksisterande.felt) || {};
-  const rader = (eksisterande && eksisterande.rader) || [];
+  let verdiar = (eksisterande && eksisterande.felt) || {};
+  let rader = (eksisterande && eksisterande.rader) || [];
+
+  // Ordreseddelen er det lengste skjemaet i verktøyet. Blir seljaren avbroten
+  // midt i, skal han ikkje måtte måle opp på nytt. `frisk` er sett når vi opnar
+  // skjemaet på nytt sjølve — då er verdiane i handa ferskare enn utkastet.
+  let kladdTid = null;
+  if (!(eksisterande && eksisterande.frisk)) {
+    const kladd = hentKladd(ordrekladdnokkel(lead));
+    if (kladd) {
+      verdiar = { ...verdiar, ...(kladd.data.felt || {}) };
+      if ((kladd.data.rader || []).length) rader = kladd.data.rader;
+      kladdTid = kladd.tid;
+    }
+  }
   const k = lead.kunde || {};
 
   const seksjonar = skjema.seksjonar
@@ -1282,6 +1298,16 @@ function opneOrdreskjema(lead, eksisterande) {
     .join("");
 
   const innhald = `
+    <div id="ordreskjema">
+    ${
+      kladdTid
+        ? `<div class="notice notice-info">
+             <strong>Fortsetter der du slapp.</strong> Det du hadde fylt ut ble lagret
+             ${sidanTekst(kladdTid)}, og er hentet fram igjen.
+             <button class="btn btn-ghost btn-sm mt-1" id="ofForkast">Forkast og start på nytt</button>
+           </div>`
+        : ""
+    }
     <div class="notice notice-info">
       <strong>${k.navn}</strong> · ${[k.adresse, k.postnr, k.poststed].filter(Boolean).join(", ")}
       · ${k.telefon || ""} ${k.epost ? "· " + k.epost : ""}<br>
@@ -1290,7 +1316,9 @@ function opneOrdreskjema(lead, eksisterande) {
     ${skjema.standardar ? `<div class="notice notice-warn"><strong>Standarder:</strong> ${skjema.standardar.join(" · ")}</div>` : ""}
     ${skjema.tabell ? tabellHtml(skjema.tabell, rader) : ""}
     ${seksjonar}
-    ${skjema.vilkar ? `<p class="hint">${skjema.vilkar}</p>` : ""}`;
+    ${skjema.vilkar ? `<p class="hint">${skjema.vilkar}</p>` : ""}
+    <p class="hint">Alt du fyller ut blir husket underveis, også om du lukker vinduet.</p>
+    </div>`;
 
   opneModal(skjema.navn, innhald, `
     <span class="spacer hint">${eksisterande ? "Ordre " + eksisterande.id : "Ikke sendt til bestilling ennå"}</span>
@@ -1302,7 +1330,12 @@ function opneOrdreskjema(lead, eksisterande) {
   if (leggTil)
     leggTil.addEventListener("click", () => {
       const data = samleSkjema(skjema);
-      opneOrdreskjema(lead, { ...(eksisterande || {}), felt: data.felt, rader: data.rader.concat([{}]) });
+      opneOrdreskjema(lead, {
+        ...(eksisterande || {}),
+        felt: data.felt,
+        rader: data.rader.concat([{}]),
+        frisk: true,
+      });
     });
 
   // Spesifikasjonen under modellfeltet skal følgje valet. Lyttaren heng på
@@ -1325,6 +1358,18 @@ function opneOrdreskjema(lead, eksisterande) {
       prisboks.innerHTML = sprosseprisHtml(samleSkjema(skjema).rader);
     });
 
+  const lagreOrdrekladd = kladdlagrar(ordrekladdnokkel(lead), () => samleSkjema(skjema));
+  $("#ordreskjema").addEventListener("input", lagreOrdrekladd);
+  $("#ordreskjema").addEventListener("change", lagreOrdrekladd);
+
+  const forkastOrdre = $("#ofForkast");
+  if (forkastOrdre)
+    forkastOrdre.addEventListener("click", () => {
+      slettKladd(ordrekladdnokkel(lead));
+      opneOrdreskjema(lead, eksisterande ? { ...eksisterande, frisk: true } : null);
+    });
+
+  // Som i tilbodet: å lukke vinduet kastar ingenting.
   $("#ofLukk").addEventListener("click", lukkModal);
   $("#ofSkrivUt").addEventListener("click", () => window.print());
   $("#ofBekreft").addEventListener("click", () => bekreftOrdre(lead, skjema, eksisterande, produktId));
@@ -1475,6 +1520,9 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
         harSpesial ? "produksjon" : "plukk på lager"
       }.`,
     ]);
+
+    // Ordren er lagra — då er det ikkje eit utkast lenger.
+    slettKladd(ordrekladdnokkel(lead));
 
     lukkModal();
     teikn();
@@ -1756,6 +1804,11 @@ function konfetti() {
 
 /** Utkastet som blir redigert i dialogen. Held seg mellom omteikningane. */
 let tilbodsutkast = null;
+/** Sett når dialogen blei opna på eit uferdig utkast, så vi kan seie frå. */
+let tilbodsutkastFraKladd = null;
+let lagreTilbodskladd = () => {};
+
+const tilbodskladdnokkel = (lead) => "tilbod:" + lead.id;
 
 function opneTilbod(lead) {
   const t = lead.tilbud || {};
@@ -1775,6 +1828,21 @@ function opneTilbod(lead) {
       etterAvtale: !!(t.montering || {}).etterAvtale,
     },
   };
+
+  // Låg det eit uferdig utkast igjen frå sist, tek vi opp tråden der. Er
+  // tilbodet lagra etter at utkastet blei skrive, er utkastet forelda — då
+  // gjeld det lagra tilbodet.
+  const kladd = hentKladd(tilbodskladdnokkel(lead));
+  const nyareEnnTilbodet = kladd && (!t.dato || new Date(kladd.tid) > new Date(t.dato));
+  tilbodsutkastFraKladd = null;
+  if (kladd && nyareEnnTilbodet) {
+    tilbodsutkast = { ...tilbodsutkast, ...kladd.data };
+    tilbodsutkastFraKladd = kladd.tid;
+  } else if (kladd) {
+    slettKladd(tilbodskladdnokkel(lead));
+  }
+
+  lagreTilbodskladd = kladdlagrar(tilbodskladdnokkel(lead), () => tilbodsutkast);
   teiknTilbodsdialog(lead);
 }
 
@@ -1904,8 +1972,18 @@ function teiknTilbodsdialog(lead) {
 
   const innhald = `
     <div id="tilbodsskjema">
+    ${
+      tilbodsutkastFraKladd
+        ? `<div class="notice notice-info">
+             <strong>Fortsetter der du slapp.</strong> Det du hadde begynt på ble lagret
+             ${sidanTekst(tilbodsutkastFraKladd)}, og er hentet fram igjen.
+             <button class="btn btn-ghost btn-sm mt-1" id="tbForkast">Forkast og start på nytt</button>
+           </div>`
+        : ""
+    }
     <p class="hint">Prisene finnes bare her, aldri på nettsiden. Kunden ser ingenting
-      før du deler tilbudet.</p>
+      før du deler tilbudet. Alt du skriver blir husket underveis, også om du
+      lukker vinduet.</p>
     <div class="field">
       <label for="tbPrisbok">Hent fra prislisten ${VINDEX_PRISLISTE.namn}</label>
       <select id="tbPrisbok">
@@ -2043,6 +2121,7 @@ function teiknTilbodsdialog(lead) {
       if (felt) felt.classList.toggle("hidden", e.target.checked);
     }
     oppdaterSummar();
+    lagreTilbodskladd();
   });
 
   $("#tbPrisbok").addEventListener("change", (e) => {
@@ -2066,12 +2145,14 @@ function teiknTilbodsdialog(lead) {
     };
     if (tom) u.linjer[u.linjer.length - 1] = ny;
     else u.linjer.push(ny);
+    lagreKladd(tilbodskladdnokkel(lead), u);
     teiknTilbodsdialog(lead);
   });
 
   $("#tbNyLinje").addEventListener("click", () => {
     les();
     u.linjer.push(vindexTomTilbodslinje());
+    lagreKladd(tilbodskladdnokkel(lead), u);
     teiknTilbodsdialog(lead);
   });
 
@@ -2080,10 +2161,22 @@ function teiknTilbodsdialog(lead) {
       les();
       u.linjer.splice(parseInt(b.dataset.slett, 10), 1);
       if (!u.linjer.length) u.linjer.push(vindexTomTilbodslinje());
+      lagreKladd(tilbodskladdnokkel(lead), u);
       teiknTilbodsdialog(lead);
     })
   );
 
+  const forkast = $("#tbForkast");
+  if (forkast)
+    forkast.addEventListener("click", () => {
+      slettKladd(tilbodskladdnokkel(lead));
+      tilbodsutkastFraKladd = null;
+      opneTilbod(lead);
+    });
+
+  // «Avbryt» lukker vinduet, men kastar ikkje arbeidet. Skal utkastet vekk,
+  // finst det ein eigen knapp for det — og det skal vere eit val, ikkje noko
+  // som skjer fordi ein trykte feil stad.
   $("#tbAvbryt").addEventListener("click", lukkModal);
   $("#tbLagre").addEventListener("click", async () => {
     les();
@@ -2113,6 +2206,9 @@ function teiknTilbodsdialog(lead) {
         tilbud.linjer.length
       } linjer. Ikke delt med kunden ennå.`,
     ]);
+    // Tilbodet er lagra på leadet no — utkastet har gjort jobben sin.
+    slettKladd(tilbodskladdnokkel(lead));
+    tilbodsutkastFraKladd = null;
     lukkModal();
     teikn();
     melding("Tilbudet er lagret. Del det når du er klar.");

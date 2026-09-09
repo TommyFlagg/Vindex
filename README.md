@@ -281,6 +281,28 @@ selv. En gjettet pris er verre enn ingen pris.
   Faller en linje utenfor tabellen, står det «må prises manuelt» — ikke null
   kroner. Boksen vises ikke for lagerbrukere.
 
+## Uferdige utkast
+
+En deleliste eller en ordreseddel tar tid å fylle ut, og selgeren blir avbrutt:
+telefonen ringer, kunden lurer på noe, vinduet blir lukket. Før var alt borte
+da. Nå lagres alt som skrives underveis — et halvt sekund etter siste
+tastetrykk, lokalt i nettleseren på selgerens egen maskin.
+
+Åpner han dialogen igjen, står det «Fortsetter der du slapp», med en knapp for
+å forkaste og begynne på nytt. Utkastet overlever også at siden lastes på nytt.
+Å lukke vinduet kaster ingenting — skal utkastet vekk, er det et eget valg, ikke
+noe som skjer fordi man trykket feil sted.
+
+Et utkast er ikke et tilbud: det deles aldri med kunden, telles ikke i
+statistikken, og slettes i det tilbudet eller ordren faktisk lagres. Er tilbudet
+på leadet nyere enn utkastet, gjelder tilbudet, og utkastet ryddes bort.
+
+Rullefarten i dialogene er dempet til under halvparten. Skjemaene er lange og
+boksen er ikke høy, så ett hakk på hjulet flyttet en god del av listen — det var
+lett å rulle forbi linjen man skulle rette. Trackpad, tastatur og zoom er ikke
+rørt. Tallfelt mister fokus når hjulet går over dem, slik at «25» ikke blir 47
+fordi noen rullet med markøren i feltet.
+
 ## Slik henger leads-flyten sammen
 
 1. Kunden fyller ut skjemaet og oppgir postnummer.

@@ -580,6 +580,126 @@ export function lukkModal() {
   $("#modal").classList.add("hidden");
   document.body.style.overflow = "";
 }
+// ---------------------------------------------------------------------------
+// Uferdige utkast
+// ---------------------------------------------------------------------------
+// Ei deleliste eller ein ordreseddel tek tid å fylle ut, og seljaren blir
+// avbroten: telefonen ringer, kunden lurer på noko, dialogen blir lukka. Før
+// var alt borte då, og han måtte begynne på nytt. Det er den slags som gjer at
+// folk sluttar å bruke verktøyet.
+//
+// Difor blir alt som blir skrive lagra undervegs — lokalt i nettlesaren, på
+// same maskin som seljaren sit ved. Utkastet er ikkje eit tilbod: det blir
+// aldri delt, aldri talt med i statistikken, og forsvinn i det tilbodet
+// faktisk blir lagra.
+
+const KLADDAR = "vindex_kladdar";
+
+function lesKladdar() {
+  try {
+    return JSON.parse(localStorage.getItem(KLADDAR) || "{}");
+  } catch (e) {
+    return {};                       // privat vindauge, eller øydelagt innhald
+  }
+}
+
+/** Lagre eit uferdig utkast. Nøkkelen er t.d. «tilbod:abc123». */
+export function lagreKladd(nokkel, data) {
+  try {
+    const alle = lesKladdar();
+    alle[nokkel] = { data, tid: new Date().toISOString() };
+    localStorage.setItem(KLADDAR, JSON.stringify(alle));
+  } catch (e) {
+    // Fullt eller avslått lager. Utkastet er ein bonus, ikkje ein føresetnad —
+    // seljaren skal ikkje møte ei feilmelding for noko han ikkje har bedt om.
+  }
+}
+
+/** Hent eit utkast, om det finst. Returnerer {data, tid} eller null. */
+export function hentKladd(nokkel) {
+  const rad = lesKladdar()[nokkel];
+  return rad && rad.data ? rad : null;
+}
+
+export function slettKladd(nokkel) {
+  try {
+    const alle = lesKladdar();
+    if (!(nokkel in alle)) return;
+    delete alle[nokkel];
+    localStorage.setItem(KLADDAR, JSON.stringify(alle));
+  } catch (e) { /* som over */ }
+}
+
+/**
+ * Lagre litt etter at seljaren sluttar å skrive, ikkje for kvart teikn.
+ *
+ * Eit tastetrykk er ikkje eit vedtak. Ventar vi eit halvt sekund, blir det éi
+ * skriving per ord i staden for éi per bokstav.
+ */
+export function kladdlagrar(nokkel, hentData, ventMs = 500) {
+  let timer = null;
+  return () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => lagreKladd(nokkel, hentData()), ventMs);
+  };
+}
+
+/** «for 3 minutter siden» — brukt når vi seier frå at eit utkast er henta opp. */
+export function sidanTekst(iso) {
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (min < 1) return "for et øyeblikk siden";
+  if (min < 60) return `for ${min} minutt${min === 1 ? "" : "er"} siden`;
+  const t = Math.round(min / 60);
+  if (t < 24) return `for ${t} time${t === 1 ? "" : "r"} siden`;
+  const d = Math.round(t / 24);
+  return `for ${d} døgn siden`;
+}
+
+// ---------------------------------------------------------------------------
+// Rullefart i dialogane
+// ---------------------------------------------------------------------------
+// Delelista og ordreseddelen er lange skjema i ein boks som ikkje er så høg.
+// Eit hakk på hjulet flyttar då ei god stund av lista, og det er lett å rulle
+// forbi linja ein skulle rette. Vi dempar farten til under halvparten — ikkje
+// meir, for då kjenner det trått ut når ein skal langt ned.
+//
+// Berre musehjul med pikselsteg blir dempa. Trackpad med fart og sving,
+// tastatur, rullefelt og zoom held nettlesaren styr på sjølv — det er ingen
+// grunn til å ta over noko som alt oppfører seg rett.
+const VINDEX_RULLEFART = 0.45;
+
+function dempRulling(el) {
+  if (!el) return;
+  el.addEventListener(
+    "wheel",
+    (e) => {
+      if (e.ctrlKey || e.deltaMode !== 0) return;      // zoom, eller linje-/sidesteg
+      const rom = el.scrollHeight - el.clientHeight;
+      if (rom <= 1) return;                            // ingenting å rulle
+      const ny = Math.max(0, Math.min(rom, el.scrollTop + e.deltaY * VINDEX_RULLEFART));
+      // På toppen eller botnen skal sida bak få rulle vidare som vanleg.
+      if (ny === el.scrollTop) return;
+      e.preventDefault();
+      el.scrollTop = ny;
+    },
+    { passive: false }
+  );
+}
+dempRulling($("#modalInnhald"));
+
+// Eit talfelt endrar verdien sin når hjulet går over det medan det har fokus.
+// Rullar seljaren nedover delelista med markøren i «antall»-feltet, står det
+// plutseleg 47 der det stod 25 — utan at nokon har skrive noko. Vi slepper
+// fokuset i staden, så rullinga blir rulling.
+document.addEventListener(
+  "wheel",
+  (e) => {
+    const felt = document.activeElement;
+    if (felt && felt.type === "number" && felt === e.target) felt.blur();
+  },
+  { passive: true }
+);
+
 $("#modalLukk").addEventListener("click", lukkModal);
 $("#modal").addEventListener("click", (e) => {
   if (e.target.id === "modal") lukkModal();
