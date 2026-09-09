@@ -101,6 +101,18 @@ service cloud.firestore {
       allow delete: if erAdmin();
     }
 
+    // -- Dagens salstips: kven som har likt kva ------------------------------
+    //
+    // Uskuldige data, men dei skal framleis ikkje kunne brukast til noko anna
+    // enn dei er meint for. Alle innlogga kan lese og like; ingen kan skrive
+    // andre felt inn i dokumentet, og berre admin kan slette.
+    match /tips/{tipsId} {
+      allow read: if erSeljar();
+      allow create, update: if erSeljar()
+                            && request.resource.data.keys().hasOnly(['likar']);
+      allow delete: if erAdmin();
+    }
+
     // -- Seljarar ------------------------------------------------------------
     match /sellers/{uid} {
       allow read: if erSeljar();

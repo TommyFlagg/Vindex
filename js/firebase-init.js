@@ -33,6 +33,7 @@ import {
   serverTimestamp,
   increment,
   arrayUnion,
+  arrayRemove,
   Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
@@ -67,6 +68,9 @@ const storage = getStorage(app);
 const ordreVedleggRef = (ordreId, filnamn) => storageRef(storage, `ordrar/${ordreId}/${filnamn}`);
 
 const ordersCol = () => collection(db, "orders");
+
+/** Eit dokument per salstips, med kven som har likt det. */
+const tipsDoc = (id) => doc(db, "tips", id);
 const orderDoc = (id) => doc(db, "orders", id);
 const sellersCol = () => collection(db, "sellers");
 const sellerDoc = (uid) => doc(db, "sellers", uid);
@@ -104,7 +108,9 @@ export {
   serverTimestamp,
   increment,
   arrayUnion,
+  arrayRemove,
   Timestamp,
+  tipsDoc,
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,

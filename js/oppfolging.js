@@ -514,90 +514,186 @@ function vindexKanalstatistikk(leads) {
 // Vindex sine eigne sterke sider og frå det seljarane faktisk blir spurde om
 // — ikkje generelle salsfrasar.
 const VINDEX_SALSTIPS = [
-  {
-    tittel: "Ring innen døgnet",
-    tekst:
-      "Kunden som får svar første dagen har som regel ikke rukket å be om " +
-      "pris andre steder. Det er den billigste konkurransefordelen vi har.",
-  },
-  {
-    tittel: "Spør om målene før du priser",
-    tekst:
-      "Et tilbud på feil mål må gjøres om, og da har du brukt tiden to ganger. " +
-      "Fem minutter på telefonen sparer en runde.",
-  },
-  {
-    tittel: "30 år er et argument, ikke en fotnote",
-    tekst:
-      "Konkurrenten gir fem. Si det høyt: dette skal stå i tretti år uten at " +
-      "kunden maler det én gang.",
-  },
-  {
-    tittel: "Regn på malingen",
-    tekst:
-      "Et trerekkverk skal beises hvert tredje år. Regn timene og literne " +
-      "sammen med kunden — da blir prisforskjellen noe helt annet.",
-  },
-  {
-    tittel: "Vi produserer selv, i Norge",
-    tekst:
-      "To fabrikker på Hustadvika, CNC og egen produksjonsrobot. Derfor kan vi " +
-      "si ja til mål andre må si nei til.",
-  },
-  {
-    tittel: "Book befaringen i samtalen",
-    tekst:
-      "«Skal jeg ta en tur innom torsdag?» lukker flere saker enn «jeg sender " +
-      "deg et tilbud». Sett datoen mens du har kunden på tråden.",
-  },
-  {
-    tittel: "Følg opp tilbudet etter tre dager",
-    tekst:
-      "Ikke vent på at kunden ringer. De fleste som ikke svarer har bare ikke " +
-      "kommet så langt ennå.",
-  },
-  {
-    tittel: "Ta med sprossene",
-    tekst:
-      "Vi er de eneste som lager VINDEX-sprosser i vinyl. Kunden som kjøper " +
-      "rekkverk har ofte vinduer som trenger dem også.",
-  },
-  {
-    tittel: "Skriv ned hvorfor du tapte",
-    tekst:
-      "Ett klikk når saken lukkes. Det er den eneste måten vi finner ut om vi " +
-      "taper på pris eller på leveringstid.",
-  },
-  {
-    tittel: "Be om hjelp tidlig",
-    tekst:
-      "Står du fast på pris eller en teknisk løsning, dra inn daglig leder " +
-      "mens saken er varm — ikke etter at kunden har sagt nei.",
-  },
-  {
-    tittel: "Ledlys selger seg selv om kvelden",
-    tekst:
-      "Nevn lys i stolpetoppene. Det er et lite tillegg på ordren og det " +
-      "kunden viser fram til naboen.",
-  },
-  {
-    tittel: "Miljøfyrtårn teller i offentlige anbud",
-    tekst:
-      "Snakker du med borettslag, kommune eller entreprenør: sertifiseringen " +
-      "er ofte et krav i konkurransen.",
-  },
+  { id: "ring-doegnet", tittel: "Ring innen døgnet",
+    tekst: "Kunden som får svar første dagen har som regel ikke rukket å be om pris andre " +
+           "steder. Det er den billigste konkurransefordelen vi har." },
+
+  { id: "maal-foer-pris", tittel: "Spør om målene før du priser",
+    tekst: "Et tilbud på feil mål må gjøres om, og da har du brukt tiden to ganger. Fem " +
+           "minutter på telefonen sparer en runde." },
+
+  { id: "tretti-aar", tittel: "30 år er et argument, ikke en fotnote",
+    tekst: "Konkurrenten gir fem. Si det høyt: dette skal stå i tretti år uten at kunden " +
+           "maler det én gang." },
+
+  { id: "regn-maling", tittel: "Regn på malingen",
+    tekst: "Et trerekkverk skal beises hvert tredje år. Regn timene og literne sammen med " +
+           "kunden — da blir prisforskjellen noe helt annet." },
+
+  { id: "norsk-produksjon", tittel: "Vi produserer selv, i Norge",
+    tekst: "To fabrikker på Hustadvika, CNC og egen produksjonsrobot. Derfor kan vi si ja " +
+           "til mål andre må si nei til." },
+
+  { id: "book-befaring", tittel: "Book befaringen i samtalen",
+    tekst: "«Skal jeg ta en tur innom torsdag?» lukker flere saker enn «jeg sender deg et " +
+           "tilbud». Sett datoen mens du har kunden på tråden." },
+
+  { id: "foelg-opp-tre-dagar", tittel: "Følg opp tilbudet etter tre dager",
+    tekst: "Ikke vent på at kunden ringer. De fleste som ikke svarer har bare ikke kommet " +
+           "så langt ennå." },
+
+  { id: "sprosser", tittel: "Ta med sprossene",
+    tekst: "Vi lager sprosser i vinyl til vinduer. Kunden som kjøper rekkverk har ofte " +
+           "vinduer som trenger dem også — og har aldri tenkt på å spørre." },
+
+  { id: "skriv-kvifor", tittel: "Skriv ned hvorfor du tapte",
+    tekst: "Noen få klikk når saken lukkes. Det er den eneste måten vi finner ut om vi " +
+           "taper på pris, på leveringstid, eller på at noen andre ringte først." },
+
+  { id: "be-om-hjelp", tittel: "Be om hjelp tidlig",
+    tekst: "Står du fast på pris eller en teknisk løsning, dra inn daglig leder mens saken " +
+           "er varm — ikke etter at kunden har sagt nei." },
+
+  { id: "ledlys", tittel: "Ledlys selger seg selv om kvelden",
+    tekst: "Nevn lys i stolpetoppene. Lite tillegg på ordren, og det første kunden viser " +
+           "fram til naboen når det blir mørkt." },
+
+  { id: "miljofyrtaarn", tittel: "Miljøfyrtårn teller i offentlige anbud",
+    tekst: "Snakker du med borettslag, kommune eller entreprenør: sertifiseringen er ofte " +
+           "et krav i konkurransen, ikke bare noe pent å ha." },
+
+  { id: "oransje", tittel: "Oransje er ikke en farge, det er en beskjed",
+    tekst: "Blir kunden oransje i listen, har det gått et døgn. Blir den rød, har det gått " +
+           "tre. Kunden teller også — de bare gjør det uten farger." },
+
+  { id: "a19", tittel: "La kunden ta på håndløperen",
+    tekst: "A19 er den profilerte, og den folk flest ender med. Den kjennes solid i hånden. " +
+           "Det argumentet virker best når hånden faktisk er der." },
+
+  { id: "be-om-bilete", tittel: "Be om et bilde",
+    tekst: "«Kan du knipse et bilde av der det skal stå?» Ti sekunder for kunden, og du " +
+           "slipper å gjette på terreng, trapp og eksisterende mur." },
+
+  { id: "skisse-til-produksjon", tittel: "Skissen sparer en telefon",
+    tekst: "Legg håndtegningen ved ordren. En strek med et mål på sier mer enn tre avsnitt " +
+           "i kommentarfeltet, og produksjonen slipper å ringe deg på onsdag." },
+
+  { id: "to-smale-portar", tittel: "To smale porter slår én bred",
+    tekst: "Port over 1,3 m anbefaler vi ikke — den henger seg selv skjev over tid. To " +
+           "smale ser dessuten bedre ut, og det er lettere å selge enn en advarsel." },
+
+  { id: "frakt-tidleg", tittel: "Frakt er ingen overraskelse",
+    tekst: "Ta den med i tilbudet fra start. En fraktlinje som dukker opp til slutt koster " +
+           "mer tillit enn den koster kroner." },
+
+  { id: "snakk-om-vinteren", tittel: "Snakk om mai i februar",
+    tekst: "Alle vil ha rekkverket ferdig til 17. mai. De som bestiller i februar får det. " +
+           "Si det vennlig, men si det." },
+
+  { id: "naboen", tittel: "Naboen er ditt neste lead",
+    tekst: "Et ferdig prosjekt står ute hele året og selger seg selv. Spør om du kan si " +
+           "hvem som har det, og noter adressen." },
+
+  { id: "gi-lys-ikkje-prosent", tittel: "Gi lys, ikke prosent",
+    tekst: "Rabatt forsvinner rett ut av marginen. Et par stolpetopplys koster oss mindre " +
+           "og oppleves som mer. Kunden husker lyset lenge etter at prosenten er glemt." },
+
+  { id: "vaareproeve", tittel: "Ha en bit i bilen",
+    tekst: "En avkappet stolpe i baksetet har avsluttet flere diskusjoner om «plast» enn " +
+           "noen brosjyre. Folk må kjenne på vekten." },
+
+  { id: "skriv-enkelt", tittel: "Skriv tilbudet så mor forstår det",
+    tekst: "«VBC m/A19, 22,2 × 76,2» er riktig, men det er ikke et salgsargument. Skriv hva " +
+           "det er, og legg koden i parentes." },
+
+  { id: "ja-er-ikkje-slutten", tittel: "Ja er ikke slutten på samtalen",
+    tekst: "Når kunden har sagt ja til rekkverket, er terskelen lavest for port, lys og " +
+           "postkassestativ. Spør nå, ikke om tre uker." },
+
+  { id: "robotklipparhus", tittel: "Robotklipperhuset åpner dører",
+    tekst: "Det er en billig ting å nevne, og halve nabolaget har robotklipper som står ute " +
+           "i regnet. Den samtalen ender ofte et helt annet sted." },
+
+  { id: "dobbeltsjekk-maal", tittel: "Den som måler feil, måler alene",
+    tekst: "Les målene tilbake til kunden før du sender. «Så det er 24 meter og 1000 i " +
+           "høyde?» Ti sekunder som har reddet mang en produksjonsuke." },
+
+  { id: "telefon-slaar-epost", tittel: "Telefon slår e-post",
+    tekst: "En e-post kan utsettes til i morgen. Det kan ikke en telefon som ringer. Ring " +
+           "først, skriv etterpå — og skriv kort." },
+
+  { id: "kaffe", tittel: "Kaffe er billigere enn rabatt",
+    tekst: "En halvtime på trammen selger bedre enn ti prosent. Kunden kjøper av noen de " +
+           "har møtt, og du får målene med hjem." },
+
+  { id: "si-prisen-hoegt", tittel: "Si prisen høyt",
+    tekst: "Prisen skal ikke ligge nederst i e-posten som noe du håper de overser. Si den " +
+           "rett ut, og si hva den inneholder. Det er der tilliten ligger." },
+
+  { id: "levegg-grense", tittel: "Leveggen stopper på 1,8 meter",
+    tekst: "Høyere lager vi ikke. Trenger kunden mer skjerming, er det terrenget eller " +
+           "plasseringen som må løse det — ikke veggen. Si det før tilbudet, ikke etter." },
+
+  { id: "glas-er-utsikt", tittel: "Glassrekkverk selger utsikt, ikke glass",
+    tekst: "Ingen vil ha glass. Folk vil ha fjorden i stua. Snakk om det de ser, så " +
+           "kommer prisen i et annet lys." },
+
+  { id: "tapte-er-ikkje-doede", tittel: "«Utsatt» betyr ring til våren",
+    tekst: "Prosjektet som ble utsatt er ikke tapt, det er bare parkert. Sett en påminnelse " +
+           "med en gang — den kunden har allerede sagt at de vil ha det." },
+
+  { id: "levering", tittel: "Kunden husker leveringen, ikke prisen",
+    tekst: "Ett år etterpå husker ingen om det var 42 000 eller 45 000. Alle husker om det " +
+           "kom når du sa det skulle komme." },
+
+  { id: "ferdig-jobb", tittel: "Den beste selgeren er en ferdig jobb",
+    tekst: "Kjør en runde forbi det du har levert i området før du drar på befaring. Da kan " +
+           "du peke ut av bilvinduet i stedet for å blafre i en perm." },
+
+  { id: "klokka-fire", tittel: "Klokka fire",
+    tekst: "Nytt tips hver dag klokka 16. Er du fortsatt på jobb da, har du enten en god dag " +
+           "eller en dårlig plan. Ring én til, og dra hjem." },
 ];
+
+/**
+ * Når byter tipset?
+ *
+ * Klokka 16, ikkje ved midnatt. Eit tips som skiftar midt på natta er lese av
+ * ingen; eit som skiftar når arbeidsdagen ebbar ut, blir lese på veg ut døra og
+ * hugsa til neste morgon.
+ */
+const VINDEX_TIPSBYTE_TIME = 16;
+
+/**
+ * Kva «tipsdøgn» vi er i.
+ *
+ * Vi flyttar klokka 16 timar bakover og les datoen. Då aukar talet klokka 16
+ * kvar dag, og alle seljarane er i same døgn samstundes — dei kan snakke om
+ * «tipset i dag» utan å måtte avklare kva tid dei såg det.
+ */
+function vindexTipsdag(dato = new Date()) {
+  const d = new Date(dato.getTime());
+  d.setHours(d.getHours() - VINDEX_TIPSBYTE_TIME);
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+}
 
 /**
  * Dagens tips.
  *
- * Same tips for alle heile dagen, og det roterer gjennom lista utan å gjenta
- * seg før alle har vore innom. Datoen styrer, ikkje tilfeldet — då kan to
- * seljarar snakke om «tipset i dag».
+ * Same tips for alle heile døgnet, og det roterer gjennom lista utan å gjenta
+ * seg før alle 35 har vore innom. Datoen styrer, ikkje tilfeldet.
  */
 function vindexDagensTips(dato = new Date()) {
-  const dagnummer = Math.floor(
-    Date.UTC(dato.getFullYear(), dato.getMonth(), dato.getDate()) / 86400000
-  );
-  return VINDEX_SALSTIPS[((dagnummer % VINDEX_SALSTIPS.length) + VINDEX_SALSTIPS.length) % VINDEX_SALSTIPS.length];
+  const n = VINDEX_SALSTIPS.length;
+  const dag = vindexTipsdag(dato);
+  return VINDEX_SALSTIPS[((dag % n) + n) % n];
+}
+
+/** Når kjem neste tips? Brukt til å seie «nytt tips kl. 16.00». */
+function vindexNesteTipsbyte(dato = new Date()) {
+  const neste = new Date(dato.getTime());
+  neste.setMinutes(0, 0, 0);
+  neste.setHours(VINDEX_TIPSBYTE_TIME);
+  if (neste <= dato) neste.setDate(neste.getDate() + 1);
+  return neste;
 }

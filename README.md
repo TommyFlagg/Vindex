@@ -316,6 +316,27 @@ spesial — fordi det er plasseringen produksjonen trenger, ikke at det er «stk
 Stolpefoten ligger i samme liste som stolpene, der selgeren leter etter den, men
 har ingen plassering: den står ikke noe sted.
 
+## Dagens salgstips
+
+35 tips som roterer, ett per dag, likt for alle. **Byttet skjer klokka 16, ikke
+ved midnatt** — et tips som skifter midt på natta blir lest av ingen, mens et
+som skifter når arbeidsdagen ebber ut blir lest på vei ut døra. Datoen styrer,
+ikke tilfeldet, så to selgere kan snakke om «tipset i dag» uten å måtte avklare
+når de så det. Alle 35 kommer før noe gjentar seg.
+
+Tipsene er hentet fra Vindex sine egne sider og fra det selgerne faktisk blir
+spurt om — ikke generelle salgsfraser. Humoren varierer med vilje: noen er rett
+fram, noen er tørre, og et par er frekke. Et tips ingen gidder å lese er ikke et
+tips.
+
+Hjertet under tipset lagrer hvem som har likt, ikke bare et tall — et tall kan
+ikke trekkes tilbake, og selgeren skal kunne angre. I drift ligger det i
+`tips/{id}` i Firestore med en liste over uid-er; reglene lar innloggede lese og
+like, men ikke skrive andre felter inn i dokumentet. I demo ligger det lokalt.
+
+Over tid sier likene noe om hvilke tips folk faktisk har glede av, så listen kan
+bli bedre i stedet for å stå og støve ned.
+
 ## Hvorfor vi vinner og taper
 
 Selgeren blir spurt i det han setter «Solgt» eller «Avslått», for det er det

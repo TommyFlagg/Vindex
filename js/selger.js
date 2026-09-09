@@ -482,12 +482,106 @@ function teiknPall() {
     }`;
 }
 
+// ---------------------------------------------------------------------------
+// Dagens tips, og hjartet
+// ---------------------------------------------------------------------------
+// Kven som har likt kva ligg i eitt dokument per tips. Det er ikkje viktige
+// data, men det er hyggelege data: over tid ser vi kva slags tips folk faktisk
+// har glede av, og då kan lista bli betre i staden for å stå og støve ned.
+//
+// Ein seljar kan like og angre. Vi lagrar uid-ar og ikkje berre eit tal, for
+// eit tal kan ikkje trekkast tilbake.
+
+let tipslikar = { id: null, likar: [] };
+
+const tipslikarNokkel = "vindex_tipslikar";
+
+function demoTipslikar() {
+  try {
+    return JSON.parse(localStorage.getItem(tipslikarNokkel) || "{}");
+  } catch (e) {
+    return {};
+  }
+}
+
+async function lastTipslikar(tipsId) {
+  if (VINDEX_DEMOMODUS) return demoTipslikar()[tipsId] || [];
+  try {
+    const snap = await fb.getDoc(fb.tipsDoc(tipsId));
+    return (snap.exists() && snap.data().likar) || [];
+  } catch (e) {
+    // Eit hjarte som ikkje lastar skal ikkje stoppe dashbordet.
+    console.error(e);
+    return [];
+  }
+}
+
+async function vekslTipslike(tipsId, uid, likarNo) {
+  if (VINDEX_DEMOMODUS) {
+    const alle = demoTipslikar();
+    alle[tipsId] = likarNo
+      ? (alle[tipsId] || []).filter((x) => x !== uid)
+      : (alle[tipsId] || []).concat([uid]);
+    try {
+      localStorage.setItem(tipslikarNokkel, JSON.stringify(alle));
+    } catch (e) { /* fullt eller privat vindauge */ }
+    return alle[tipsId];
+  }
+  await fb.setDoc(
+    fb.tipsDoc(tipsId),
+    { likar: likarNo ? fb.arrayRemove(uid) : fb.arrayUnion(uid) },
+    { merge: true }
+  );
+  return await lastTipslikar(tipsId);
+}
+
 function teiknTips() {
   const t = vindexDagensTips();
+  const uid = app.brukar.uid;
+  const likar = tipslikar.id === t.id ? tipslikar.likar : [];
+  const likt = likar.includes(uid);
+  const neste = vindexNesteTipsbyte();
+
   $("#dagensTips").innerHTML = `
     <p class="tips-merke">Dagens salgstips</p>
     <h3>${t.tittel}</h3>
-    <p>${t.tekst}</p>`;
+    <p>${t.tekst}</p>
+    <div class="tipsbotn">
+      <button class="likeknapp${likt ? " likt" : ""}" id="tipsLike"
+        aria-pressed="${likt}"
+        title="${likt ? "Du har likt dette tipset" : "Lik dette tipset"}">
+        <span class="likehjarte" aria-hidden="true">${likt ? "♥" : "♡"}</span>
+        <span class="liketal">${likar.length || ""}</span>
+        <span class="visually-hidden">${likt ? "Fjern like" : "Lik tipset"}</span>
+      </button>
+      <span class="hint">Nytt tips kl. ${neste.getHours()}.00</span>
+    </div>`;
+
+  // Hentar vi ikkje inn like-tala enno, gjer vi det no — og teiknar på nytt
+  // berre denne boksen, ikkje heile dashbordet.
+  if (tipslikar.id !== t.id) {
+    tipslikar = { id: t.id, likar: [] };
+    lastTipslikar(t.id).then((liste) => {
+      if (tipslikar.id !== t.id) return;
+      tipslikar.likar = liste;
+      teiknTips();
+    });
+  }
+
+  $("#tipsLike").addEventListener("click", async () => {
+    const knapp = $("#tipsLike");
+    knapp.disabled = true;
+    // Hjartet svarer med ein gong. Går lagringa gale, rettar vi det etterpå —
+    // eit like skal kjennast som eit trykk, ikkje som ein serverrunde.
+    knapp.classList.add("hopp");
+    try {
+      tipslikar.likar = await vekslTipslike(t.id, uid, likt);
+    } catch (e) {
+      console.error(e);
+      melding("Fikk ikke lagret. Prøv igjen.", "warn");
+    }
+    teiknTips();
+  });
 }
 
 // ---------------------------------------------------------------------------
