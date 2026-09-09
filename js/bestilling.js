@@ -375,6 +375,7 @@ async function finnSeljar(distriktId) {
   const snap = await fb.getDoc(fb.doc(fb.db, "settings", "ruting"));
   if (!snap.exists()) return null;
   const kandidatar = (snap.data() || {})[distriktId];
+  // Dokumentet inneheld òg «oppdatert» (eit tidsstempel), så vi krev ei liste.
   if (!Array.isArray(kandidatar) || !kandidatar.length) return null;
   // Er det fleire seljarar i same distrikt, roterer vi mellom dei. Enkel,
   // føreseieleg fordeling som ikkje krev at vi eksponerer leadstal offentleg.

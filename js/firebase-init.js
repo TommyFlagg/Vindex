@@ -53,7 +53,12 @@ const ordersCol = () => collection(db, "orders");
 const orderDoc = (id) => doc(db, "orders", id);
 const sellersCol = () => collection(db, "sellers");
 const sellerDoc = (uid) => doc(db, "sellers", uid);
-const settingsDoc = () => doc(db, "settings", "config");
+// Søknader frå «bli representant»-skjemaet. Kven som helst kan sende inn,
+// berre hovudkontoret kan lese — sjå firestore.rules.
+const representantarCol = () => collection(db, "representanter");
+// Argumentet blei tidlegare ignorert, så rutingtabellen hamna i
+// settings/config medan bestillingsskjemaet las settings/ruting.
+const settingsDoc = (id = "config") => doc(db, "settings", id);
 
 export {
   db,
@@ -64,6 +69,7 @@ export {
   orderDoc,
   sellersCol,
   sellerDoc,
+  representantarCol,
   settingsDoc,
   doc,
   getDoc,

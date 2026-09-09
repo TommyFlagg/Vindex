@@ -111,6 +111,32 @@ service cloud.firestore {
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ferie']));
     }
 
+    // -- Søknader om å bli representant --------------------------------------
+    // Skjemaet på nettsida er ope for alle, men søknadene er personopplysningar
+    // og skal berre lesast av hovudkontoret. Ingen kan lese sin eigen igjen —
+    // det er ikkje ei postkasse, det er ein innboks hos Vindex.
+    function gyldigSoknad(d) {
+      return d.keys().hasOnly([
+               'navn', 'telefon', 'epost', 'postnr', 'firma', 'omDeg',
+               'distriktId', 'distriktNavn', 'omradeLedig', 'status',
+               'samtykke', 'opprettet',
+             ])
+             && d.samtykke == true
+             && d.status == 'ny'
+             && d.navn is string && d.navn.size() > 1 && d.navn.size() < 120
+             && d.telefon is string && d.telefon.size() < 30
+             && d.epost is string && d.epost.size() < 160
+             && d.postnr is string && d.postnr.size() == 4
+             && d.firma.size() < 160
+             && d.omDeg.size() < 4000
+             && d.distriktId is string;
+    }
+
+    match /representanter/{soknadId} {
+      allow create: if gyldigSoknad(request.resource.data);
+      allow read, update, delete: if erAdmin();
+    }
+
     // -- Innstillingar -------------------------------------------------------
     match /settings/ruting {
       allow read: if true;          // skjemaet treng dette før innlogging

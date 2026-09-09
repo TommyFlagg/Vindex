@@ -138,6 +138,58 @@ Sertifiseringen står i `VINDEX_FIRMA.miljofyrtarn`. **Sertifikatnummer og lenke
 er tomme** og må fylles inn før lansering — siden påstår ikke noe den ikke kan
 vise fram. Er nummeret tomt, vises seksjonen uten referanse.
 
+## Bli representant: boksen og kartet
+
+Nederst på forsiden ligger en seksjon der den som vil bli lokal Vindex-
+representant kan melde interesse. Den gjør to jobber på én gang:
+
+- **For kunden** viser kartet at det finnes noen i nærheten — Vindex er ikke en
+  postordreleverandør, men folk som kommer på befaring.
+- **For den som vurderer det** er kartet selve invitasjonen: de ledige områdene
+  står merket, og da blir spørsmålet «hvorfor ikke meg?» i stedet for «finnes
+  det plass?».
+
+### Tallene er regnet ut, ikke skrevet
+
+`js/nettverk.js` leser `js/team.js` og regner ut dekningen ved hver visning:
+
+| Tall | I dag | Hvor det kommer fra |
+|---|---|---|
+| Representanter | 23 | 13 selgere + 10 forhandlere |
+| Fylker dekket | 12 av 15 | Distriktene til representantene, mappet til fylker |
+| Ledige fylker | 3 | Rogaland, Troms og Finnmark |
+
+Legger du inn en ny representant i `js/team.js`, endrer kartet og tallene seg
+av seg selv. **Vi påstår ingen vekst vi ikke kan vise** — teksten sier hvor
+mange vi er og hva som står åpent, ikke at vi har vokst med X prosent.
+
+> Fylke og distrikt er ikke det samme. Distriktet er enheten en representant
+> faktisk tar på seg; fylket er det kartet tegner. Postnummerspennene overlapper
+> på Østlandet, så representantene telles per **distrikt** og fylkene farges
+> etter om distriktet er dekket. Teller man per fylke, blir tallene for høye der
+> distriktene griper inn i hverandre — «4 i Akershus» når det egentlig er 2.
+
+### Kartet
+
+To tilstander, ikke en skala: dekket eller ledig. Fargen står aldri alene —
+tegnforklaringen har tekst, de ledige fylkene har stiplet strek i tillegg til
+fargen, og hvert fylke har et tilgjengelig navn for skjermleser og kan nås med
+tastatur.
+
+**Kartet viser steder, ikke personnavn.** Kunden trenger å vite at det finnes
+noen i nærheten; hvem det er, kommer fram i samtalen. Vil du ha en full
+forhandlerliste med navn på nettsiden, er det en egen avgjørelse — si fra.
+
+### Hvor meldingene havner
+
+Skjemaet skriver til Firestore-samlingen `representanter`. Reglene lar hvem som
+helst sende inn, men **bare admin kan lese** — det er personopplysninger, ikke
+en offentlig postkasse. Meldingene vises på `admin.html` under «Vil bli
+representant», med de fra ledige områder øverst.
+
+Er ikke Firebase satt opp ennå, lagres de lokalt i nettleseren, og kvitteringen
+sier fra om at det er demomodus.
+
 ## Priser hører hjemme i salgsverktøyet
 
 Nettsiden viser **aldri** priser. Prisfeltene ligger på ordreskjemaet og på
@@ -664,6 +716,7 @@ js/selger.js             Selgerens dashbord: leads, tilbud, kalender, ordre, ark
 js/admin.js              Hovedkontoret: apparatet, kanaler, statistikk
 js/oppfolging.js         Kontakttemperatur, arkiv, bistand, tilbudslinjer, tips
 js/leadtekst.js          Leser et lead ut av en innlimt e-post
+js/nettverk.js           Representantkartet og «bli representant»-boksen
 js/ordre.js              Ordreskjema, statusflyt og plukklistelogikk
 js/kalender.js           Avtaler og .ics-eksport til telefonkalender
 js/nokkeltal.js          Nøkkeltall, oppfølgingsrate og produksjonskø

@@ -1677,3 +1677,94 @@ body.tema-mork .fordelingsstolpe i { background: var(--accent); }
   border: 1.5px solid var(--border); border-radius: var(--radius-sm);
   background: var(--surface); color: var(--ink); resize: vertical;
 }
+
+/* ===========================================================================
+   NETTVERKET AV LOKALE REPRESENTANTAR
+   ---------------------------------------------------------------------------
+   Kartet har to tilstandar, ikkje ein skala: dekt eller ledig. Fargen står
+   aldri åleine — teiknforklaringa har tekst, dei ledige fylka har stipla
+   strek i tillegg, og kvart fylke har eit tilgjengeleg namn.
+   =========================================================================== */
+
+.nettverk-oppsett { display: grid; gap: 1.6rem; align-items: start; }
+@media (min-width: 900px) {
+  .nettverk-oppsett { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 2.4rem; }
+}
+.nettverk-oppsett > * { min-width: 0; }
+
+.nettkart .norgeskart { filter: drop-shadow(0 12px 30px rgba(10, 22, 33, 0.18)); }
+.nettfylke {
+  stroke: var(--bg); stroke-width: 0.9; cursor: pointer;
+  transition: fill 0.2s ease, opacity 0.2s ease;
+}
+.nettfylke.dekt { fill: #10495a; }
+.nettfylke.ledig { fill: #dbe6e9; stroke: #3a7b91; stroke-dasharray: 3 2.5; stroke-width: 1.4; }
+.nettfylke:hover, .nettfylke:focus-visible { opacity: 0.82; outline: none; }
+.nettfylke.valt { stroke: var(--accent); stroke-width: 2.4; stroke-dasharray: none; }
+.nettfylke:focus-visible { stroke: var(--accent); stroke-width: 2.4; }
+
+body.tema-mork .nettfylke.dekt { fill: #b8862f; }
+body.tema-mork .nettfylke.ledig { fill: #1a3a4a; stroke: #9ed3e4; }
+body.tema-mork .nettkart .norgeskart { filter: drop-shadow(0 12px 30px rgba(0, 0, 0, 0.5)); }
+
+.nettverk-tegn {
+  display: flex; gap: 1.1rem; flex-wrap: wrap; justify-content: center;
+  margin-top: 0.6rem; font-size: 0.85rem; font-weight: 600;
+}
+.nettverk-tegn .tegn-rad { display: inline-flex; align-items: center; gap: 0.45rem; }
+.nettverk-tegn i { width: 1rem; height: 1rem; border-radius: 3px; display: inline-block; }
+.nettverk-tegn .prov-dekt { background: #10495a; }
+.nettverk-tegn .prov-ledig { background: #dbe6e9; border: 1.5px dashed #3a7b91; }
+body.tema-mork .nettverk-tegn .prov-dekt { background: #b8862f; }
+body.tema-mork .nettverk-tegn .prov-ledig { background: #1a3a4a; border-color: #9ed3e4; }
+
+.nettverk-detalj {
+  margin-top: 0.9rem; padding: 0.85rem 1rem; min-height: 5.5rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.nettverk-detalj h4 { font-size: 1.05rem; margin-bottom: 0.3rem; }
+.nettverk-detalj p + p { margin-top: 0.3rem; }
+.statusprikk {
+  width: 0.6rem; height: 0.6rem; border-radius: 50%; display: inline-block;
+  margin-right: 0.4rem; vertical-align: baseline;
+}
+.statusprikk.dekt { background: #10495a; }
+.statusprikk.ledig { background: #dbe6e9; border: 1.5px solid #3a7b91; }
+body.tema-mork .statusprikk.dekt { background: var(--accent); }
+body.tema-mork .statusprikk.ledig { background: #1a3a4a; border-color: #9ed3e4; }
+
+/* Dei tre tala. Store nok til å lesast på avstand — det er dei som skal
+   feste seg, både hos kunden og hos den som vurderer å bli med. */
+.nettverk-tal {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.9rem;
+  margin-bottom: 1.4rem;
+}
+.nettverk-tal > div { text-align: center; }
+.nettverk-tal strong {
+  display: block; font-family: "Source Serif 4", Georgia, serif;
+  font-size: clamp(2rem, 5vw, 2.9rem); line-height: 1; font-weight: 700;
+  color: var(--primary-dark); font-variant-numeric: tabular-nums;
+}
+body.tema-mork .nettverk-tal strong { color: var(--accent); }
+.nettverk-tal span {
+  display: block; font-size: 0.8rem; color: var(--muted); font-weight: 600;
+  margin-top: 0.35rem; line-height: 1.3;
+}
+.nettverk-ledig {
+  border-left: 4px solid var(--accent); padding: 0.6rem 0 0.6rem 0.9rem;
+  margin: 1.1rem 0;
+}
+
+ul.hakeliste { list-style: none; padding: 0; margin: 0.6rem 0 0; display: grid; gap: 0.45rem; }
+ul.hakeliste li { display: flex; gap: 0.6rem; align-items: flex-start; margin: 0; }
+ul.hakeliste li::before {
+  content: "✓"; color: var(--accent); font-weight: 800; flex-shrink: 0;
+}
+
+.repskjema {
+  margin-top: 1.4rem; padding: 1.2rem; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+body.tema-mork .repskjema { background: var(--surface); border-color: var(--border); }

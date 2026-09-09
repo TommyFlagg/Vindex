@@ -24,10 +24,12 @@ visDemohint(
 const SNARVEGAR = [
   { id: "seksjonNokkeltal", navn: "Nøkkeltall" },
   { id: "seksjonApparat", navn: "Apparatet" },
+  { id: "seksjonRepresentantar", navn: "Nye representanter" },
   { id: "seksjonTilbakemelding", navn: "Vinn og tap" },
 ];
 
-function visPanel() {
+async function visPanel() {
+  await hentRepresentantar();
   $("#login").classList.add("hidden");
   $("#verktoy").classList.remove("hidden");
   $("#brukarMerke").textContent = app.brukar.navn + " · administrator";
@@ -64,7 +66,79 @@ function teiknAlt() {
   teiknOppfolging();
   teiknProduksjon();
   teiknApparat();
+  teiknRepresentantar();
   teiknGrunnar();
+}
+
+// ---------------------------------------------------------------------------
+// Søknader om å bli representant
+// ---------------------------------------------------------------------------
+// Skjemaet på nettsida skriv til «representanter». Utan denne lista ville
+// søknadene liggje i databasen utan at nokon såg dei — og då er skjemaet
+// verre enn ingen skjema.
+let representantar = [];
+
+async function hentRepresentantar() {
+  if (VINDEX_DEMOMODUS) {
+    try {
+      representantar = JSON.parse(localStorage.getItem("vindex_demo_representantar") || "[]");
+    } catch (e) {
+      representantar = [];
+    }
+    return;
+  }
+  try {
+    const { fb } = await import("./verktoy-felles.js");
+    const q = fb.query(fb.representantarCol(), fb.orderBy("opprettet", "desc"), fb.limit(200));
+    representantar = (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    console.error(err);
+    representantar = [];
+  }
+}
+
+function teiknRepresentantar() {
+  const el = $("#representantListe");
+  if (!el) return;
+
+  if (!representantar.length) {
+    el.innerHTML = `<p class="hint">Ingen meldinger ennå. Boksen ligger nederst på forsiden.</p>`;
+    return;
+  }
+
+  // Dei frå ledige område først: der betyr ein ny representant mest.
+  const sortert = representantar
+    .slice()
+    .sort((a, b) =>
+      (b.omradeLedig ? 1 : 0) - (a.omradeLedig ? 1 : 0) ||
+      new Date(b.opprettet || 0) - new Date(a.opprettet || 0)
+    );
+
+  el.innerHTML = `<div class="grid grid-2">
+    ${sortert
+      .map(
+        (r) => `<div class="card">
+          <div class="detail-head">
+            <div>
+              <h3 class="mt-0 mb-0">${r.navn || "Uten navn"}</h3>
+              <p class="hint mb-0">${r.distriktNavn || "–"} · ${r.postnr || ""}
+                ${r.firma ? " · " + r.firma : ""} · ${datoTekst(r.opprettet)}</p>
+            </div>
+            ${
+              r.omradeLedig
+                ? '<span class="tag tag-ny">Ledig område</span>'
+                : '<span class="tag tag-muted">Dekket i dag</span>'
+            }
+          </div>
+          ${r.omDeg ? `<p>${r.omDeg}</p>` : '<p class="hint">Skrev ingenting om seg selv.</p>'}
+          <div class="btn-row no-print">
+            ${r.telefon ? `<a class="btn btn-sm" href="tel:${String(r.telefon).replace(/\s/g, "")}">📞 ${r.telefon}</a>` : ""}
+            ${r.epost ? `<a class="btn btn-ghost btn-sm" href="mailto:${r.epost}">✉️ ${r.epost}</a>` : ""}
+          </div>
+        </div>`
+      )
+      .join("")}
+  </div>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -443,12 +517,17 @@ async function lagreDistrikt(seljarId) {
  */
 async function byggRuting() {
   const { fb } = await import("./verktoy-felles.js");
+  // Formen må vere den bestillingsskjemaet les: distrikt-id -> liste med
+  // selger-id-ar. Er det fleire i same distrikt, roterer skjemaet mellom dei.
+  // Dokumentet ligg flatt, uten «distrikt»-nivå, og heiter settings/ruting.
   const kart = {};
   VINDEX_DISTRIKT.forEach((d) => {
-    const eigar = app.seljarar.find((s) => (s.distrikt || []).includes(d.id) && s.aktiv !== false);
-    if (eigar) kart[d.id] = eigar.id;
+    const eigarar = app.seljarar
+      .filter((s) => (s.distrikt || []).includes(d.id) && s.aktiv !== false && s.rolle !== "lager")
+      .map((s) => s.id);
+    if (eigarar.length) kart[d.id] = eigarar;
   });
-  await fb.setDoc(fb.settingsDoc("ruting"), { distrikt: kart, oppdatert: fb.serverTimestamp() });
+  await fb.setDoc(fb.settingsDoc("ruting"), { ...kart, oppdatert: fb.serverTimestamp() });
 }
 
 // ---------------------------------------------------------------------------
