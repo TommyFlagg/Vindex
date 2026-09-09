@@ -390,7 +390,8 @@ function teiknKartSvg(el, leads, val = {}) {
       const rad = per.get(f.id) || { tal: 0, solgt: 0, opne: 0 };
       const verdi = rad[felt] || 0;
       const steg = val.omrademodus ? (mineFylke.has(f.id) ? 4 : 1) : rampeSteg(verdi, maks);
-      const eining = felt === "solgt" ? "solgt" : felt === "opne" ? "i arbeid" : "kunder";
+      const eining =
+        felt === "solgt" ? "solgt" : felt === "opne" ? "i arbeid" : verdi === 1 ? "kunde" : "kunder";
       // Minikartet på oversikta er eit bilete, ikkje eit betjeningspanel: utan
       // dette hamnar 15 fylke i tabbrekkefølgja utan å gjere noko.
       const interaktiv = val.interaktiv !== false;
@@ -586,4 +587,83 @@ function vindexTeiknKart(el, ctx) {
   );
 
   teikn();
+}
+
+// ---------------------------------------------------------------------------
+// Kartet i dashbordet
+// ---------------------------------------------------------------------------
+// Det store kartet med faner var ei eiga side du måtte klikke deg inn på.
+// Her er det same kartet i sidekolonna, alltid synleg, og klikk på eit fylke
+// filtrerer arbeidslista i staden for å opne ei detaljrute. Kartet er altså
+// eit betjeningspanel — då må fylka òg kunne nåast med tastatur.
+function vindexTeiknDashKart(el, ctx) {
+  const { kartleads, leads, valtFylke, filtrerFylke } = ctx;
+  const opne = (kartleads || leads || []).filter((l) => !l.arkivert);
+
+  el.innerHTML = `
+    <div class="panel-topp">
+      <h3>Kunder i Norge</h3>
+      <span class="spacer"></span>
+      <span class="hint" id="dashKartVal"></span>
+    </div>
+    <div id="dashKartHolder"></div>
+    <div class="kart-tegn" id="dashKartTegn"></div>
+    <p class="hint mb-0 mt-1">Klikk et fylke for å filtrere listen.
+      Kartdata: Kartverket, CC BY 4.0.</p>`;
+
+  const { per, maks } = teiknKartSvg(el.querySelector("#dashKartHolder"), opne, {
+    felt: "tal",
+    valt: valtFylke,
+    // Lågare enn på det store kartet: her er jobben å sjå kvar kundane er og
+    // kunne klikke seg inn, ikkje å studere geografien.
+    hoyde: 210,
+  });
+
+  const steg = rampe().slice(1);
+  el.querySelector("#dashKartTegn").innerHTML =
+    `<span class="tegn-etikett">0</span>` +
+    steg.map((f) => `<i style="background:${f}"></i>`).join("") +
+    `<span class="tegn-etikett">${maks} kunder</span>`;
+
+  const merke = el.querySelector("#dashKartVal");
+  if (valtFylke) {
+    const rad = per.get(valtFylke) || { tal: 0 };
+    merke.innerHTML = `${vindexFylkeNavn(valtFylke)}: ${rad.tal} ${rad.tal === 1 ? "kunde" : "kunder"} — <button class="lenkeknapp" id="dashKartNullstill">vis alle</button>`;
+    const nullstill = el.querySelector("#dashKartNullstill");
+    if (nullstill) nullstill.addEventListener("click", () => filtrerFylke(valtFylke));
+  } else {
+    merke.textContent = opne.length + (opne.length === 1 ? " kunde" : " kunder");
+  }
+
+  const velg = (id) => filtrerFylke(id);
+  el.querySelectorAll(".fylke").forEach((bane) => {
+    bane.addEventListener("click", () => velg(bane.dataset.fylke));
+    bane.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        velg(bane.dataset.fylke);
+      }
+    });
+  });
+
+  koplaKarttooltip(el, per);
+}
+
+/** Tooltip på hover og fokus. Same oppførsel som på det store kartet. */
+function koplaKarttooltip(rot, per) {
+  const tooltip = rot.querySelector(".kart-tooltip");
+  if (!tooltip) return;
+  const vis = (bane) => {
+    const rad = per.get(bane.dataset.fylke) || { tal: 0, solgt: 0, opne: 0 };
+    tooltip.innerHTML = `<strong>${vindexFylkeNavn(bane.dataset.fylke)}</strong><br>
+      ${rad.tal} ${rad.tal === 1 ? "kunde" : "kunder"} · ${rad.solgt} solgt · ${rad.opne} i arbeid`;
+    tooltip.classList.remove("hidden");
+  };
+  const skjul = () => tooltip.classList.add("hidden");
+  rot.querySelectorAll(".fylke").forEach((bane) => {
+    bane.addEventListener("mouseenter", () => vis(bane));
+    bane.addEventListener("focus", () => vis(bane));
+    bane.addEventListener("mouseleave", skjul);
+    bane.addEventListener("blur", skjul);
+  });
 }

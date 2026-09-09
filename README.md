@@ -175,11 +175,85 @@ ta leadet selv.
 Statusen løftes bare framover — et klikk på Ring nullstiller aldri et lead som
 alt har kommet lenger. Både selger og admin ser samme status til enhver tid.
 
-### Tilbud og rabatt
+## Kontakttemperaturen
 
-På hver kunde lagres tilbudssum, rabatt i prosent og kroner, gyldighetsdato og
-notat. Alt havner i historikken på leadet, så det er sporbart hvem som ga hvilken
-rabatt og når.
+Status forteller hvor langt saken har kommet. **Temperaturen forteller hvor lenge
+kunden har ventet**, og det er den som styrer arbeidslista.
+
+Klokka går fra siste gang vi snakket med kunden — og fra leadet kom inn hvis vi
+aldri har snakket med ham:
+
+| Tid siden siste kontakt | Merke | Betyr |
+|---|---|---|
+| 0–24 timer | **Fersk** (grønn) | Innenfor døgnet. Ingenting haster. |
+| 24–72 timer | **Bør ringes** (oransje) | Har ligget for lenge. Ta kontakt i dag. |
+| Over 72 timer | **Overskredet** (rød) | Kunden har ventet i tre døgn. |
+
+Tar selgeren kontakt, blir saken grønn igjen — **med ett unntag**: en sak som én
+gang har passert 72 timer blir aldri helt grønn igjen. Den står som
+**gjenoppretting** til den er avgjort. Det er et bevisst valg fra Vindex: kunden
+har allerede hatt en dårlig opplevelse, og et helgrønt merke ville skjult at det
+fortsatt er noe å ta igjen.
+
+Teknisk: feltet `fristBrote` settes på leadet første gang det passerer 72 timer,
+og blir stående. Temperaturen regnes altså ikke bare ut — merket lagres, ellers
+ville det blitt grønt i samme sekund selgeren ringte. Reglene ligger i
+`js/oppfolging.js` og brukes av begge sidene.
+
+Fargene er ikke valgt etter smak: de holder minst 4,5:1 mot både lys og mørk
+bunn, og nabopar er skillbare ved protanopi og deuteranopi (validert med
+`validate_palette.js`). Fargen står aldri alene — hvert merke har tekst, og
+gjenoppretting har i tillegg en skrå stripe så den skiller seg fra rent grønt
+også i svart-hvitt.
+
+Tellerne over arbeidslista **er** filteret: tallet du ser er knappen du trykker
+på. Lista sorteres på hastegrad, så det som har ventet lengst ligger øverst.
+
+### Tilbud bygd på en deleliste
+
+Selgeren setter opp linjene selv — hva prosjektet består av, antall, enhet og
+pris per enhet. Summen regnes ut mens han skriver.
+
+- **Rabatt** i prosent eller kroner.
+- **Fast pris for hele prosjektet** overstyrer summen av linjene. Linjene blir
+  stående som spesifikasjon, og differansen vises som avslag i stedet for å
+  skjules.
+- **Ingenting når kunden** før selgeren trykker *Del med kunden*. Et halvferdig
+  tilbud skal kunne ligge og modne. Det er delingen — ikke utregningen — som
+  setter status til *Tilbud sendt*, og som teller som kundekontakt.
+- **Aksepterer kunden**, går delelisten rett inn i ordreseddelen som notat, så
+  spesifikasjonen ikke skrives to ganger. Målene må kontrolleres i ordreseddelen
+  uansett; det er der produksjonen leser dem.
+
+Verktøyet sender ingen e-post selv. *Del med kunden* åpner e-postklienten med
+teksten ferdig, og registrerer at det er gjort.
+
+### Arkiv
+
+Et lead forsvinner aldri. Blir det avslått eller utgått, går det i arkivet med en
+**kort begrunnelse selgeren skriver til seg selv** — ikke et skjema, men den ene
+setningen som gjør at han forstår saken hvis kunden melder seg igjen om et år.
+Arkivet er søkbart, og alt kan hentes tilbake.
+
+Etter 14 dager uten kontakt foreslår verktøyet arkivering i påminnelsene. Det
+arkiverer aldri av seg selv — det er selgerens valg.
+
+Arkiveres en sak fordi kunden takket nei, settes status til *Avslått*. Arkiveres
+den av andre grunner, beholdes statusen: forskjellen på et tap og en utgått sak
+betyr noe i statistikken.
+
+### Bistand fra daglig leder
+
+Står selgeren fast på pris, en teknisk løsning, leveringstid, et stort prosjekt
+eller en misfornøyd kunde, kan han dra inn daglig leder **på det konkrete
+leadet** — ikke i en e-post som blir borte.
+
+Forespørselen legger seg på leadet, er synlig for begge, og blir stående til den
+er besvart. Hovedkontoret ser den øverst på `admin.html` og svarer der; svaret
+havner på leadet der selgeren jobber.
+
+Det er ikke et varslingssystem. Haster det, skal han ringe — det står i
+dialogen.
 
 ### Kalender
 
@@ -213,10 +287,67 @@ Deretter deles ordren automatisk:
 Plukklisten viser hver ordre med kundens navn, adresse og telefon, selgerens
 navn, og linjene som skal plukkes. Lageret kvitterer ut ved å flytte status.
 
-## Panelene
+## To sider: selgeren og hovedkontoret
 
-Verktøyet åpner på **Oversikt**. Admin ser hele landet, selgeren ser sitt eget —
-men begge ser de samme nøkkeltallene for alle selgere. Det er med vilje: uten
+| Side | For hvem | Hva den er |
+|---|---|---|
+| `selger.html` | Selger, admin, lager | Dagens arbeid. Ett dashbord. |
+| `admin.html` | Bare admin | Helheten. Ingen enkeltkunder. |
+
+### Selgerens dashbord
+
+Ikke faner — **én skjerm der alt er synlig samtidig** på PC, og under hverandre
+på telefon. Arbeidslista står først i kildekoden, så den kommer øverst på mobil
+uten at rekkefølgen må styres med CSS.
+
+- **Arbeidslista** har hovedkolonnen. Temperaturtellerne over den er filteret.
+- **Sidekolonnen**: mine tall, påminnelser (avtaler sju dager fram, forfalt
+  oppfølging, saker som bør arkiveres), kartet over Norge, topplisten og dagens
+  salgstips.
+- **Kartet er på samme side** — ingen fane å klikke inn på. Klikk et fylke, og
+  arbeidslista filtreres. Det viser samme utvalg som lista, ellers ville tallene
+  ikke stemt overens.
+- **Under dashbordet**: kalender, ordrekonto, plukkliste og arkiv. Snarveiene i
+  verktøylinja ruller dit — de skjuler ingenting.
+
+Lagerbrukere ser bare ordre og plukkliste; de har ingen kundeliste å følge opp.
+
+#### Topplisten
+
+Tre plasser med medalje, høyeste i midten. Sokkelhøyden betyr **plassering, ikke
+mengde** — omsetningen står som tall ved siden av. Blander man de to, blir
+grafikken en løgn om avstanden mellom første og andre plass. Står du utenfor
+pallen, får du din egen plassering og hvor mange salg det er opp til den foran.
+
+#### Dagens salgstips
+
+Ett tips om dagen, samme tips for alle hele dagen, rullerende gjennom lista uten
+å gjenta seg før alle har vært innom. Datoen styrer, ikke tilfeldet — da kan to
+selgere snakke om «tipset i dag». Tipsene er hentet fra Vindex' egne styrker og
+fra det selgerne faktisk blir spurt om, ikke fra generelle salgsfraser.
+
+### Hovedkontoret
+
+`admin.html` er det motsatte av selgersiden: ingen enkeltkunder, bare helheten.
+
+- Fire nøkkeltall øverst: åpne saker, hvor mange som har ventet over tre døgn,
+  ordreinngang i år, produksjonskø.
+- **Bistandsforespørsler** — det eneste på siden som krever handling.
+- Ordreinngang i år mot i fjor.
+- Hele apparatet i tall, sortert på oppfølgingsrate, med en egen kolonne for
+  hvor mange saker hver selger har liggende over tre døgn. Det er tallet som
+  koster salg.
+- **Markedskanalene** leadene kommer fra, sortert på omsetning — ikke på antall.
+  En kanal som gir få, men store saker er mer verdt enn en som gir mange små.
+  Stolpen måler antall leads; omsetning og treffprosent står som tall ved siden
+  av, aldri som en andre stolpe i samme geometri.
+- Kart, oppfølgingsfordeling, produksjonskø, hele apparatet med distrikt, og
+  hvorfor vi vinner og taper.
+
+Begge sidene deler innlogging, demodata og lagring gjennom
+`js/verktoy-felles.js`, slik at de aldri kan drive fra hverandre.
+
+Selgeren ser de samme nøkkeltallene for alle selgere. Det er med vilje: uten
 sammenligning vet ingen om egne tall er gode.
 
 | Tall | Slik regnes det |
@@ -484,7 +615,8 @@ produkter.html           Produktoversikt
 garanti.html             Garanti og salgsbetingelser
 produkter/*.html         Genererte produktsider
 bestilling.html          Bestillingsskjema (4 steg)
-selger.html              Selgerverktøy og admin
+selger.html              Selgerens dashbord (og lagerets plukkliste)
+admin.html               Hovedkontorets samlede oversikt
 assets/bilder/           Produktbilder (filnavn = produkt-id)
                          Bare bilder som holder mål — se «Bilder» under
 css/style.css            Designsystem
@@ -494,13 +626,16 @@ js/app.js                Felles topbar og bunnfelt
 js/firebase-config.js    Firebase-nøkler (fylles ut)
 js/firebase-init.js      Firestore + Auth
 js/bestilling.js         Konfigurator og innsending
-js/selger.js             Salgsverktøyet: leads, kalender, ordre, plukk
+js/verktoy-felles.js     Delt grunnmur: innlogging, demodata, lagring, dialog
+js/selger.js             Selgerens dashbord: leads, tilbud, kalender, ordre, arkiv
+js/admin.js              Hovedkontoret: apparatet, kanaler, statistikk
+js/oppfolging.js         Kontakttemperatur, arkiv, bistand, tilbudslinjer, tips
 js/ordre.js              Ordreskjema, statusflyt og plukklistelogikk
 js/kalender.js           Avtaler og .ics-eksport til telefonkalender
 js/nokkeltal.js          Nøkkeltall, oppfølgingsrate og produksjonskø
 js/fylke.js              Postnummer → fylke, aggregering per fylke
 js/fylkeskart.js         Generert SVG-kart (Kartverket, CC BY 4.0)
-js/panel.js              Oversiktspanel og Norgeskart
+js/panel.js              Norgeskart, månedsdiagram og målere
 js/effekter.js           Avsløring, vipping og parallakse
 js/team.js               Selgere, forhandlere og 2024-tall
 js/tilbakemeldingar.js   Kundesitater (tom — fylles med ekte sitater)

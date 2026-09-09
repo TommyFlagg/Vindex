@@ -52,60 +52,77 @@
 <!-- Verktøyet -->
 <div id="verktoy" class="app-shell hidden">
   <div class="toolbar">
-    <h1 style="font-size:1.4rem;margin:0">Vindex salg</h1>
+    <h1 style="font-size:1.3rem;margin:0">Vindex salg</h1>
     <span class="tag tag-muted" id="brukarMerke"></span>
+    <nav class="fanerad" id="snarvegar" aria-label="Hopp til"></nav>
     <span class="spacer"></span>
-    <nav class="fanerad" id="faner"></nav>
     <div class="temaveljar" role="group" aria-label="Fargetema">
       <button type="button" data-tema="lys">Lys</button>
       <button type="button" data-tema="mork">Mørk</button>
     </div>
+    <a class="btn btn-ghost btn-sm hidden" id="tilAdmin" href="admin.html">Hovedkontor</a>
     <button class="btn btn-accent btn-sm" id="nyttLead">+ Nytt lead</button>
     <button class="btn btn-ghost btn-sm" id="loggUt">Logg ut</button>
   </div>
 
-  <!-- Oversikt -->
-  <div id="visOversikt"></div>
+  <!-- ======================================================================
+       Dashbordet. Arbeidslista står først i kjeldekoden, slik at den kjem
+       øvst på telefon utan at rekkefølgja må styrast med CSS.
+       ====================================================================== -->
+  <div class="dashbord" id="dashbord">
+    <div class="dashbord-hovud">
 
-  <!-- Kart -->
-  <div id="visKart" class="hidden"></div>
+      <!-- Arbeidslista: sjølve jobben -->
+      <section class="panel" id="seksjonLeads" aria-labelledby="hLeads">
+        <div class="panel-topp">
+          <h2 id="hLeads">Kundene mine</h2>
+          <span class="hint" id="listeSamandrag"></span>
+          <span class="spacer"></span>
+          <button class="btn btn-ghost btn-sm no-print" id="skrivUt">Skriv ut</button>
+        </div>
 
-  <!-- Leads -->
-  <div id="visLeads" class="hidden">
-    <div class="kpi-row" id="kpiRad"></div>
-    <div class="toolbar">
-      <select id="filterStatus"><option value="">Alle statuser</option></select>
-      <select id="filterProdukt"><option value="">Alle produkter</option></select>
-      <input id="filterSok" type="search" placeholder="Søk navn, sted, telefon …">
-      <span class="spacer"></span>
-      <button class="btn btn-ghost btn-sm" id="skrivUt">Skriv ut</button>
+        <!-- Temperaturen er òg filteret: talet du ser er knappen du trykker på -->
+        <div class="tempfilter no-print" id="tempFilter" role="group" aria-label="Filtrer på oppfølging"></div>
+
+        <div class="toolbar mt-1 no-print" style="margin-bottom:0.8rem">
+          <input id="filterSok" type="search" placeholder="Søk navn, sted, telefon …" style="flex:1;min-width:11rem">
+          <select id="filterStatus" aria-label="Status"><option value="">Alle statuser</option></select>
+          <select id="filterProdukt" aria-label="Produkt"><option value="">Alle produkter</option></select>
+          <select id="filterEigar" aria-label="Selger" class="hidden"><option value="">Alle selgere</option></select>
+        </div>
+
+        <div class="arbeidsliste" id="arbeidsliste"></div>
+      </section>
+
+      <!-- Det valde leadet -->
+      <section id="leadDetalj" aria-live="polite"></section>
     </div>
-    <div class="table-scroll">
-      <table class="data">
-        <thead>
-          <tr>
-            <th>Mottatt</th><th>Kunde</th><th>Sted</th><th>Produkt</th>
-            <th>Status</th><th>Neste avtale</th><th>Oppfølging</th>
-          </tr>
-        </thead>
-        <tbody id="leadsRader"></tbody>
-      </table>
+
+    <div class="dashbord-side">
+      <section class="panel panel-tett" id="minetal" aria-label="Mine tall"></section>
+      <section class="panel panel-tett" id="paaminningar" aria-label="Påminnelser"></section>
+      <section class="panel panel-tett" id="dashKart" aria-label="Kunder per fylke"></section>
+      <section class="panel panel-tett" id="pall" aria-label="Toppliste"></section>
+      <section class="panel panel-tett tips" id="dagensTips" aria-label="Dagens salgstips"></section>
     </div>
-    <div id="leadDetalj"></div>
   </div>
 
-  <!-- Kalender -->
-  <div id="visKalender" class="hidden">
+  <!-- ======================================================================
+       Under dashbordet: det som ikkje er den daglege jobben, men som skal
+       vere framme. Ingenting er gøymt bak ei fane — snarvegane i verktøy-
+       linja rullar hit.
+       ====================================================================== -->
+
+  <section class="mt-3" id="seksjonKalender">
     <div class="section-head">
       <h2 class="mt-0">Kalender</h2>
       <p class="lead">Befaringer, møter og montering framover. «Legg i telefonkalender» laster
         ned en avtalefil som iPhone, Android og Outlook åpner direkte.</p>
     </div>
     <div id="agenda"></div>
-  </div>
+  </section>
 
-  <!-- Ordrekonto -->
-  <div id="visOrdre" class="hidden">
+  <section class="mt-3" id="seksjonOrdre">
     <div class="section-head">
       <h2 class="mt-0">Ordrekonto</h2>
       <p class="lead">Bekreftede ordrer. Spesialproduserte varer går til produksjon,
@@ -117,33 +134,33 @@
       <button class="btn btn-ghost btn-sm" id="skrivUtOrdre">Skriv ut</button>
     </div>
     <div id="ordreListe"></div>
-  </div>
+  </section>
 
-  <!-- Plukkliste -->
-  <div id="visPlukk" class="hidden">
+  <section class="mt-3" id="seksjonPlukk">
     <div class="section-head">
       <h2 class="mt-0">Plukkliste for lager</h2>
       <p class="lead">Standardseksjoner og lagerdeler som skal plukkes, med kunde- og
         selgerinfo på hver ordre.</p>
     </div>
     <div id="plukkListe"></div>
-  </div>
+  </section>
 
-  <!-- Admin -->
-  <div id="visAdmin" class="hidden">
+  <section class="mt-3" id="seksjonArkiv">
     <div class="section-head">
-      <h2 class="mt-0">Salgsapparatet</h2>
-      <p class="lead">Egne selgere, forhandlere og øvrige brukere. Hvem dekker hvilke
-        distrikt? Endringer her styrer hvem nye forespørsler går til automatisk.</p>
+      <h2 class="mt-0">Arkiv</h2>
+      <p class="lead">Avslåtte og utgåtte saker med begrunnelsen din. Ingenting blir slettet —
+        alt kan hentes tilbake hvis kunden melder seg igjen.</p>
     </div>
-    <div id="seljarListe"></div>
-    <div class="notice notice-info mt-2" id="dekningVarsel"></div>
-  </div>
+    <div class="toolbar">
+      <input id="arkivSok" type="search" placeholder="Søk i arkivet …" style="flex:1;min-width:12rem">
+    </div>
+    <div id="arkivListe"></div>
+  </section>
 </div>
 
 <div id="toast" class="toast notice hidden"></div>
 
-<!-- Dialog: brukt til nytt lead, ordreskjema og bekreftelse før bestilling -->
+<!-- Dialog: brukt til nytt lead, tilbud, ordreskjema og bekreftelse -->
 <div class="modal hidden" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTittel">
   <div class="modal-kort">
     <div class="modal-topp">
@@ -158,6 +175,7 @@
 <script src="js/produkter.js"></script>
 <script src="js/distrikt.js"></script>
 <script src="js/ordre.js"></script>
+<script src="js/oppfolging.js"></script>
 <script src="js/team.js"></script>
 <script src="js/fylke.js"></script>
 <script src="js/fylkeskart.js"></script>

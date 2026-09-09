@@ -417,13 +417,19 @@ table.maltabell tr:nth-child(even) td { background: rgba(0,0,0,0.015); }
 /* agenda */
 .agendadag { margin-bottom: 1.5rem; }
 .agendadag > h3 { position: sticky; top: 0; background: var(--bg); padding: 0.35rem 0; margin: 0 0 0.5rem; text-transform: capitalize; }
+/* Avtalerada har tid, innhald og knappar. På telefon får knappane falle ned
+   på eiga linje — utan flex-wrap skyv «Legg i telefonkalender» sida ut i
+   breidda, og då kan heile verktøyet skrollast sidelengs. */
 .avtale {
-  display: flex; gap: 1rem; align-items: flex-start; background: var(--surface);
+  display: flex; gap: 0.6rem 1rem; align-items: flex-start; flex-wrap: wrap;
+  background: var(--surface);
   border: 1px solid var(--border); border-left: 4px solid var(--primary);
   border-radius: var(--radius-sm); padding: 0.85rem 1rem; margin-bottom: 0.6rem;
 }
-.avtale-tid { font-weight: 800; color: var(--primary); min-width: 4.5rem; }
+.avtale > span { min-width: 0; overflow-wrap: anywhere; }
+.avtale-tid { font-weight: 800; color: var(--primary); min-width: 4.5rem; flex: none; }
 .avtale-type { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.avtale > span:nth-child(2) { flex: 1 1 9rem; }
 .avtale-handling { margin-left: auto; display: flex; gap: 0.4rem; flex-wrap: wrap; }
 .avtale.befaring { border-left-color: var(--accent); }
 .avtale.montering { border-left-color: var(--good); }
@@ -432,9 +438,22 @@ table.maltabell tr:nth-child(even) td { background: rgba(0,0,0,0.015); }
 .ordrekort { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.15rem; margin-bottom: 1rem; }
 .ordrekort-topp { display: flex; gap: 1rem; justify-content: space-between; flex-wrap: wrap; align-items: flex-start; }
 .plukk-linjer { list-style: none; padding: 0; margin: 0.75rem 0 0; }
-.plukk-linjer li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.35rem 0; border-bottom: 1px dashed var(--border); }
+/* Namnet på delen kan vere langt. Utan min-width: 0 nektar flexbarnet å
+   krympe, og då blir mengda skvisa ut av skjermen på telefon. */
+/* Namnet på delen kan vere langt, og mengda skal ikkje brytast midt i. På
+   telefon får difor mengda falle ned på eiga linje i staden for å presse
+   sida ut i breidda. */
+.plukk-linjer li {
+  display: flex; justify-content: space-between; gap: 0.4rem 1rem; flex-wrap: wrap;
+  padding: 0.35rem 0; border-bottom: 1px dashed var(--border);
+}
+.plukk-linjer li > span { min-width: 0; overflow-wrap: anywhere; }
+.plukk-linjer li > span:first-child { flex: 1 1 10rem; }
 .plukk-linjer li:last-child { border-bottom: none; }
-.plukk-linjer .mengde { font-weight: 800; color: var(--primary); white-space: nowrap; }
+/* Mengda er som regel kort («4 stk») og bryt seg då aldri. Men for sprosser
+   står heile målbeskrivelsen her — «8 stk, 1180×1080 mm, sprosseverk 22 mm …»
+   — og med nowrap skyv den heile sida ut i breidda på telefon. */
+.plukk-linjer .mengde { font-weight: 800; color: var(--primary); text-align: right; }
 .avkryssrad { display: flex; gap: 0.6rem; align-items: flex-start; font-weight: 500; }
 .avkryssrad input { width: auto; margin-top: 0.3rem; flex-shrink: 0; }
 
@@ -705,6 +724,12 @@ table.data.kompakt th, table.data.kompakt td { padding: 0.4rem 0.5rem; }
 .malar-god { background: #0f7a52; }
 .malar-warn { background: #c07a08; }
 .malar-bad { background: #b32218; }
+.tekst-god { color: #0f7a52; }
+.tekst-warn { color: #8a5510; }
+.tekst-bad { color: #b32218; }
+body.tema-mork .tekst-god { color: var(--good); }
+body.tema-mork .tekst-warn { color: var(--warn); }
+body.tema-mork .tekst-bad { color: var(--bad); }
 .malar-merke { position: absolute; top: -2px; width: 2px; height: 14px; background: var(--muted); opacity: 0.55; }
 .malar-etikettar { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-top: 0.3rem; font-weight: 600; }
 
@@ -1295,3 +1320,346 @@ body.tema-mork.verktoyside label { color: var(--ink); }
 body.tema-mork.verktoyside input[type=checkbox], body.tema-mork.verktoyside input[type=radio] { accent-color: var(--accent); }
 body.tema-mork.verktoyside .hint, body.tema-mork.verktoyside .lead { color: var(--muted); }
 body.tema-mork.verktoyside a { color: var(--accent); }
+
+/* ===========================================================================
+   DASHBORDET
+   ---------------------------------------------------------------------------
+   Seljarverktøyet er ikkje ei samling faner lenger, men éin skjerm. Jobben er
+   å følgje opp kundar, så arbeidslista har den store kolonna og alt anna —
+   kart, nøkkeltal, påminningar, pall og dagens tips — ligg i sidekolonna der
+   det kan lesast utan å klikke. På telefon fell alt ned under kvarandre, og
+   då kjem arbeidslista først.
+   =========================================================================== */
+
+.dashbord {
+  display: grid;
+  gap: 1.1rem;
+  align-items: start;
+}
+/* Éi kolonne på telefon. Arbeidslista står først i HTML-en, så rekkefølgja
+   blir riktig av seg sjølv — ingen order-triksing. */
+@media (min-width: 1080px) {
+  .dashbord { grid-template-columns: minmax(0, 1.85fr) minmax(320px, 1fr); }
+  .dashbord-hovud { grid-column: 1; }
+  .dashbord-side { grid-column: 2; }
+}
+.dashbord-hovud, .dashbord-side { display: grid; gap: 1.1rem; align-items: start; }
+/* Standardverdien min-width:auto let eit breitt diagram eller ein brei tabell
+   presse kolonna breiare enn rutenettet, og då legg sidekolonna seg oppå
+   hovudkolonna. Alt breitt skal rulle inni sitt eige panel i staden. */
+.dashbord > *, .dashbord-hovud > *, .dashbord-side > * { min-width: 0; }
+.dashbord svg:not(.norgeskart) { max-width: 100%; height: auto; }
+
+/* Panela i dashbordet. Same ramme som .card, men med ei fast topplinje slik
+   at rutenettet får ein tydeleg rytme. */
+.panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1rem 1.1rem;
+  box-shadow: var(--shadow-sm);
+}
+.panel > :first-child { margin-top: 0; }
+.panel > :last-child { margin-bottom: 0; }
+.panel-topp {
+  display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap;
+  margin-bottom: 0.7rem;
+}
+.panel-topp h2, .panel-topp h3 { margin: 0; font-size: 1.05rem; }
+.panel-topp .hint { margin: 0; }
+.panel-topp .spacer { margin-left: auto; }
+.panel-tett { padding: 0.75rem 0.85rem; }
+.dashbord-side .kpi { padding: 0.7rem 0.8rem; }
+.dashbord-side .kpi-num { font-size: 1.5rem; }
+
+/* ---------------------------------------------------------------------------
+   Kontakttemperatur
+   ---------------------------------------------------------------------------
+   Fargane er validerte: dei held minst 4,5:1 som tekst i begge tema, og
+   nabopara er skiljbare ved protanopi og deuteranopi. Fargen står aldri
+   åleine — kvart merke har alltid tekst, og «gjenoppretting» har i tillegg
+   ei skrå stripe, slik at den skil seg frå rein grøn òg i svart-kvitt.
+   --------------------------------------------------------------------------- */
+:root {
+  --temp-gron: #0f7a52;
+  --temp-gron-blekk: #0d6e4a;
+  --temp-gron-mjuk: #dcefe7;
+  --temp-oransje: #c07a08;
+  --temp-oransje-blekk: #8a5510;
+  --temp-oransje-mjuk: #f8eeda;
+  --temp-raud: #b32218;
+  --temp-raud-blekk: #b32218;
+  --temp-raud-mjuk: #f7e3e1;
+}
+body.tema-mork {
+  --temp-gron: #35c48f;
+  --temp-gron-blekk: #35c48f;
+  --temp-gron-mjuk: #10281f;
+  --temp-oransje: #f5c542;
+  --temp-oransje-blekk: #f5c542;
+  --temp-oransje-mjuk: #2a2110;
+  --temp-raud: #f76d6d;
+  --temp-raud-blekk: #f76d6d;
+  --temp-raud-mjuk: #2b1512;
+}
+
+.temp {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.2rem 0.55rem 0.2rem 0.45rem; border-radius: 999px;
+  font-size: 0.76rem; font-weight: 700; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.temp::before {
+  content: ""; width: 0.5rem; height: 0.5rem; border-radius: 50%;
+  background: currentColor; flex: none;
+}
+.temp-gron { background: var(--temp-gron-mjuk); color: var(--temp-gron-blekk); }
+.temp-oransje { background: var(--temp-oransje-mjuk); color: var(--temp-oransje-blekk); }
+.temp-raud { background: var(--temp-raud-mjuk); color: var(--temp-raud-blekk); }
+/* Gjenoppretting: grøn, men aldri heilt grøn. Stripene gjer skilnaden synleg
+   også for den som ikkje ser fargen. */
+.temp-gjenoppretting {
+  color: var(--temp-gron-blekk);
+  background:
+    repeating-linear-gradient(135deg,
+      var(--temp-gron-mjuk) 0, var(--temp-gron-mjuk) 4px,
+      var(--temp-oransje-mjuk) 4px, var(--temp-oransje-mjuk) 8px);
+  border-color: var(--temp-oransje);
+}
+.temp-avslutta { background: var(--surface-alt); color: var(--muted); }
+.temp-avslutta::before { background: var(--muted); }
+
+/* Same fargespråk som ei tynn stripe langs venstre kant av leadraden. */
+/* Tellarane over arbeidslista: klikkbare filter, ikkje berre pynt. */
+.tempfilter { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.tempfilter button {
+  display: inline-flex; align-items: baseline; gap: 0.4rem;
+  border: 1.5px solid var(--border); background: var(--surface);
+  border-radius: 999px; padding: 0.3rem 0.75rem; font: inherit;
+  font-size: 0.82rem; font-weight: 600; color: var(--ink); cursor: pointer;
+}
+.tempfilter button:hover { background: var(--surface-alt); }
+.tempfilter button.aktiv { border-color: var(--primary); background: var(--primary-soft); }
+body.tema-mork .tempfilter button.aktiv { border-color: var(--accent); background: var(--accent-soft); }
+.tempfilter b { font-size: 0.95rem; }
+.tempfilter .prikk {
+  width: 0.55rem; height: 0.55rem; border-radius: 50%; display: inline-block;
+  align-self: center;
+}
+
+/* ---------------------------------------------------------------------------
+   Arbeidslista
+   --------------------------------------------------------------------------- */
+.arbeidsliste { display: grid; gap: 0.5rem; }
+.leadrad {
+  display: grid; gap: 0.15rem 0.8rem; width: 100%; text-align: left;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.65rem 0.85rem;
+  font: inherit; color: inherit; cursor: pointer;
+  grid-template-areas: "namn temp" "stad tid" "prod prod";
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+@media (min-width: 720px) {
+  .leadrad {
+    grid-template-areas: "namn stad prod temp tid";
+    grid-template-columns: minmax(8rem, 1.3fr) minmax(6rem, 1fr) minmax(6rem, 1fr) auto auto;
+    align-items: center;
+  }
+}
+.leadrad:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+.leadrad.valt { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); }
+body.tema-mork .leadrad:hover, body.tema-mork .leadrad.valt { border-color: var(--accent); }
+body.tema-mork .leadrad.valt { box-shadow: 0 0 0 2px var(--accent-soft); }
+.leadrad-namn { grid-area: namn; font-weight: 700; }
+.leadrad-stad { grid-area: stad; color: var(--muted); font-size: 0.86rem; }
+.leadrad-prod { grid-area: prod; color: var(--muted); font-size: 0.86rem; }
+.leadrad-temp { grid-area: temp; justify-self: end; }
+.leadrad-tid { grid-area: tid; justify-self: end; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.leadrad-merke { display: inline-flex; gap: 0.3rem; margin-left: 0.4rem; vertical-align: middle; }
+
+.leadrad { border-left: 4px solid transparent; }
+.leadrad-gron { border-left-color: var(--temp-gron); }
+.leadrad-oransje { border-left-color: var(--temp-oransje); }
+.leadrad-raud { border-left-color: var(--temp-raud); }
+.leadrad-gjenoppretting {
+  border-left-color: var(--temp-gron);
+  border-left-style: dashed;
+}
+.leadrad-avslutta { border-left-color: var(--border); }
+
+
+/* ---------------------------------------------------------------------------
+   Pallen
+   ---------------------------------------------------------------------------
+   Litt leik, men tala skal framleis lesast. Høgda på pallen er fast per
+   plassering (den tyder rang, ikkje mengde) — omsetninga står som tal.
+   --------------------------------------------------------------------------- */
+.pall { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; align-items: end; }
+.pall-plass { display: grid; justify-items: center; gap: 0.35rem; text-align: center; }
+.pall-medalje { font-size: 1.5rem; line-height: 1; }
+.pall-namn { font-size: 0.8rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
+.pall-tal { font-size: 0.76rem; color: var(--muted); }
+.pall-sokkel {
+  width: 100%; border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: linear-gradient(180deg, var(--primary-soft), var(--surface-alt));
+  border: 1px solid var(--border); border-bottom: none;
+  display: grid; place-items: center; font-weight: 800; color: var(--primary);
+}
+body.tema-mork .pall-sokkel {
+  background: linear-gradient(180deg, var(--accent-soft), var(--surface-alt));
+  color: var(--accent);
+}
+.pall-1 .pall-sokkel { height: 4.6rem; }
+.pall-2 .pall-sokkel { height: 3.4rem; }
+.pall-3 .pall-sokkel { height: 2.5rem; }
+.pall-plass.meg .pall-namn { color: var(--primary); }
+body.tema-mork .pall-plass.meg .pall-namn { color: var(--accent); }
+.pall-eg {
+  margin-top: 0.7rem; padding-top: 0.7rem; border-top: 1px dashed var(--border);
+  font-size: 0.85rem; color: var(--muted);
+}
+
+/* ---------------------------------------------------------------------------
+   Dagens tips
+   --------------------------------------------------------------------------- */
+.tips { border-left: 4px solid var(--accent); }
+.tips-merke {
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--accent-tekst); margin-bottom: 0.25rem;
+}
+body.tema-mork .tips-merke { color: var(--accent); }
+.tips h3 { font-size: 1rem; margin: 0 0 0.3rem; }
+.tips p { margin: 0; font-size: 0.9rem; }
+
+/* ---------------------------------------------------------------------------
+   Tilbodslinjer (delelista)
+   --------------------------------------------------------------------------- */
+table.linjer { width: 100%; border-collapse: collapse; }
+table.linjer th {
+  text-align: left; font-size: 0.72rem; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--muted); padding: 0.3rem 0.35rem;
+  font-weight: 700;
+}
+table.linjer td { padding: 0.2rem 0.35rem; border-bottom: 1px solid var(--border); }
+table.linjer input, table.linjer select {
+  width: 100%; padding: 0.4rem 0.5rem; font: inherit; font-size: 0.9rem;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink);
+}
+table.linjer .tal, table.linjer th.tal { text-align: right; }
+table.linjer .linjesum { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.tilbodsum {
+  display: grid; gap: 0.25rem; margin-top: 0.8rem; padding-top: 0.7rem;
+  border-top: 2px solid var(--border);
+}
+.tilbodsum div { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.9rem; }
+.tilbodsum .total { font-size: 1.15rem; font-weight: 800; color: var(--primary); }
+body.tema-mork .tilbodsum .total { color: var(--krem); }
+.tilbodsum .avvik { color: var(--muted); }
+
+/* ---------------------------------------------------------------------------
+   Bistand frå daglig leder
+   --------------------------------------------------------------------------- */
+.bistandsmerke {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  background: var(--primary-soft); color: var(--primary-dark);
+  border-radius: 999px; padding: 0.15rem 0.5rem;
+  font-size: 0.72rem; font-weight: 700;
+}
+body.tema-mork .bistandsmerke { background: var(--accent-soft); color: var(--accent); }
+.bistandsmerke.svart { background: var(--temp-gron-mjuk); color: var(--temp-gron-blekk); }
+
+/* ---------------------------------------------------------------------------
+   Arkivet
+   --------------------------------------------------------------------------- */
+.arkivrad {
+  display: grid; gap: 0.15rem 0.8rem; padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+  grid-template-columns: minmax(0, 1fr) auto; align-items: center;
+}
+.arkivrad + .arkivrad { margin-top: 0.45rem; }
+.arkivrad .grunngiving { grid-column: 1 / -1; font-size: 0.86rem; color: var(--muted); }
+
+/* Temperaturlinja øvst i detaljpanelet */
+.temp-linje {
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  padding: 0.55rem 0; border-bottom: 1px solid var(--border); margin-bottom: 0.8rem;
+}
+.temp-linje .spacer { margin-left: auto; }
+
+/* Ei knapp som ser ut som ei lenke. Brukt i påminningane og på kartet, der
+   handlinga er «hopp hit» og ikkje «send skjema». */
+.lenkeknapp {
+  background: none; border: none; padding: 0; font: inherit; text-align: left;
+  color: var(--primary); text-decoration: underline; cursor: pointer;
+}
+body.tema-mork .lenkeknapp { color: var(--accent); }
+.lenkeknapp:hover { text-decoration: none; }
+
+ul.paaminn { list-style: none; padding: 0; margin: 0.35rem 0 0; display: grid; gap: 0.3rem; }
+ul.paaminn li { margin: 0; font-size: 0.86rem; line-height: 1.35; }
+ul.paaminn .lenkeknapp { color: inherit; text-decoration: none; }
+ul.paaminn .lenkeknapp:hover { text-decoration: underline; }
+
+/* Ein liten definisjonsliste-variant til sidekolonna */
+dl.minitabell { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 0.6rem; margin: 0; }
+dl.minitabell dt { font-size: 0.84rem; color: var(--muted); margin: 0; }
+dl.minitabell dd { font-size: 0.84rem; font-weight: 700; margin: 0; text-align: right; }
+
+/* Tilbodsarket i førehandsvisninga */
+.tilbodsark table.data { margin-top: 0.8rem; }
+.tilbodsark .tilbodsum { max-width: 22rem; margin-left: auto; }
+
+@media print {
+  /* Skriv du ut frå tilbodsvindauget, er det tilbodet du vil ha på papiret —
+     ikkje heile dashbordet bak. */
+  body:has(.tilbodsark) .app-shell,
+  body:has(.tilbodsark) .modal-topp,
+  body:has(.tilbodsark) .modal-botn { display: none !important; }
+  body:has(.tilbodsark) .modal { position: static; background: none; padding: 0; }
+  body:has(.tilbodsark) .modal-kort { box-shadow: none; max-height: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   Marknadskanalar og fordelingsrader (hovudkontoret)
+   ---------------------------------------------------------------------------
+   Stolpen måler tal leads. Omsetning og treffprosent står som tal ved sida av,
+   ikkje som ein andre stolpe — to måleiningar i same geometri blir ei løgn om
+   kor stor skilnaden er.
+   --------------------------------------------------------------------------- */
+.kanalliste, .kanalhovud { display: grid; gap: 0.3rem; }
+.kanalrad, .kanalhovud {
+  display: grid; align-items: center; gap: 0.5rem;
+  grid-template-columns: minmax(4.5rem, 1fr) minmax(2.5rem, 2.2fr) 2rem 4.2rem 2.6rem;
+  font-size: 0.82rem;
+}
+.kanalhovud { color: var(--muted); font-size: 0.68rem; text-transform: uppercase;
+  letter-spacing: 0.03em; font-weight: 700; margin-bottom: 0.3rem; }
+.kanalhovud span:nth-child(n+3) { text-align: right; }
+.kanalnavn { font-weight: 600; overflow-wrap: anywhere; }
+.kanalstolpe { background: var(--surface-alt); border-radius: 4px; height: 10px; overflow: hidden; }
+.kanalstolpe i { display: block; height: 100%; background: var(--primary); border-radius: 4px; }
+body.tema-mork .kanalstolpe i { background: var(--accent); }
+.kanaltal, .kanalverdi, .kanaltreff { text-align: right; font-variant-numeric: tabular-nums; }
+.kanalverdi { font-weight: 700; }
+.kanaltreff { color: var(--muted); }
+
+.fordelingsrad {
+  display: grid; align-items: center; gap: 0.5rem;
+  grid-template-columns: minmax(5.5rem, auto) 1fr 2rem;
+  margin-bottom: 0.35rem; font-size: 0.85rem;
+}
+.fordelingsnavn { overflow-wrap: anywhere; }
+.fordelingsstolpe { background: var(--surface-alt); border-radius: 4px; height: 10px; overflow: hidden; }
+.fordelingsstolpe i { display: block; height: 100%; border-radius: 4px; background: var(--primary); }
+body.tema-mork .fordelingsstolpe i { background: var(--accent); }
+.fordelingstal { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+.fyll-gron { background: var(--temp-gron) !important; }
+.fyll-oransje { background: var(--temp-oransje) !important; }
+.fyll-raud { background: var(--temp-raud) !important; }
+.fyll-gjenoppretting { background: var(--temp-gron) !important; opacity: 0.65; }
+.fyll-solgt { background: var(--temp-gron) !important; }
+.fyll-avslatt { background: var(--temp-raud) !important; }
+
+/* Ein tom seksjon skal ikkje legge igjen luft. Bistandsvarselet på
+   hovudkontoret er der berre når nokon faktisk ventar på svar. */
+#seksjonBistand:empty { display: none; }

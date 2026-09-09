@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hovedkontor — Vindex</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="css/style.css">
+<script>
+  try {
+    if (localStorage.getItem("vindex_tema") === "mork") {
+      document.documentElement.classList.add("tema-mork-tidleg");
+    }
+  } catch (e) { /* privat vindauge: berre hopp over */ }
+</script>
+</head>
+<body data-rot="" data-side="admin" data-chrome="minimal">
+
+<!-- Innlogging -->
+<section id="login" class="tight">
+  <div class="wrap-narrow" style="max-width:440px">
+    <h1>Hovedkontor</h1>
+    <p class="lead">Samlet oversikt over salgsapparatet. Krever administratortilgang.</p>
+    <div class="card mt-2">
+      <form id="loginSkjema">
+        <div class="field">
+          <label for="loginEpost">E-post</label>
+          <input id="loginEpost" type="email" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="loginPassord">Passord</label>
+          <input id="loginPassord" type="password" autocomplete="current-password" required>
+        </div>
+        <button class="btn btn-block" type="submit" id="loginKnapp">Logg inn</button>
+        <p class="field-error hidden mt-1" id="loginFeil"></p>
+      </form>
+    </div>
+    <div id="demoHint"></div>
+    <p class="hint mt-2"><a href="selger.html">Til salgsverktøyet</a></p>
+    <div class="temaveljar mt-2" role="group" aria-label="Fargetema">
+      <button type="button" data-tema="lys">Lys</button>
+      <button type="button" data-tema="mork">Mørk</button>
+    </div>
+  </div>
+</section>
+
+<!-- Panelet -->
+<div id="verktoy" class="app-shell hidden">
+  <div class="toolbar">
+    <h1 style="font-size:1.3rem;margin:0">Vindex hovedkontor</h1>
+    <span class="tag tag-muted" id="brukarMerke"></span>
+    <nav class="fanerad" id="snarvegar" aria-label="Hopp til"></nav>
+    <span class="spacer"></span>
+    <div class="temaveljar" role="group" aria-label="Fargetema">
+      <button type="button" data-tema="lys">Lys</button>
+      <button type="button" data-tema="mork">Mørk</button>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="selger.html">Salgsverktøyet</a>
+    <button class="btn btn-ghost btn-sm" id="loggUt">Logg ut</button>
+  </div>
+
+  <!-- Øvst: tilstanden i landet akkurat nå -->
+  <section id="seksjonNokkeltal" aria-label="Nøkkeltall">
+    <div class="stat-rad" id="statRad"></div>
+  </section>
+
+  <!-- Det som krev handling frå hovudkontoret -->
+  <section id="seksjonBistand"></section>
+
+  <div class="dashbord mt-2">
+    <div class="dashbord-hovud">
+      <section class="panel" id="ordreinngang" aria-label="Ordreinngang"></section>
+      <section class="panel" id="seljartabell" aria-label="Selgere og forhandlere"></section>
+    </div>
+    <div class="dashbord-side">
+      <section class="panel panel-tett" id="adminKart" aria-label="Kunder per fylke"></section>
+      <section class="panel panel-tett" id="kanalar" aria-label="Markedskanaler"></section>
+      <section class="panel panel-tett" id="oppfolging" aria-label="Oppfølging i apparatet"></section>
+      <section class="panel panel-tett" id="produksjon" aria-label="Produksjonskø"></section>
+    </div>
+  </div>
+
+  <section class="mt-3" id="seksjonApparat">
+    <div class="section-head">
+      <h2 class="mt-0">Salgsapparatet</h2>
+      <p class="lead">Egne selgere, forhandlere og øvrige brukere. Hvem dekker hvilke
+        distrikt? Endringer her styrer hvem nye forespørsler går til automatisk.</p>
+    </div>
+    <div id="seljarListe"></div>
+    <div class="notice notice-info mt-2" id="dekningVarsel"></div>
+  </section>
+
+  <section class="mt-3" id="seksjonTilbakemelding">
+    <div class="section-head">
+      <h2 class="mt-0">Hvorfor vi vinner og taper</h2>
+      <p class="lead">Årsakene selgerne oppgir når en sak lukkes. Dette er den eneste
+        kilden vi har til hvorfor kundene velger som de gjør.</p>
+    </div>
+    <div class="grid grid-2" id="grunnar"></div>
+  </section>
+</div>
+
+<div id="toast" class="toast notice hidden"></div>
+
+<div class="modal hidden" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTittel">
+  <div class="modal-kort">
+    <div class="modal-topp">
+      <h2 id="modalTittel" class="mt-0 mb-0"></h2>
+      <button class="btn btn-ghost btn-sm" id="modalLukk" aria-label="Lukk">✕</button>
+    </div>
+    <div class="modal-innhald" id="modalInnhald"></div>
+    <div class="modal-botn" id="modalBotn"></div>
+  </div>
+</div>
+
+<script src="js/produkter.js"></script>
+<script src="js/distrikt.js"></script>
+<script src="js/ordre.js"></script>
+<script src="js/oppfolging.js"></script>
+<script src="js/team.js"></script>
+<script src="js/fylke.js"></script>
+<script src="js/fylkeskart.js"></script>
+<script src="js/nokkeltal.js"></script>
+<script src="js/effekter.js"></script>
+<script src="js/panel.js"></script>
+<script src="js/kalender.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>

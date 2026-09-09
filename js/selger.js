@@ -1,410 +1,52 @@
 // ============================================================================
-// VINDEX SALGSVERKTØY
+// VINDEX SALGSVERKTØY — SELJARENS DASHBORD
 // ----------------------------------------------------------------------------
-// Eitt verktøy for heile salsløpet:
+// Éin skjerm, ikkje faner. Jobben er å følgje opp kundar, så arbeidslista har
+// hovudplassen og alt anna ligg synleg rundt: kart, nøkkeltal, påminningar,
+// toppliste og dagens tips. Under dashbordet ligg kalender, ordre, plukkliste
+// og arkiv — snarvegane i verktøylinja rullar dit, dei gøymer ingenting.
 //
-//   Leads       innkomne førespurnader, automatisk fordelt på distrikt,
-//               pluss leads seljaren legg inn manuelt
-//   Kalender    befaring, møte, oppmåling og montering — med eksport til
-//               seljaren sin eigen telefonkalender
-//   Ordre       stadfesta ordrar med utfylt ordreskjema
-//   Plukk       det lageret skal plukke: standardseksjonar og lagerdelar
-//   Selgere     admin styrer kven som dekkjer kva distrikt
+// Kvar kunde har ein temperatur som fortel kor lenge han har venta. Reglane
+// for den ligg i js/oppfolging.js; innlogging, demodata og lagring ligg i
+// js/verktoy-felles.js, som administratorsida deler med denne.
 //
 // Prisar finst berre her, aldri på nettsida.
-//
-// Roller (feltet `rolle` på seljardokumentet):
-//   selger   ser og styrer sine eigne leads og ordrar
-//   admin    ser alt, flyttar leads og styrer distrikta
-//   lager    ser plukklista og kan kvittere ut ordrar
 // ============================================================================
 
-let fb = null;
-if (!VINDEX_DEMOMODUS) fb = await import("./firebase-init.js");
+import {
+  fb, $, $$, app, erAdmin, erLager,
+  settTeiknar, settOppstart, teikn, visDemohint,
+  lastData, startDemo, tid, datoTekst, nesteAvtale,
+  lagreLead, melding, opneModal, lukkModal, demoLagreOrdre, demoNullstill,
+} from "./verktoy-felles.js";
 
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => Array.from(document.querySelectorAll(s));
-
-const app = {
-  brukar: null,       // { uid, navn, epost, rolle, distrikt[] }
-  seljarar: [],
-  leads: [],
-  ordrar: [],
-  visning: "mine",    // mine | alle | kalender | ordre | plukk | admin
-  valtLead: null,
-};
-
-const erAdmin = () => app.brukar && app.brukar.rolle === "admin";
-const erLager = () => app.brukar && app.brukar.rolle === "lager";
-
-// ---------------------------------------------------------------------------
-// Fargetema
-// ---------------------------------------------------------------------------
-// Verktøyet er lyst som standard — det skal lesast heile dagen og skrivast ut.
-// Den som sit i eit mørkt rom kan velje sjølv, og valet blir hugsa på maskina.
-// Kart og diagram må teiknast på nytt ved bytte: fargerampa på kartet snur
-// retning, sidan lys-til-mørk ikkje kan lesast på mørk botn.
-function lesTema() {
-  try {
-    return localStorage.getItem("vindex_tema") === "mork" ? "mork" : "lys";
-  } catch (e) {
-    return "lys";
-  }
-}
-
-function settTema(tema, teiknPaaNytt = true) {
-  document.body.classList.toggle("tema-mork", tema === "mork");
-  document.body.classList.add("verktoyside");
-  document.documentElement.classList.remove("tema-mork-tidleg");
-  $$("[data-tema]").forEach((k) => k.classList.toggle("aktiv", k.dataset.tema === tema));
-  try {
-    localStorage.setItem("vindex_tema", tema);
-  } catch (e) { /* privat vindauge: valet varer økta ut */ }
-  if (teiknPaaNytt && app.brukar) teikn();
-}
-
-$$("[data-tema]").forEach((k) =>
-  k.addEventListener("click", () => settTema(k.dataset.tema))
+settTeiknar(() => teiknAlt());
+settOppstart(() => visVerktoy());
+visDemohint(
+  "<strong>Demomodus.</strong> Firebase er ikke satt opp ennå, så verktøyet kjører med " +
+  "eksempeldata. Logg inn med hva som helst — skriv <code>admin</code> i e-postfeltet for " +
+  "administratorvisningen, eller <code>lager</code> for lagervisningen.<br>" +
+  "Endringene dine huskes i denne nettleseren, så du kan følge en sak fra selger til " +
+  "hovedkontor. <button class=\"btn btn-ghost btn-sm mt-1\" id=\"demoNullstill\">Nullstill eksempeldataene</button>"
 );
-settTema(lesTema(), false);
-
-
-// ---------------------------------------------------------------------------
-// Innlogging
-// ---------------------------------------------------------------------------
-if (VINDEX_DEMOMODUS) {
-  $("#demoHint").innerHTML = `<div class="notice notice-warn mt-2">
-    <strong>Demomodus.</strong> Firebase er ikke satt opp ennå, så verktøyet kjører med
-    eksempeldata. Logg inn med hva som helst — skriv <code>admin</code> i e-postfeltet for
-    administratorvisningen, eller <code>lager</code> for lagervisningen.</div>`;
-}
-
-$("#loginSkjema").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const feil = $("#loginFeil");
-  feil.classList.add("hidden");
-  const knapp = $("#loginKnapp");
-  knapp.disabled = true;
-  knapp.textContent = "Logger inn …";
-  try {
-    if (VINDEX_DEMOMODUS) {
-      const epost = $("#loginEpost").value.toLowerCase();
-      startDemo(epost.includes("admin") ? "admin" : epost.includes("lager") ? "lager" : "selger");
-    } else {
-      await fb.signInWithEmailAndPassword(fb.auth, $("#loginEpost").value.trim(), $("#loginPassord").value);
-    }
-  } catch (err) {
-    console.error(err);
-    feil.textContent =
-      err.code === "auth/invalid-credential" || err.code === "auth/wrong-password"
-        ? "Feil e-post eller passord."
-        : "Innlogging feilet. Prøv igjen, eller kontakt administrator.";
-    feil.classList.remove("hidden");
-  } finally {
-    knapp.disabled = false;
-    knapp.textContent = "Logg inn";
-  }
-});
-
-$("#glemtLenke").addEventListener("click", async (e) => {
-  e.preventDefault();
-  const epost = $("#loginEpost").value.trim();
-  const feil = $("#loginFeil");
-  if (!epost) {
-    feil.textContent = "Skriv inn e-postadressen din først, så sender vi en lenke.";
-    feil.classList.remove("hidden");
-    return;
-  }
-  if (VINDEX_DEMOMODUS) return;
-  await fb.sendPasswordResetEmail(fb.auth, epost);
-  feil.textContent = "Sendt! Sjekk innboksen for lenke til nytt passord.";
-  feil.classList.remove("hidden");
-});
-
-$("#loggUt").addEventListener("click", async () => {
-  if (!VINDEX_DEMOMODUS) await fb.signOut(fb.auth);
-  location.reload();
-});
-
-if (!VINDEX_DEMOMODUS) {
-  fb.onAuthStateChanged(fb.auth, async (bruker) => {
-    if (!bruker) return;
-    const snap = await fb.getDoc(fb.sellerDoc(bruker.uid));
-    if (!snap.exists()) {
-      $("#loginFeil").textContent = "Brukeren er ikke registrert som selger. Kontakt administrator.";
-      $("#loginFeil").classList.remove("hidden");
-      await fb.signOut(fb.auth);
-      return;
-    }
-    app.brukar = { uid: bruker.uid, epost: bruker.email, ...snap.data() };
-    await lastData();
-    visVerktoy();
-    lyttLive();
+const nullstillKnapp = $("#demoNullstill");
+if (nullstillKnapp)
+  nullstillKnapp.addEventListener("click", () => {
+    demoNullstill();
+    location.reload();
   });
-}
-
 // ---------------------------------------------------------------------------
-// Datahenting
+// Dashbordet
 // ---------------------------------------------------------------------------
-async function lastData() {
-  const seljarSnap = await fb.getDocs(fb.sellersCol());
-  app.seljarar = seljarSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-  // Ein vanleg seljar hentar berre sine eigne leads — det er også alt reglane
-  // slepp gjennom. Admin og lager hentar alt.
-  const alt = erAdmin() || erLager();
-  const q = alt
-    ? fb.query(fb.leadsCol(), fb.orderBy("opprettet", "desc"), fb.limit(500))
-    : fb.query(fb.leadsCol(), fb.where("seljarId", "==", app.brukar.uid), fb.orderBy("opprettet", "desc"), fb.limit(300));
-  app.leads = (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() }));
-
-  const oq = alt
-    ? fb.query(fb.ordersCol(), fb.orderBy("opprettet", "desc"), fb.limit(500))
-    : fb.query(fb.ordersCol(), fb.where("seljarId", "==", app.brukar.uid), fb.orderBy("opprettet", "desc"), fb.limit(300));
-  app.ordrar = (await fb.getDocs(oq)).docs.map((d) => ({ id: d.id, ...d.data() }));
-}
-
-function startDemo(rolle) {
-  // Demoen brukar det verkelege apparatet frå js/team.js, så namn, stader og
-  // distrikt er dei same som i drift. Innlogga brukar overtek den første
-  // seljaren sin plass.
-  app.seljarar = VINDEX_TEAM.map((t, i) => ({
-    id: "demo-" + (i + 1),
-    navn: t.navn,
-    sted: t.sted,
-    type: t.type,
-    y2024: t.y2024,
-    epost: t.navn.toLowerCase().replace(/[^a-zæøå]+/g, ".").replace(/^\.|\.$/g, "") + "@vindex.no",
-    telefon: "900 00 " + String(i + 10).padStart(3, "0"),
-    rolle: "selger",
-    distrikt: t.distrikt,
-    aktiv: true,
-  }));
-  // Loggar du inn som seljar, *er* du den første i apparatet — det gir eit
-  // meir truverdig bilete enn ein oppdikta "Demo Selger" ved sida av dei
-  // verkelege namna. Admin og lager er eigne brukarar, som i drift.
-  if (rolle === "selger") {
-    app.brukar = { uid: app.seljarar[0].id, ...app.seljarar[0], rolle: "selger" };
-  } else {
-    const ekstra = {
-      id: "demo-" + rolle,
-      navn: rolle === "admin" ? "Hovedkontoret" : "Lager Farstad",
-      sted: "Farstad",
-      type: "internt",
-      epost: rolle + "@vindex.no",
-      telefon: "71 26 60 00",
-      rolle,
-      distrikt: [],
-      aktiv: true,
-    };
-    app.seljarar.push(ekstra);
-    app.brukar = { uid: ekstra.id, ...ekstra };
-  }
-  app.leads = demoLeads();
-  app.ordrar = demoOrdrar();
-  app.visning = rolle === "lager" ? "plukk" : "oversikt";
-  visVerktoy();
-}
-
-function demoLeads() {
-  const naa = Date.now();
-  const dag = 86400000;
-  const lokale = JSON.parse(localStorage.getItem("vindex_demo_leads") || "[]").map((l) => ({
-    ...l,
-    seljarId: "demo-1",
-    status: l.status || "ny",
-  }));
-  const faste = [
-    { navn: "Bjørn Hatlem", postnr: "6440", poststed: "Elnesvågen", produkt: "rekkverk", modell: "Rekkverk etter mål", mengde: 18, status: "ny", dagar: 0, seljar: "demo-1" },
-    { navn: "Ingrid Sætre", postnr: "6800", poststed: "Førde", produkt: "terrassegulv", modell: "Terrassegulv", mengde: 32, status: "kontaktet", dagar: 3, seljar: "demo-1", avtale: 2 },
-    { navn: "Per Kvalvik", postnr: "6520", poststed: "Frei", produkt: "gjerde", modell: "Gjerde etter mål", mengde: 40, status: "tilbud_sendt", dagar: 6, seljar: "demo-1", tilbud: 41100 },
-    { navn: "Marit Lund", postnr: "6100", poststed: "Volda", produkt: "sprosser", modell: "Kryssprosse", mengde: 9, status: "oppfulgt", dagar: 12, seljar: "demo-1", tilbud: 19200, avtale: 5 },
-    { navn: "Terje Aas", postnr: "0284", poststed: "Oslo", produkt: "glassrekkverk", modell: "Blankt glass", mengde: 14, status: "sett", dagar: 1, seljar: "demo-2" },
-    { navn: "Silje Berg", postnr: "4020", poststed: "Stavanger", produkt: "levegg", modell: "Ferdig standardseksjon", mengde: 6, status: "solgt", dagar: 20, seljar: "demo-3" },
-  ];
-  // Eit breiare utval så kartet og nøkkeltala har noko å vise. Postnummera er
-  // ekte og spreidde over heile landet, slik at fylkesfordelinga blir reell.
-  const spreidd = [
-    ["Anne Rype", "9008", "Tromsø", "gjerde", "solgt", 34, "demo-2", "kvalitet"],
-    ["Jonas Five", "9600", "Hammerfest", "levegg", "avslatt", 41, "demo-2", "leveringstid"],
-    ["Hilde Rønning", "8006", "Bodø", "rekkverk", "solgt", 28, "demo-2", "norsk"],
-    ["Kjell Aune", "7010", "Trondheim", "terrassegulv", "tilbud_sendt", 9, "demo-2", null],
-    ["Vigdis Sund", "7038", "Trondheim", "rekkverk", "solgt", 51, "demo-2", "anbefaling"],
-    ["Rolf Haga", "2317", "Hamar", "gjerde", "avslatt", 22, "demo-2", "pris"],
-    ["Nina Løken", "2003", "Lillestrøm", "porter", "solgt", 17, "demo-2", "service"],
-    ["Espen Dahl", "1607", "Fredrikstad", "levegg", "kontaktet", 4, "demo-2", null],
-    ["Turid Holm", "3200", "Sandefjord", "rekkverk", "avslatt", 30, "demo-2", "konkurrent"],
-    ["Bård Nes", "3770", "Kragerø", "kystveggen", "solgt", 44, "demo-2", "kvalitet"],
-    ["Grete Vik", "3050", "Mjøndalen", "gjerde", "oppfulgt", 11, "demo-2", null],
-    ["Sindre Moe", "4610", "Kristiansand", "terrassegulv", "solgt", 25, "demo-3", "pris"],
-    ["Astrid Vold", "4020", "Stavanger", "glassrekkverk", "tilbud_sendt", 7, "demo-3", null],
-    ["Håkon Rein", "5527", "Haugesund", "rekkverk", "solgt", 38, "demo-3", "norsk"],
-    ["Liv Åsen", "5003", "Bergen", "levegg", "avslatt", 26, "demo-3", "pris"],
-    ["Trond Sæther", "5063", "Bergen", "sprosser", "solgt", 19, "demo-3", "kvalitet"],
-    ["Randi Fjell", "6800", "Førde", "gjerde", "kontaktet", 2, "demo-1", null],
-    ["Odd Berge", "6100", "Volda", "varmepumpehus", "solgt", 33, "demo-1", "service"],
-    ["Marte Lien", "6009", "Ålesund", "rekkverk", "oppfulgt", 8, "demo-1", null],
-    ["Geir Todal", "6413", "Molde", "terrassegulv", "solgt", 47, "demo-1", "anbefaling"],
-    ["Solveig Ness", "6530", "Averøy", "gjerde", "avslatt", 21, "demo-1", "utsatt"],
-    ["Are Kvam", "6650", "Surnadal", "levegg", "sett", 1, "demo-1", null],
-  ];
-
-  const ekstra = spreidd.map(([navn, postnr, poststed, produkt, status, dagar, seljar, grunn], i) => {
-    const distrikt = vindexFinnDistrikt(postnr) || {};
-    const p = vindexProdukt(produkt) || {};
-    return {
-      id: "demo-spreidd-" + i,
-      opprettet: new Date(naa - dagar * dag).toISOString(),
-      statusEndret: new Date(naa - (dagar - 1) * dag).toISOString(),
-      oppfolgingFrist: new Date(naa + ((i % 10) - 1) * dag).toISOString(),
-      status,
-      seljarId: seljar,
-      distriktId: distrikt.id || null,
-      distriktNavn: distrikt.navn || "",
-      montering: i % 3 === 0,
-      kilde: i % 5 === 0 ? "telefon" : "nettside",
-      kunde: {
-        navn, telefon: "9" + (20000000 + i * 971).toString().slice(0, 7),
-        epost: navn.split(" ")[0].toLowerCase() + "@eksempel.no",
-        adresse: "Eksempelvegen " + (i + 2), postnr, poststed, kommentar: "",
-      },
-      produkt: { id: produkt, navn: p.navn || produkt, modellNavn: "", mengde: 5 + (i % 30),
-                 enhet: p.enhet || "lm", farge: "klassisk-hvit", tilvalg: {} },
-      tilbud: status === "tilbud_sendt" || status === "solgt" || status === "oppfulgt"
-        ? { sum: 18000 + i * 2300, rabattProsent: i % 4 === 0 ? 10 : 0,
-            rabattKr: i % 4 === 0 ? Math.round((18000 + i * 2300) * 0.1) : 0,
-            dato: new Date(naa - (dagar - 2) * dag).toISOString(), gyldigTil: "", notat: "" }
-        : null,
-      tilbakemelding: grunn
-        ? { grunn, kommentar: "", tid: new Date(naa - (dagar - 3) * dag).toISOString(), av: "Demo" }
-        : null,
-      avtaler: [],
-      logg: [
-        { tid: new Date(naa - dagar * dag).toISOString(), av: "system",
-          tekst: "Tildelt automatisk ut fra postnummer " + postnr + "." },
-        ...(status !== "ny" && status !== "sett"
-          ? [{ tid: new Date(naa - dagar * dag + (2 + (i % 20)) * 3600000).toISOString(),
-               av: "Demo", tekst: "Kontaktet kunden på telefon." }]
-          : []),
-      ],
-    };
-  });
-
-  return lokale.concat(ekstra).concat(
-    faste.map((f, i) => {
-      const distrikt = vindexFinnDistrikt(f.postnr) || {};
-      return {
-        id: "demo-lead-" + i,
-        opprettet: new Date(naa - f.dagar * dag).toISOString(),
-        statusEndret: new Date(naa - f.dagar * dag).toISOString(),
-        oppfolgingFrist: new Date(naa - (f.dagar - 2) * dag).toISOString(),
-        status: f.status,
-        seljarId: f.seljar,
-        distriktId: distrikt.id || null,
-        distriktNavn: distrikt.navn || "",
-        montering: i % 2 === 0,
-        kilde: i === 0 ? "nettside" : i === 3 ? "telefon" : "nettside",
-        kunde: {
-          navn: f.navn,
-          telefon: "9" + (10000000 + i * 137).toString().slice(0, 7),
-          epost: f.navn.split(" ")[0].toLowerCase() + "@eksempel.no",
-          adresse: "Eksempelvegen " + (i + 3),
-          postnr: f.postnr,
-          poststed: f.poststed,
-          kommentar: i === 2 ? "Skrånende tomt, ønsker befaring før tilbud." : "",
-        },
-        produkt: {
-          id: f.produkt,
-          navn: (vindexProdukt(f.produkt) || {}).navn || f.produkt,
-          modellNavn: f.modell,
-          mengde: f.mengde,
-          enhet: (vindexProdukt(f.produkt) || {}).enhet || "lm",
-          farge: "klassisk-hvit",
-          tilvalg: {},
-        },
-        tilbud: f.tilbud
-          ? { sum: f.tilbud, rabattProsent: 10, rabattKr: Math.round(f.tilbud * 0.1), dato: new Date(naa - (f.dagar - 1) * dag).toISOString(), gyldigTil: new Date(naa + 14 * dag).toISOString().slice(0, 10), notat: "" }
-          : null,
-        avtaler: f.avtale
-          ? [{ id: "demo-avtale-" + i, type: "befaring", typeNavn: "Befaring", start: new Date(naa + f.avtale * dag).toISOString(), varighetMin: 60, stad: "Eksempelvegen " + (i + 3) + ", " + f.postnr + " " + f.poststed, notat: "" }]
-          : [],
-        logg: [{ tid: new Date(naa - f.dagar * dag).toISOString(), av: "system", tekst: "Tildelt automatisk ut fra postnummer " + f.postnr + "." }],
-      };
-    })
-  );
-}
-
-function demoOrdrar() {
-  return [
-    {
-      id: "demo-ordre-1",
-      leadId: "demo-lead-5",
-      skjemaId: "rekkverk",
-      status: "til_plukk",
-      opprettet: new Date(Date.now() - 4 * 86400000).toISOString(),
-      seljarId: "demo-3",
-      seljarNavn: (VINDEX_TEAM[2] || {}).navn || "Selger",
-      kunde: { navn: "Silje Berg", telefon: "91000068", epost: "silje@eksempel.no", adresse: "Eksempelvegen 8", postnr: "4020", poststed: "Stavanger" },
-      felt: {
-        std_levegg_18m: 4,
-        std_levegg_overgang: 1,
-        std_levegg_linje: 3,
-        std_levegg_hjorne: 1,
-        std_levegg_ende: 2,
-        ledlys_stolpetopp: 4,
-        kabel_10m: 1,
-        kunde_oppgitt_mal: "ja",
-        pris_standard: 38400,
-        pris_total: 41900,
-      },
-      rader: [],
-      bekrefta: { av: (VINDEX_TEAM[2] || {}).navn || "Selger", tid: new Date(Date.now() - 4 * 86400000).toISOString(), kundeOppgittMal: "ja" },
-    },
-    // Spesialproduserte ordrar, så produksjonskøen viser eit reelt tal.
-    {
-      id: "demo-ordre-2",
-      leadId: "demo-spreidd-3",
-      skjemaId: "rekkverk",
-      status: "i_produksjon",
-      opprettet: new Date(Date.now() - 2 * 86400000).toISOString(),
-      seljarId: "demo-2",
-      seljarNavn: (VINDEX_TEAM[1] || {}).navn || "Selger",
-      kunde: { navn: "Kjell Aune", telefon: "92000001", epost: "kjell@eksempel.no", adresse: "Eksempelvegen 12", postnr: "7010", poststed: "Trondheim" },
-      felt: { modell1: "VBC New England", modell1_meter: 46, modell1_hoyde: 1000, stk_stolper: 24, pris_tilpasset: 58900 },
-      rader: [],
-      bekrefta: { av: (VINDEX_TEAM[1] || {}).navn || "Selger", tid: new Date(Date.now() - 2 * 86400000).toISOString(), kundeOppgittMal: "nei" },
-    },
-    {
-      id: "demo-ordre-3",
-      leadId: "demo-spreidd-15",
-      skjemaId: "sprosser",
-      status: "i_produksjon",
-      opprettet: new Date(Date.now() - 86400000).toISOString(),
-      seljarId: "demo-3",
-      seljarNavn: (VINDEX_TEAM[2] || {}).navn || "Selger",
-      kunde: { navn: "Trond Sæther", telefon: "92000002", epost: "trond@eksempel.no", adresse: "Eksempelvegen 4", postnr: "5063", poststed: "Bergen" },
-      felt: { antall_sprosser: 14, pris_sprosser: 16800 },
-      rader: [
-        { lnr: "1", antall: "8", fals_b: "1180", fals_h: "1080", ruter_b: "3", ruter_h: "2", sprosseverk: "22", omramming: "29", buer: "", hengsler: "V", type: "V", flukting_nr: "", flukting_verdi: "" },
-        { lnr: "2", antall: "6", fals_b: "890", fals_h: "1180", ruter_b: "2", ruter_h: "3", sprosseverk: "22", omramming: "29", buer: "", hengsler: "H", type: "V", flukting_nr: "", flukting_verdi: "" },
-      ],
-      bekrefta: { av: (VINDEX_TEAM[2] || {}).navn || "Selger", tid: new Date(Date.now() - 86400000).toISOString(), kundeOppgittMal: "ja" },
-    },
-  ];
-}
-
-// ---------------------------------------------------------------------------
-// Faner og visning
-// ---------------------------------------------------------------------------
-const FANER = [
-  { id: "oversikt", navn: "Oversikt", roller: ["selger", "admin"] },
-  { id: "mine", navn: "Mine leads", roller: ["selger", "admin"] },
-  { id: "alle", navn: "Alle leads", roller: ["admin"] },
-  { id: "kart", navn: "Kart", roller: ["selger", "admin"] },
-  { id: "kalender", navn: "Kalender", roller: ["selger", "admin"] },
-  { id: "ordre", navn: "Ordre", roller: ["selger", "admin", "lager"] },
-  { id: "plukk", navn: "Plukkliste", roller: ["selger", "admin", "lager"] },
-  { id: "admin", navn: "Apparat", roller: ["admin"] },
+// Verktøyet er éin skjerm, ikkje ei samling faner. Jobben er å følgje opp
+// kundar, så arbeidslista har hovudplassen og alt anna ligg synleg rundt.
+// Snarvegane rullar til seksjonane under — dei gøymer ingenting.
+const SNARVEGAR = [
+  { id: "seksjonLeads", navn: "Kunder", roller: ["selger", "admin"] },
+  { id: "seksjonKalender", navn: "Kalender", roller: ["selger", "admin"] },
+  { id: "seksjonOrdre", navn: "Ordre", roller: ["selger", "admin", "lager"] },
+  { id: "seksjonPlukk", navn: "Plukk", roller: ["selger", "admin", "lager"] },
+  { id: "seksjonArkiv", navn: "Arkiv", roller: ["selger", "admin"] },
 ];
 
 /** Alt panela treng, samla på éin stad. */
@@ -413,10 +55,17 @@ function panelKontekst() {
     brukar: app.brukar,
     seljarar: app.seljarar,
     leads: app.leads,
+    // Kartet i sidekolonna skal vise nøyaktig det lista ville vist. Talde det
+    // noko anna, kunne du klikke eit fylke som sa «3 kunder» og få tom liste.
+    kartleads: synlegeLeads({ utanFylke: true }),
     ordrar: app.ordrar,
     erAdmin: erAdmin(),
-    opneLead: (id) => { app.visning = erAdmin() ? "alle" : "mine"; opneLead(id); },
-    byttFane: (id) => { app.visning = id; teikn(); },
+    opneLead: (id) => opneLead(id),
+    filtrerFylke: (fylkeId) => {
+      app.fylkefilter = app.fylkefilter === fylkeId ? null : fylkeId;
+      teikn();
+    },
+    valtFylke: app.fylkefilter,
   };
 }
 
@@ -426,8 +75,26 @@ function visVerktoy() {
   $("#brukarMerke").textContent =
     app.brukar.navn + " · " + (app.brukar.rolle === "admin" ? "administrator" : app.brukar.rolle);
 
-  // Lageret registrerer ikkje leads.
+  // Lageret registrerer ikkje leads og har ikkje ei kundeliste å følgje opp.
   $("#nyttLead").classList.toggle("hidden", erLager());
+  $("#tilAdmin").classList.toggle("hidden", !erAdmin());
+  $("#dashbord").classList.toggle("hidden", erLager());
+  $("#seksjonKalender").classList.toggle("hidden", erLager());
+  $("#seksjonArkiv").classList.toggle("hidden", erLager());
+
+  // Admin følgjer opp sine eigne kundar her som alle andre, men treng å kunne
+  // sjå kva dei andre held på med — difor eit seljarfilter berre for han.
+  const eigarVal = $("#filterEigar");
+  eigarVal.classList.toggle("hidden", !erAdmin());
+  if (erAdmin()) {
+    eigarVal.innerHTML =
+      '<option value="">Alle selgere</option>' +
+      `<option value="${app.brukar.uid}">Bare mine</option>` +
+      app.seljarar
+        .filter((s) => s.rolle !== "lager" && s.id !== app.brukar.uid)
+        .map((s) => `<option value="${s.id}">${s.navn}</option>`)
+        .join("");
+  }
 
   $("#filterStatus").innerHTML =
     '<option value="">Alle statuser</option>' +
@@ -439,198 +106,493 @@ function visVerktoy() {
     '<option value="">Alle ordrestatuser</option>' +
     VINDEX_ORDRESTATUSAR.map((s) => `<option value="${s.id}">${s.navn}</option>`).join("");
 
-  if (!FANER.some((f) => f.id === app.visning && f.roller.includes(app.brukar.rolle))) {
-    app.visning = erLager() ? "plukk" : "oversikt";
-  }
+  teiknSnarvegar();
+  merkBrotneFristar();
   teikn();
 }
 
-function teiknFaner() {
-  const tal = {
-    mine: app.leads.filter((l) => l.seljarId === app.brukar.uid && vindexStatusOpen(l.status)).length,
-    plukk: app.ordrar.filter((o) => vindexPlukkliste(o).harPlukk && o.status !== "levert").length,
-  };
-  $("#faner").innerHTML = FANER.filter((f) => f.roller.includes(app.brukar.rolle))
-    .map(
-      (f) =>
-        `<button class="fane ${f.id === app.visning ? "aktiv" : ""}" data-fane="${f.id}">${f.navn}${
-          tal[f.id] ? `<span class="teljar">${tal[f.id]}</span>` : ""
-        }</button>`
-    )
+function teiknSnarvegar() {
+  $("#snarvegar").innerHTML = SNARVEGAR.filter((s) => s.roller.includes(app.brukar.rolle))
+    .map((s) => `<button class="fane" data-hopp="${s.id}">${s.navn}</button>`)
     .join("");
-  $$("#faner .fane").forEach((k) =>
+  $$("#snarvegar .fane").forEach((k) =>
     k.addEventListener("click", () => {
-      app.visning = k.dataset.fane;
-      app.valtLead = null;
+      const mal = document.getElementById(k.dataset.hopp);
+      if (mal) mal.scrollIntoView({ behavior: "smooth", block: "start" });
+    })
+  );
+}
+
+/**
+ * Set det permanente merket på leads som har passert 72 timar.
+ *
+ * Merket må lagrast, ikkje reknast ut på nytt kvar gong: poenget er at det
+ * skal stå igjen etter at seljaren tek kontakt. Utrekninga åleine ville blitt
+ * grøn i det same sekundet han ringte.
+ */
+async function merkBrotneFristar() {
+  const naa = Date.now();
+  const nye = app.leads.filter((l) => {
+    if (l.fristBrote || !vindexStatusOpen(l.status) || l.arkivert) return false;
+    return vindexTemperatur(l, naa).timar > VINDEX_TIMAR_ORANSJE;
+  });
+  for (const lead of nye) {
+    await lagreLead(lead, { fristBrote: true }, [
+      "Passerte 72 timer uten kontakt. Saken står som gjenoppretting til den er avgjort.",
+    ]);
+  }
+}
+
+function teiknAlt() {
+  const dash = !erLager();
+  if (dash) {
+    const liste = synlegeLeads();
+    teiknTempFilter();
+    teiknArbeidsliste(liste);
+    teiknMinetal();
+    teiknPaaminningar();
+    vindexTeiknDashKart($("#dashKart"), panelKontekst());
+    teiknPall();
+    teiknTips();
+    teiknAgenda();
+    teiknArkiv();
+  }
+  teiknOrdrar();
+  teiknPlukk();
+}
+
+["#filterStatus", "#filterProdukt", "#filterSok", "#filterEigar"].forEach((s) =>
+  $(s).addEventListener("input", teikn)
+);
+$("#arkivSok").addEventListener("input", teiknArkiv);
+$("#filterOrdrestatus").addEventListener("change", teiknOrdrar);
+$("#skrivUt").addEventListener("click", () => window.print());
+$("#skrivUtOrdre").addEventListener("click", () => window.print());
+
+/** Leads som skal stå i arbeidslista — arkivet er ikkje med. */
+function mineLeads() {
+  const eigar = $("#filterEigar") && !$("#filterEigar").classList.contains("hidden")
+    ? $("#filterEigar").value
+    : app.brukar.uid;
+  return app.leads.filter((l) => {
+    if (l.arkivert) return false;
+    if (eigar && l.seljarId !== eigar) return false;
+    return true;
+  });
+}
+
+function synlegeLeads({ utanFylke = false } = {}) {
+  const sok = $("#filterSok").value.trim().toLowerCase();
+  const status = $("#filterStatus").value;
+  const produkt = $("#filterProdukt").value;
+  const naa = Date.now();
+
+  return mineLeads()
+    .filter((l) => {
+      if (app.tempfilter === "opne") {
+        if (!vindexStatusOpen(l.status)) return false;
+      } else if (app.tempfilter && vindexTemperatur(l, naa).id !== app.tempfilter) return false;
+      if (!utanFylke && app.fylkefilter && ((vindexFinnFylke((l.kunde || {}).postnr) || {}).id) !== app.fylkefilter) return false;
+      if (status && l.status !== status) return false;
+      if (produkt && (l.produkt || {}).id !== produkt) return false;
+      if (sok) {
+        const heystakk = [
+          (l.kunde || {}).navn, (l.kunde || {}).poststed, (l.kunde || {}).telefon,
+          (l.kunde || {}).postnr, (l.produkt || {}).navn, l.distriktNavn,
+        ].join(" ").toLowerCase();
+        if (!heystakk.includes(sok)) return false;
+      }
+      return true;
+    })
+    // Det som har ventet lengst og er varmast, øvst. Det er heile poenget med
+    // lista: du skal ikkje måtte leite etter kven du bør ringe.
+    .sort((a, b) => vindexHastegrad(b, naa) - vindexHastegrad(a, naa));
+}
+
+
+// ---------------------------------------------------------------------------
+// Arbeidslista
+// ---------------------------------------------------------------------------
+/** Merkelappen som viser kor lenge kunden har venta. Alltid med tekst. */
+function tempMerke(lead, naa = Date.now()) {
+  const t = vindexTemperatur(lead, naa);
+  const def = vindexTemperaturDef(t.id);
+  const tittel = t.id === "avslutta"
+    ? def.forklaring
+    : `${def.forklaring} Sist kontakt: ${t.sisteKontakt ? "for " + vindexTemperaturTekst(t.timar) + " siden" : "aldri — mottatt for " + vindexTemperaturTekst(t.timar) + " siden"}.`;
+  return `<span class="temp temp-${t.id}" title="${tittel}">${def.kort}</span>`;
+}
+
+/**
+ * Tellarane over lista.
+ *
+ * Dei er filter, ikkje pynt: talet du ser er knappen du trykker på. Det er
+ * den kortaste vegen frå «fem har ventet for lenge» til å faktisk ta dei.
+ */
+function teiknTempFilter() {
+  const naa = Date.now();
+  const grunnlag = mineLeads();
+  const tal = vindexTemperaturfordeling(grunnlag, naa);
+  const rekkefolge = ["raud", "oransje", "gjenoppretting", "gron"];
+  const farge = {
+    raud: "var(--temp-raud)", oransje: "var(--temp-oransje)",
+    gjenoppretting: "var(--temp-gron)", gron: "var(--temp-gron)",
+  };
+
+  $("#tempFilter").innerHTML =
+    `<button data-temp="opne" class="${app.tempfilter === "opne" ? "aktiv" : ""}">
+       <b>${grunnlag.filter((l) => vindexStatusOpen(l.status)).length}</b> åpne saker
+     </button>
+     <button data-temp="" class="${app.tempfilter ? "" : "aktiv"}">
+       <b>${grunnlag.length}</b> alle
+     </button>` +
+    rekkefolge
+      .filter((id) => tal[id] > 0)
+      .map((id) => {
+        const def = vindexTemperaturDef(id);
+        return `<button data-temp="${id}" class="${app.tempfilter === id ? "aktiv" : ""}"
+          title="${def.forklaring}">
+          <span class="prikk" style="background:${farge[id]}"></span>
+          <b>${tal[id]}</b> ${def.kort.toLowerCase()}
+        </button>`;
+      })
+      .join("");
+
+  $$("#tempFilter button").forEach((b) =>
+    b.addEventListener("click", () => {
+      app.tempfilter = b.dataset.temp || null;
       teikn();
     })
   );
 }
 
-function teikn() {
-  teiknFaner();
-  const erLeads = app.visning === "mine" || app.visning === "alle";
-  $("#visOversikt").classList.toggle("hidden", app.visning !== "oversikt");
-  $("#visKart").classList.toggle("hidden", app.visning !== "kart");
-  $("#visLeads").classList.toggle("hidden", !erLeads);
-  $("#visKalender").classList.toggle("hidden", app.visning !== "kalender");
-  $("#visOrdre").classList.toggle("hidden", app.visning !== "ordre");
-  $("#visPlukk").classList.toggle("hidden", app.visning !== "plukk");
-  $("#visAdmin").classList.toggle("hidden", app.visning !== "admin");
-
-  if (app.visning === "oversikt") vindexTeiknOversikt($("#visOversikt"), panelKontekst());
-  else if (app.visning === "kart") vindexTeiknKart($("#visKart"), panelKontekst());
-  else if (erLeads) {
-    const liste = synlegeLeads();
-    teiknKpi(liste);
-    teiknTabell(liste);
-  } else if (app.visning === "kalender") teiknAgenda();
-  else if (app.visning === "ordre") teiknOrdrar();
-  else if (app.visning === "plukk") teiknPlukk();
-  else if (app.visning === "admin") teiknAdmin();
-}
-
-["#filterStatus", "#filterProdukt", "#filterSok"].forEach((s) =>
-  $(s).addEventListener("input", teikn)
-);
-$("#filterOrdrestatus").addEventListener("change", teikn);
-$("#skrivUt").addEventListener("click", () => window.print());
-$("#skrivUtOrdre").addEventListener("click", () => window.print());
-
-function synlegeLeads() {
-  const sok = $("#filterSok").value.trim().toLowerCase();
-  const status = $("#filterStatus").value;
-  const produkt = $("#filterProdukt").value;
-  return app.leads.filter((l) => {
-    if (app.visning === "mine" && l.seljarId !== app.brukar.uid) return false;
-    if (status && l.status !== status) return false;
-    if (produkt && (l.produkt || {}).id !== produkt) return false;
-    if (sok) {
-      const heystakk = [
-        (l.kunde || {}).navn, (l.kunde || {}).poststed, (l.kunde || {}).telefon,
-        (l.kunde || {}).postnr, (l.produkt || {}).navn, l.distriktNavn,
-      ].join(" ").toLowerCase();
-      if (!heystakk.includes(sok)) return false;
-    }
-    return true;
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Hjelparar for tid
-// ---------------------------------------------------------------------------
-function tid(verdi) {
-  if (!verdi) return null;
-  if (typeof verdi === "string") return new Date(verdi);
-  if (verdi.toDate) return verdi.toDate();
-  return new Date(verdi);
-}
-function datoTekst(verdi) {
-  const d = tid(verdi);
-  return d && !isNaN(d) ? d.toLocaleDateString("nb-NO", { day: "2-digit", month: "short" }) : "–";
-}
-function nesteAvtale(lead) {
+function teiknArbeidsliste(liste) {
   const naa = Date.now();
-  return (lead.avtaler || [])
-    .map((a) => ({ ...a, dato: new Date(a.start) }))
-    .filter((a) => !isNaN(a.dato) && a.dato.getTime() > naa)
-    .sort((a, b) => a.dato - b.dato)[0] || null;
-}
+  const totalt = mineLeads().length;
+  $("#listeSamandrag").textContent =
+    liste.length === totalt
+      ? `${totalt} saker`
+      : `${liste.length} av ${totalt} saker`;
 
-// ---------------------------------------------------------------------------
-// Leads: nøkkeltal og tabell
-// ---------------------------------------------------------------------------
-function teiknKpi(liste) {
-  const naa = Date.now();
-  const nye = liste.filter((l) => l.status === "ny").length;
-  const iArbeid = liste.filter((l) => vindexStatusOpen(l.status) && l.status !== "ny").length;
-  const forfalne = liste.filter((l) => {
-    const frist = tid(l.oppfolgingFrist);
-    return frist && frist.getTime() < naa && vindexStatusOpen(l.status);
-  }).length;
-  const solgt = liste.filter((l) => l.status === "solgt").length;
-
-  $("#kpiRad").innerHTML = [
-    { num: nye, label: "nye, ikke sett" },
-    { num: iArbeid, label: "i arbeid" },
-    { num: forfalne, label: "forfalt oppfølging" },
-    { num: solgt, label: "solgt" },
-  ]
-    .map((k) => `<div class="kpi"><div class="kpi-num">${k.num}</div><div class="kpi-label">${k.label}</div></div>`)
-    .join("");
-}
-
-function teiknTabell(liste) {
   if (!liste.length) {
-    $("#leadsRader").innerHTML = '<tr><td colspan="7" class="spinner">Ingen forespørsler her ennå.</td></tr>';
-    $("#leadDetalj").innerHTML = "";
+    $("#arbeidsliste").innerHTML = app.tempfilter || app.fylkefilter || $("#filterSok").value
+      ? '<p class="hint">Ingen saker passer på filteret. <button class="btn btn-ghost btn-sm" id="nullstillFilter">Nullstill</button></p>'
+      : '<p class="hint">Ingen forespørsler her ennå. Nye leads fra nettsiden dukker opp automatisk.</p>';
+    const nullstill = $("#nullstillFilter");
+    if (nullstill)
+      nullstill.addEventListener("click", () => {
+        app.tempfilter = null;
+        app.fylkefilter = null;
+        $("#filterSok").value = "";
+        $("#filterStatus").value = "";
+        $("#filterProdukt").value = "";
+        teikn();
+      });
+    if (app.valtLead) visDetalj(app.valtLead);
+    else $("#leadDetalj").innerHTML = "";
     return;
   }
-  const naa = Date.now();
-  $("#leadsRader").innerHTML = liste
+
+  $("#arbeidsliste").innerHTML = liste
     .map((l) => {
-      const frist = tid(l.oppfolgingFrist);
-      const forfalt = frist && frist.getTime() < naa && vindexStatusOpen(l.status);
-      const avtale = nesteAvtale(l);
+      const t = vindexTemperatur(l, naa);
       const k = l.kunde || {};
       const p = l.produkt || {};
-      return `<tr class="clickable ${forfalt ? "overdue" : ""}" data-id="${l.id}">
-        <td class="nowrap">${datoTekst(l.opprettet)}${l.kilde && l.kilde !== "nettside" ? `<br><span class="hint">${l.kilde}</span>` : ""}</td>
-        <td><strong>${k.navn || "–"}</strong><br><span class="hint">${k.telefon || ""}</span></td>
-        <td>${k.postnr || ""} ${k.poststed || ""}<br><span class="hint">${l.distriktNavn || ""}</span></td>
-        <td>${p.navn || "–"}<br><span class="hint">${p.mengde || ""} ${p.enhet === "m2" ? "m²" : p.enhet || ""}</span></td>
-        <td><span class="tag tag-${l.status}">${vindexStatusNavn(l.status)}</span></td>
-        <td class="nowrap">${avtale ? datoTekst(avtale.start) + '<br><span class="hint">' + (avtale.typeNavn || "") + "</span>" : "–"}</td>
-        <td class="nowrap">${frist ? datoTekst(frist) : "–"}${forfalt ? '<br><span class="hint" style="color:var(--bad)">forfalt</span>' : ""}</td>
-      </tr>`;
+      const avtale = nesteAvtale(l);
+      const bistand = l.bistand && l.bistand.status === "bedt"
+        ? '<span class="bistandsmerke" title="Bistand fra daglig leder er etterspurt">Bistand bedt</span>'
+        : "";
+      return `<button type="button" class="leadrad leadrad-${t.id} ${l.id === app.valtLead ? "valt" : ""}" data-id="${l.id}">
+        <span class="leadrad-namn">${k.navn || "Ukjent"}
+          <span class="leadrad-merke">${bistand}</span></span>
+        <span class="leadrad-stad">${k.poststed || ""}${k.telefon ? " · " + k.telefon : ""}</span>
+        <span class="leadrad-prod">${p.navn || "–"} · <span class="tag tag-${l.status}">${vindexStatusNavn(l.status)}</span></span>
+        <span class="leadrad-temp">${tempMerke(l, naa)}</span>
+        <span class="leadrad-tid">${avtale ? "📅 " + datoTekst(avtale.start) : vindexTemperaturTekst(t.timar)}</span>
+      </button>`;
     })
     .join("");
 
-  $$("#leadsRader tr.clickable").forEach((rad) =>
+  $$("#arbeidsliste .leadrad").forEach((rad) =>
     rad.addEventListener("click", () => opneLead(rad.dataset.id))
   );
 
-  if (app.valtLead && liste.some((l) => l.id === app.valtLead)) visDetalj(app.valtLead);
+  if (app.valtLead && app.leads.some((l) => l.id === app.valtLead)) visDetalj(app.valtLead);
   else $("#leadDetalj").innerHTML = "";
 }
 
 // ---------------------------------------------------------------------------
-// Lagring
+// Sidekolonna
 // ---------------------------------------------------------------------------
-/**
- * Skriv endringar på eit lead, med historikk.
- * I demomodus endrar vi berre i minnet — då er det ingen database å skrive til.
- */
-async function lagreLead(lead, endring, hendingar = []) {
-  const nyeLogg = hendingar.filter(Boolean).map((tekst) => ({
-    tid: new Date().toISOString(),
-    av: app.brukar.navn,
-    tekst,
-  }));
-  const full = { ...endring, logg: (lead.logg || []).concat(nyeLogg) };
+function teiknMinetal() {
+  const grunnlag = mineLeads();
+  const mineOrdrar = erAdmin()
+    ? app.ordrar
+    : app.ordrar.filter((o) => o.seljarId === app.brukar.uid);
+  const tal = vindexNokkeltal(grunnlag, mineOrdrar);
+  const naa = Date.now();
+  const fordeling = vindexTemperaturfordeling(grunnlag, naa);
+  const opne = tal.opne;
+  // «Innenfor døgnet» er den eine måltalet som speglar regelen om 24 timar.
+  // Gjenoppretting tel ikkje med: den er kontakta, men står framleis til
+  // gode hos kunden.
+  const iRute = fordeling.gron;
+  const prosentIRute = opne ? Math.round((iRute / opne) * 100) : 100;
+  const niva = prosentIRute >= 80 ? "god" : prosentIRute >= 50 ? "warn" : "bad";
 
-  if (!VINDEX_DEMOMODUS) {
-    await fb.updateDoc(fb.leadDoc(lead.id), { ...full, statusEndret: fb.serverTimestamp() });
-  }
-  Object.assign(lead, full, { statusEndret: new Date().toISOString() });
+  $("#minetal").innerHTML = `
+    <div class="panel-topp">
+      <h3>Mine tall</h3>
+      <span class="spacer"></span>
+      <span class="hint">${new Date().toLocaleDateString("nb-NO", { month: "long" })}</span>
+    </div>
+    <div class="kpi-row" style="grid-template-columns:repeat(2,1fr);margin-bottom:0.7rem">
+      <div class="kpi"><div class="kpi-num">${opne}</div><div class="kpi-label">åpne saker</div></div>
+      <div class="kpi"><div class="kpi-num">${tal.solgt}</div><div class="kpi-label">solgt</div></div>
+    </div>
+    <div class="malar">
+      <div class="malar-topp">
+        <span>Kontaktet siste døgn</span>
+        <strong class="tekst-${niva}">${prosentIRute} %</strong>
+      </div>
+      <div class="malar-spor"><span class="malar-fyll malar-${niva}" style="width:${prosentIRute}%"></span></div>
+      <p class="hint mb-0 mt-1">${iRute} av ${opne} åpne saker.
+        ${fordeling.raud ? `<strong class="tekst-bad">${fordeling.raud}</strong> har ventet over tre døgn.` : ""}</p>
+    </div>
+    <dl class="minitabell mt-1">
+      <dt>Median responstid</dt><dd>${vindexTimarTekst(tal.responstimar)}</dd>
+      <dt>Treffprosent</dt><dd>${tal.konvertering === null ? "–" : tal.konvertering + " %"}</dd>
+      <dt>Ordre i produksjon</dt><dd>${mineOrdrar.filter((o) => o.status === "i_produksjon").length}</dd>
+    </dl>`;
+}
+
+function teiknPaaminningar() {
+  const naa = new Date();
+  const grunnlag = mineLeads();
+  const avtalar = vindexAgenda(grunnlag, { fraDato: new Date(naa.getTime() - 3600000), dagarFram: 7 });
+  const forfalne = grunnlag
+    .filter((l) => {
+      const frist = tid(l.oppfolgingFrist);
+      return frist && frist.getTime() < naa.getTime() && vindexStatusOpen(l.status);
+    })
+    .sort((a, b) => tid(a.oppfolgingFrist) - tid(b.oppfolgingFrist));
+  const utgatte = grunnlag.filter((l) => vindexBorArkiverast(l, naa.getTime()));
+
+  const linje = (ikon, tekst, leadId) =>
+    `<li><button class="lenkeknapp" data-hopplead="${leadId}">${ikon} ${tekst}</button></li>`;
+
+  const deler = [];
+  if (avtalar.length)
+    deler.push(`<h4 class="mb-0 mt-1">Neste sju dager</h4>
+      <ul class="paaminn">${avtalar
+        .slice(0, 5)
+        .map((a) =>
+          linje(
+            "📅",
+            `<strong>${vindexAvtaleTid(a.start)}</strong> ${a.typeNavn || a.type} — ${(a.lead.kunde || {}).navn || ""}`,
+            a.lead.id
+          )
+        )
+        .join("")}</ul>`);
+  if (forfalne.length)
+    deler.push(`<h4 class="mb-0 mt-1">Forfalt oppfølging</h4>
+      <ul class="paaminn">${forfalne
+        .slice(0, 5)
+        .map((l) => linje("⏰", `${(l.kunde || {}).navn || "Ukjent"} — frist ${datoTekst(l.oppfolgingFrist)}`, l.id))
+        .join("")}</ul>`);
+  if (utgatte.length)
+    deler.push(`<h4 class="mb-0 mt-1">Foreslått arkivert</h4>
+      <p class="hint mb-0">${utgatte.length} sak${utgatte.length === 1 ? "" : "er"} har ligget over
+        ${VINDEX_DAGAR_UTGATT} dager uten kontakt.</p>
+      <ul class="paaminn">${utgatte
+        .slice(0, 3)
+        .map((l) => linje("📦", `${(l.kunde || {}).navn || "Ukjent"}`, l.id))
+        .join("")}</ul>`);
+
+  $("#paaminningar").innerHTML =
+    `<div class="panel-topp"><h3>Påminnelser</h3></div>` +
+    (deler.length ? deler.join("") : '<p class="hint mb-0">Ingenting forfaller. Fint jobbet.</p>');
+
+  $$("#paaminningar [data-hopplead]").forEach((b) =>
+    b.addEventListener("click", () => opneLead(b.dataset.hopplead))
+  );
 }
 
 /**
- * Kort tilbakemelding til seljaren.
+ * Pallen.
  *
- * Toasten ligg fast nedst i skjermen i staden for inne i panelet. Det er ikkje
- * berre kosmetikk: ei melding som blir sett inn i flyten dyttar alt under seg
- * nedover, og då flyttar knappen brukaren var i ferd med å trykke på seg.
+ * Høgda på sokkelen tyder plassering, ikkje mengde — omsetninga står som tal
+ * ved sida av. Blandar vi dei to, blir grafikken ei løgn om avstanden mellom
+ * første og andre plass.
  */
-let toastTimer = null;
-function melding(tekst, type = "good") {
-  const el = $("#toast");
-  if (!el) return;
-  el.className = "toast notice notice-" + type;
-  el.textContent = tekst;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.add("hidden"), 4000);
+function teiknPall() {
+  // vindexPerSeljar gir { seljar, tal } — pakk ut til noko pallen kan lese.
+  const rader = vindexPerSeljar(
+    app.seljarar.filter((s) => s.rolle !== "lager"),
+    app.leads.filter((l) => !l.arkivert),
+    app.ordrar
+  )
+    .map((r) => ({ id: r.seljar.id, navn: r.seljar.navn, solgt: r.tal.solgt, verdi: r.tal.ordreverdi || 0 }))
+    .sort((a, b) => b.solgt - a.solgt || b.verdi - a.verdi);
+
+  const topp = rader.slice(0, 3);
+  if (!topp.length || !topp[0].solgt) {
+    $("#pall").innerHTML = `<div class="panel-topp"><h3>Topplisten</h3></div>
+      <p class="hint mb-0">Ingen salg registrert ennå i år.</p>`;
+    return;
+  }
+
+  const medalje = ["🥇", "🥈", "🥉"];
+  // Sølv, gull, bronse — pallen skal stå med den høgste i midten.
+  const oppstilling = [topp[1], topp[0], topp[2]].filter(Boolean);
+  const minPlass = rader.findIndex((r) => r.id === app.brukar.uid);
+  const eg = minPlass >= 0 ? rader[minPlass] : null;
+
+  $("#pall").innerHTML = `
+    <div class="panel-topp">
+      <h3>Topplisten</h3>
+      <span class="spacer"></span>
+      <span class="hint">antall salg i år</span>
+    </div>
+    <div class="pall">
+      ${oppstilling
+        .map((r) => {
+          const plass = topp.indexOf(r) + 1;
+          return `<div class="pall-plass pall-${plass} ${r.id === app.brukar.uid ? "meg" : ""}">
+            <span class="pall-medalje" role="img" aria-label="${plass}. plass">${medalje[plass - 1]}</span>
+            <span class="pall-namn">${r.navn}</span>
+            <span class="pall-tal">${r.solgt} salg</span>
+            <div class="pall-sokkel">${plass}</div>
+          </div>`;
+        })
+        .join("")}
+    </div>
+    ${
+      eg && minPlass > 2
+        ? `<p class="pall-eg mb-0">Du er nummer <strong>${minPlass + 1}</strong> av ${rader.length}
+             med ${eg.solgt} salg.${
+               rader[minPlass - 1] && rader[minPlass - 1].solgt > eg.solgt
+                 ? ` ${rader[minPlass - 1].solgt - eg.solgt} salg opp til ${rader[minPlass - 1].navn}.`
+                 : ""
+             }</p>`
+        : eg
+        ? `<p class="pall-eg mb-0">Du står på pallen. Hold plassen.</p>`
+        : ""
+    }`;
 }
+
+function teiknTips() {
+  const t = vindexDagensTips();
+  $("#dagensTips").innerHTML = `
+    <p class="tips-merke">Dagens salgstips</p>
+    <h3>${t.tittel}</h3>
+    <p>${t.tekst}</p>`;
+}
+
+// ---------------------------------------------------------------------------
+// Arkivet
+// ---------------------------------------------------------------------------
+function teiknArkiv() {
+  const sok = $("#arkivSok").value.trim().toLowerCase();
+  const liste = app.leads
+    .filter((l) => l.arkivert)
+    .filter((l) => (erAdmin() ? true : l.seljarId === app.brukar.uid))
+    .filter((l) => {
+      if (!sok) return true;
+      const k = l.kunde || {};
+      return [k.navn, k.poststed, k.telefon, (l.arkiv || {}).notat, vindexArkivgrunnNavn((l.arkiv || {}).grunn)]
+        .join(" ").toLowerCase().includes(sok);
+    })
+    .sort((a, b) => new Date((b.arkiv || {}).tid || 0) - new Date((a.arkiv || {}).tid || 0));
+
+  if (!liste.length) {
+    $("#arkivListe").innerHTML = sok
+      ? '<p class="hint">Ingen treff i arkivet.</p>'
+      : '<p class="hint">Arkivet er tomt. Saker du avslutter havner her med begrunnelsen din.</p>';
+    return;
+  }
+
+  $("#arkivListe").innerHTML = liste
+    .map((l) => {
+      const k = l.kunde || {};
+      const a = l.arkiv || {};
+      return `<div class="arkivrad">
+        <span><strong>${k.navn || "Ukjent"}</strong>
+          <span class="hint">· ${k.poststed || ""} · ${(l.produkt || {}).navn || ""}
+          · arkivert ${datoTekst(a.tid)} av ${a.av || "–"}</span></span>
+        <span class="btn-row no-print">
+          <span class="tag tag-muted">${vindexArkivgrunnNavn(a.grunn)}</span>
+          <button class="btn btn-ghost btn-sm" data-hent="${l.id}">Hent tilbake</button>
+        </span>
+        ${a.notat ? `<span class="grunngiving">«${a.notat}»</span>` : ""}
+      </div>`;
+    })
+    .join("");
+
+  $$("#arkivListe [data-hent]").forEach((b) =>
+    b.addEventListener("click", () => hentFraArkiv(b.dataset.hent))
+  );
+}
+
+async function hentFraArkiv(id) {
+  const lead = app.leads.find((l) => l.id === id);
+  if (!lead) return;
+  await lagreLead(lead, { arkivert: false, status: "oppfulgt" }, [
+    "Hentet tilbake fra arkivet.",
+  ]);
+  app.valtLead = id;
+  teikn();
+  melding("Saken er tilbake i arbeidslista.");
+  $("#seksjonLeads").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function opneArkiver(lead) {
+  opneModal(
+    "Arkiver saken",
+    `<p class="hint">Skriv en kort begrunnelse til deg selv. Den er ikke noe kunden ser —
+       den er der for at du skal forstå saken hvis den dukker opp igjen om et år.</p>
+     <div class="field">
+       <label for="arGrunn">Hva skjedde?</label>
+       <select id="arGrunn">
+         ${VINDEX_ARKIVGRUNNAR.map((g) => `<option value="${g.id}">${g.navn}</option>`).join("")}
+       </select>
+     </div>
+     <div class="field">
+       <label for="arNotat">Kort begrunnelse</label>
+       <textarea id="arNotat" style="min-height:80px"
+         placeholder="F.eks.: Ville ha svart aluminium, det leverer vi ikke."></textarea>
+     </div>
+     <p class="field-error hidden" id="arFeil">Skriv en kort begrunnelse først.</p>`,
+    `<button class="btn btn-ghost" id="arAvbryt">Avbryt</button>
+     <button class="btn btn-accent" id="arLagre">Arkiver</button>`
+  );
+
+  $("#arAvbryt").addEventListener("click", lukkModal);
+  $("#arLagre").addEventListener("click", async () => {
+    const notat = $("#arNotat").value.trim();
+    if (notat.length < 3) {
+      $("#arFeil").classList.remove("hidden");
+      return;
+    }
+    const grunn = $("#arGrunn").value;
+    await lagreLead(
+      lead,
+      {
+        arkivert: true,
+        // Ei sak som blir arkivert utan at kunden sa nei, er utgått — ikkje
+        // avslått. Skilnaden betyr noko i statistikken.
+        status: grunn === "avslag" ? "avslatt" : lead.status,
+        arkiv: { grunn, notat, tid: new Date().toISOString(), av: app.brukar.navn },
+      },
+      [`Arkivert (${vindexArkivgrunnNavn(grunn)}): ${notat}`]
+    );
+    lukkModal();
+    app.valtLead = null;
+    teikn();
+    melding("Saken er arkivert.");
+  });
+}
+
 
 // ---------------------------------------------------------------------------
 // Detaljpanel
@@ -669,6 +631,8 @@ function visDetalj(id) {
     : "";
 
   const t = l.tilbud || {};
+  const temp = vindexTemperatur(l);
+  const rekna = vindexRegnTilbod(t);
   const avtaleListe = (l.avtaler || [])
     .slice()
     .sort((a, b) => new Date(a.start) - new Date(b.start))
@@ -700,6 +664,49 @@ function visDetalj(id) {
         </div>
       </div>
 
+      <!-- Temperaturen står øvst fordi den er det første seljaren treng å
+           vite: haster denne, eller kan den vente til i morgon? -->
+      <div class="temp-linje">
+        ${tempMerke(l)}
+        <span class="hint">${
+          temp.sisteKontakt
+            ? "Sist kontakt for " + vindexTemperaturTekst(temp.timar) + " siden"
+            : "Aldri kontaktet — mottatt for " + vindexTemperaturTekst(temp.timar) + " siden"
+        }${temp.brote && temp.id !== "avslutta" ? " · har passert 72 timer" : ""}</span>
+        <span class="spacer"></span>
+        <span class="btn-row no-print">
+          ${
+            l.bistand && l.bistand.status === "bedt"
+              ? `<span class="bistandsmerke">Bistand bedt ${datoTekst(l.bistand.bedt)}</span>`
+              : l.bistand
+              ? `<span class="bistandsmerke svart">Besvart av daglig leder</span>`
+              : `<button class="btn btn-ghost btn-sm" id="bedBistand">Involver daglig leder</button>`
+          }
+          ${l.arkivert ? "" : '<button class="btn btn-ghost btn-sm" id="arkiverLead">Arkiver</button>'}
+        </span>
+      </div>
+      ${
+        l.bistand
+          ? `<div class="notice notice-info mt-1">
+               <strong>${vindexBistandNavn(l.bistand.sak)}</strong> — bedt av ${l.bistand.av}
+               ${datoTekst(l.bistand.bedt)}.<br>«${l.bistand.beskrivelse}»
+               ${l.bistand.svar ? `<br><strong>Svar fra ${l.bistand.svarAv}:</strong> ${l.bistand.svar}` : ""}
+               ${
+                 erAdmin() && l.bistand.status === "bedt"
+                   ? '<div class="btn-row mt-1 no-print"><button class="btn btn-sm" id="svarBistand">Svar</button></div>'
+                   : ""
+               }
+             </div>`
+          : ""
+      }
+      ${
+        l.arkivert
+          ? `<div class="notice notice-warn mt-1"><strong>Arkivert</strong>
+               ${datoTekst((l.arkiv || {}).tid)} — ${vindexArkivgrunnNavn((l.arkiv || {}).grunn)}.
+               ${(l.arkiv || {}).notat ? "«" + l.arkiv.notat + "»" : ""}</div>`
+          : ""
+      }
+
       <div class="statusknappar no-print">
         ${VINDEX_STATUSAR.map(
           (s) => `<button class="statusknapp ${s.id === l.status ? "aktiv" : ""} ${s.id === "solgt" ? "solgt" : ""} ${s.id === "avslatt" ? "avslag" : ""}"
@@ -719,21 +726,32 @@ function visDetalj(id) {
       </dl>
 
       <h3>Tilbud</h3>
-      <div class="feltrutenett">
-        <div class="field"><label for="tilbudSum">Tilbudssum (kr)</label>
-          <input id="tilbudSum" type="number" min="0" step="100" value="${t.sum || ""}"></div>
-        <div class="field"><label for="tilbudRabattP">Rabatt (%)</label>
-          <input id="tilbudRabattP" type="number" min="0" max="100" step="1" value="${t.rabattProsent || ""}"></div>
-        <div class="field"><label for="tilbudRabattKr">Rabatt (kr)</label>
-          <input id="tilbudRabattKr" type="number" min="0" step="100" value="${t.rabattKr || ""}"></div>
-        <div class="field"><label for="tilbudGyldig">Gyldig til</label>
-          <input id="tilbudGyldig" type="date" value="${t.gyldigTil || ""}"></div>
-        <div class="field brei"><label for="tilbudNotat">Notat på tilbudet</label>
-          <input id="tilbudNotat" value="${(t.notat || "").replace(/"/g, "&quot;")}"></div>
-      </div>
+      ${
+        rekna.gyldig
+          ? `<div class="notice ${t.deltMedKunde ? "notice-good" : "notice-info"}">
+               <strong>${kr(rekna.sum)}</strong>${rekna.harFastpris ? " (fast prosjektpris)" : ""}
+               · ${rekna.linjer.filter((x) => x.navn).length} linjer
+               · ${
+                 t.deltMedKunde
+                   ? "delt med kunden " + datoTekst(t.deltMedKunde)
+                   : "<strong>ikke delt med kunden ennå</strong>"
+               }${t.gyldigTil ? " · gyldig til " + t.gyldigTil : ""}
+             </div>`
+          : '<p class="hint">Ingen deleliste satt opp ennå. Sett den opp, så regner verktøyet ut tilbudet.</p>'
+      }
       <div class="btn-row mt-1 no-print">
-        <button class="btn btn-sm" id="lagreTilbud">Registrer tilbud sendt</button>
-        ${t.dato ? `<span class="hint">Sist registrert ${datoTekst(t.dato)}${t.sum ? " · " + kr(t.sum) : ""}</span>` : ""}
+        <button class="btn btn-sm" id="opneTilbod">${rekna.gyldig ? "Rediger tilbudet" : "Sett opp deleliste"}</button>
+        ${rekna.gyldig ? '<button class="btn btn-ghost btn-sm" id="visTilbod">Vis tilbudet</button>' : ""}
+        ${
+          rekna.gyldig && !t.deltMedKunde
+            ? '<button class="btn btn-accent btn-sm" id="delTilbod">Del med kunden</button>'
+            : ""
+        }
+        ${
+          rekna.gyldig && t.deltMedKunde && l.status !== "solgt"
+            ? '<button class="btn btn-accent btn-sm" id="akseptTilbod">Kunden aksepterte → ordreseddel</button>'
+            : ""
+        }
       </div>
 
       <h3 class="mt-2">Avtaler</h3>
@@ -799,9 +817,21 @@ function koplaDetalj(l) {
   // vi berre lyttar på klikket og oppdaterer statusen i bakgrunnen.
   const kontakt = async (kanal) => {
     const ny = vindexLoftStatus(l.status, "kontaktet");
-    await lagreLead(l, ny !== l.status ? { status: ny } : {}, [`Kontaktet kunden på ${kanal}.`]);
+    // sisteKontakt er det temperaturen reknar frå. Utan dette ville klokka
+    // halde fram å gå frå den dagen leadet kom inn, uansett kor mange gonger
+    // seljaren hadde ringt.
+    const foer = vindexTemperatur(l);
+    await lagreLead(
+      l,
+      { ...(ny !== l.status ? { status: ny } : {}), sisteKontakt: new Date().toISOString() },
+      [`Kontaktet kunden på ${kanal}.`]
+    );
     teikn();
-    melding("Registrert som kontaktet.");
+    melding(
+      foer.brote
+        ? "Registrert. Saken står som gjenoppretting til den er avgjort."
+        : "Registrert som kontaktet."
+    );
   };
   const ring = $("#ringKunde");
   if (ring) ring.addEventListener("click", () => kontakt("telefon"));
@@ -828,29 +858,20 @@ function koplaDetalj(l) {
     })
   );
 
-  const lagreTilbud = $("#lagreTilbud");
-  if (lagreTilbud)
-    lagreTilbud.addEventListener("click", async () => {
-      const sum = parseFloat($("#tilbudSum").value) || 0;
-      if (!sum) return melding("Fyll inn tilbudssummen først.", "warn");
-      const rabattP = parseFloat($("#tilbudRabattP").value) || 0;
-      const rabattKr = parseFloat($("#tilbudRabattKr").value) || Math.round((sum * rabattP) / 100);
-      const tilbud = {
-        sum,
-        rabattProsent: rabattP,
-        rabattKr,
-        gyldigTil: $("#tilbudGyldig").value || "",
-        notat: $("#tilbudNotat").value.trim(),
-        dato: new Date().toISOString(),
-        av: app.brukar.navn,
-      };
-      const ny = vindexLoftStatus(l.status, "tilbud_sendt");
-      await lagreLead(l, { tilbud, status: ny }, [
-        `Tilbud sendt: ${kr(sum)}${rabattKr ? ` (rabatt ${kr(rabattKr)}${rabattP ? " / " + rabattP + " %" : ""})` : ""}${tilbud.gyldigTil ? ", gyldig til " + tilbud.gyldigTil : ""}.`,
-      ]);
-      teikn();
-      melding("Tilbudet er registrert.");
-    });
+  // Tilbodet blir bygd i sin eigen dialog, ikkje som fem felt inne i panelet.
+  // Delelista treng plass, og seljaren skal sjå summen bygge seg opp.
+  const knapp = (id, handling) => {
+    const el = $("#" + id);
+    if (el) el.addEventListener("click", handling);
+  };
+  knapp("opneTilbod", () => opneTilbod(l));
+  knapp("visTilbod", () => visTilbodsvindu(l));
+  knapp("delTilbod", () => delTilbod(l));
+  knapp("akseptTilbod", () => akseptertTilbod(l));
+  knapp("bedBistand", () => opneBistand(l));
+  knapp("svarBistand", () => opneBistandssvar(l));
+  knapp("arkiverLead", () => opneArkiver(l));
+
 
   const lagreAvtale = $("#lagreAvtale");
   if (lagreAvtale)
@@ -869,7 +890,10 @@ function koplaDetalj(l) {
         notat: $("#avtaleNotat").value.trim(),
         opprettaAv: app.brukar.navn,
       };
-      await lagreLead(l, { avtaler: (l.avtaler || []).concat([avtale]) }, [
+      await lagreLead(l, {
+        avtaler: (l.avtaler || []).concat([avtale]),
+        sisteKontakt: new Date().toISOString(),
+      }, [
         `${avtale.typeNavn} avtalt ${vindexAvtaleTid(avtale.start)}${avtale.stad ? " — " + avtale.stad : ""}.`,
       ]);
       // Last ned avtalen med ein gong, så den hamnar i telefonkalenderen.
@@ -912,32 +936,6 @@ function koplaDetalj(l) {
     })
   );
 }
-
-// ---------------------------------------------------------------------------
-// Dialog
-// ---------------------------------------------------------------------------
-function opneModal(tittel, innhald, botn) {
-  $("#modalTittel").textContent = tittel;
-  $("#modalInnhald").innerHTML = innhald;
-  $("#modalBotn").innerHTML = botn || "";
-  // Dialogen blir gjenbrukt, så rulleposisjonen frå førre innhald heng igjen.
-  // Utan dette kan bekreftelsesdialogen opne seg rulla forbi åtvaringa øvst.
-  $("#modalInnhald").scrollTop = 0;
-  $("#modal").scrollTop = 0;
-  $("#modal").classList.remove("hidden");
-  document.body.style.overflow = "hidden";
-}
-function lukkModal() {
-  $("#modal").classList.add("hidden");
-  document.body.style.overflow = "";
-}
-$("#modalLukk").addEventListener("click", lukkModal);
-$("#modal").addEventListener("click", (e) => {
-  if (e.target.id === "modal") lukkModal();
-});
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !$("#modal").classList.contains("hidden")) lukkModal();
-});
 
 // ---------------------------------------------------------------------------
 // Nytt lead — manuell registrering
@@ -1060,6 +1058,13 @@ async function lagreNyttLead() {
       lead.id = "manuell-" + Date.now();
       lead.opprettet = new Date().toISOString();
       app.leads.unshift(lead);
+      // Manuelt registrerte leads har alltid overlevd sidelastinga i demoen.
+      // Her blir dei berre lagra på same stad som før.
+      try {
+        const lagra = JSON.parse(localStorage.getItem("vindex_demo_leads") || "[]");
+        lagra.unshift(lead);
+        localStorage.setItem("vindex_demo_leads", JSON.stringify(lagra));
+      } catch (e) { /* fullt eller privat vindauge */ }
     } else {
       const ref = await fb.addDoc(fb.leadsCol(), {
         ...lead,
@@ -1071,7 +1076,6 @@ async function lagreNyttLead() {
       app.leads.unshift(lead);
     }
     lukkModal();
-    app.visning = seljarId === app.brukar.uid || !erAdmin() ? "mine" : "alle";
     app.valtLead = lead.id;
     teikn();
   } catch (err) {
@@ -1297,6 +1301,7 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
       ordre.id = (eksisterande && eksisterande.id) || "ordre-" + Date.now();
       ordre.opprettet = new Date().toISOString();
       app.ordrar = app.ordrar.filter((o) => o.id !== ordre.id).concat([ordre]);
+      demoLagreOrdre(ordre);
     } else if (eksisterande) {
       await fb.updateDoc(fb.orderDoc(eksisterande.id), ordre);
       ordre.id = eksisterande.id;
@@ -1316,7 +1321,6 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
     ]);
 
     lukkModal();
-    app.visning = "ordre";
     teikn();
   } catch (err) {
     console.error(err);
@@ -1388,7 +1392,6 @@ function teiknAgenda() {
   );
   $$("#agenda [data-agenda-lead]").forEach((b) =>
     b.addEventListener("click", () => {
-      app.visning = erAdmin() ? "alle" : "mine";
       opneLead(b.dataset.agendaLead);
     })
   );
@@ -1449,7 +1452,6 @@ function koplaOrdrekort(rot) {
   );
   $$(rot + " [data-ordrelead]").forEach((b) =>
     b.addEventListener("click", () => {
-      app.visning = erAdmin() ? "alle" : "mine";
       opneLead(b.dataset.ordrelead);
     })
   );
@@ -1482,107 +1484,6 @@ function teiknPlukk() {
 // Admin: seljarar og distrikt
 // ---------------------------------------------------------------------------
 /** Eitt kort per person i apparatet, med distrikta som kan hakast av. */
-function apparatKort(s) {
-  const kontakt = [s.telefon, s.epost].filter(Boolean).join(" · ");
-  const fjor = s.y2024
-    ? `<p class="hint mb-0">${VINDEX_FJOR.aar}: <strong>${kr(s.y2024)}</strong></p>`
-    : "";
-
-  // Berre seljarar og forhandlarar eig distrikt. Hovudkontor og lager har
-  // brukar i verktøyet, men får ikkje leads tildelt — då er avkryssingslista
-  // berre villeiande.
-  if (s.rolle !== "selger") {
-    return `<div class="card">
-      <h3 class="mt-0">${s.navn}</h3>
-      <p class="hint">${kontakt || "Ingen kontaktinfo"}</p>
-      <p class="hint mb-0">${s.rolle === "lager"
-        ? "Lagerbrukere får ikke tildelt leads."
-        : "Administrator ser alt, men står ikke i fordelingen."}</p>
-    </div>`;
-  }
-
-  return `<div class="card">
-    <div class="detail-head">
-      <div>
-        <h3 class="mt-0 mb-0">${s.navn}</h3>
-        <p class="hint mb-0">${s.sted ? s.sted : "Sted ikke oppgitt"}${kontakt ? " · " + kontakt : ""}</p>
-      </div>
-      ${s.aktiv === false ? '<span class="tag tag-muted">Inaktiv</span>' : ""}
-    </div>
-    ${fjor}
-    <div class="field mt-1">
-      <span class="field-label">Distrikt${(s.distrikt || []).length ? "" : " — ingen valgt"}</span>
-      ${VINDEX_DISTRIKT.map(
-        (d) => `<label style="display:flex;gap:0.5rem;align-items:center;font-weight:500;font-size:0.9rem;padding:0.12rem 0">
-          <input type="checkbox" data-seljar="${s.id}" value="${d.id}" style="width:auto"
-            ${(s.distrikt || []).includes(d.id) ? "checked" : ""}>
-          ${d.navn}
-        </label>`
-      ).join("")}
-    </div>
-    <button class="btn btn-sm" data-lagre="${s.id}">Lagre distrikt</button>
-    <span class="hint" data-melding="${s.id}"></span>
-  </div>`;
-}
-
-function teiknAdmin() {
-  // Apparatet er to ulike ting: eigne seljarar og eksterne forhandlarar. Dei
-  // blir rutet likt, men det er ulike samtalar å ha med dei — difor to lister.
-  const forhandlarar = app.seljarar.filter((s) => s.type === "forhandler");
-  const seljarar = app.seljarar.filter((s) => s.type !== "forhandler" && s.rolle === "selger");
-  // Hovudkontor og lager har brukar i verktøyet, men er ikkje eit distrikt.
-  const andre = app.seljarar.filter((s) => s.type !== "forhandler" && s.rolle !== "selger");
-
-  const sum = (liste) => liste.reduce((n, s) => n + (s.y2024 || 0), 0);
-  const bolk = (tittel, liste, hjelp) => {
-    if (!liste.length) return "";
-    const total = sum(liste);
-    return `<div class="apparatbolk">
-      <div class="detail-head">
-        <h3 class="mt-0 mb-0">${tittel} <span class="tag tag-muted">${liste.length}</span></h3>
-        <span class="hint">${hjelp}${total ? ` · ${VINDEX_FJOR.aar}: ${kr(total)}` : ""}</span>
-      </div>
-      <div class="grid grid-2 mt-1">${liste.map(apparatKort).join("")}</div>
-    </div>`;
-  };
-
-  $("#seljarListe").innerHTML =
-    bolk("Selgere", seljarar, "Egne selgere") +
-    bolk("Forhandlere", forhandlarar, "Eksterne, selger på egne vegne") +
-    bolk("Andre brukere", andre, "Lager og intern");
-
-  $$("[data-lagre]").forEach((knapp) =>
-    knapp.addEventListener("click", () => lagreDistrikt(knapp.dataset.lagre))
-  );
-
-  const dekt = new Set(app.seljarar.flatMap((s) => s.distrikt || []));
-  const udekt = VINDEX_DISTRIKT.filter((d) => !dekt.has(d.id));
-  $("#dekningVarsel").innerHTML = udekt.length
-    ? `<strong>Uten selger:</strong> ${udekt.map((d) => d.navn).join(", ")}.
-       Forespørsler herfra havner i felles innboks og må fordeles manuelt.`
-    : "<strong>Hele landet er dekket.</strong> Alle forespørsler blir tildelt automatisk.";
-}
-
-async function lagreDistrikt(seljarId) {
-  const valde = $$(`[data-seljar="${seljarId}"]:checked`).map((i) => i.value);
-  const seljar = app.seljarar.find((s) => s.id === seljarId);
-  const melding = document.querySelector(`[data-melding="${seljarId}"]`);
-  melding.textContent = "Lagrer …";
-  seljar.distrikt = valde;
-  try {
-    if (!VINDEX_DEMOMODUS) {
-      await fb.updateDoc(fb.sellerDoc(seljarId), { distrikt: valde });
-      await byggRuting();
-    }
-    teiknAdmin();
-    const ny = document.querySelector(`[data-melding="${seljarId}"]`);
-    if (ny) ny.textContent = VINDEX_DEMOMODUS ? "Lagret (demo)" : "Lagret";
-  } catch (err) {
-    console.error(err);
-    melding.textContent = "Kunne ikke lagre.";
-  }
-}
-
 /**
  * Skriv om den offentlege rutingtabellen (settings/ruting).
  *
@@ -1688,23 +1589,452 @@ function konfetti() {
  * Det er dette som gjer produksjonskøen reelt live: legg ein kollega inn ein
  * ordre, flyttar køtalet seg her med det same.
  */
-function lyttLive() {
-  if (VINDEX_DEMOMODUS) return;
-  const alt = erAdmin() || erLager();
+// Tilbod bygd på ei deleliste
+// ---------------------------------------------------------------------------
+// Seljaren set opp linjene sjølv. Summen blir rekna ut medan han skriv, og kan
+// overstyrast med ein fast prosjektpris — då blir linjene ståande som
+// spesifikasjon, og differansen vist som avslag i staden for å bli gøymd.
+//
+// Ingenting av dette når kunden før seljaren trykker «Del med kunden». Eit
+// halvferdig tilbod skal kunne ligge og modne.
 
-  const leadQ = alt
-    ? fb.query(fb.leadsCol(), fb.orderBy("opprettet", "desc"), fb.limit(500))
-    : fb.query(fb.leadsCol(), fb.where("seljarId", "==", app.brukar.uid), fb.orderBy("opprettet", "desc"), fb.limit(300));
-  fb.onSnapshot(leadQ, (snap) => {
-    app.leads = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    teikn();
+/** Utkastet som blir redigert i dialogen. Held seg mellom omteikningane. */
+let tilbodsutkast = null;
+
+function opneTilbod(lead) {
+  const t = lead.tilbud || {};
+  tilbodsutkast = {
+    linjer: (t.linjer && t.linjer.length ? t.linjer : [vindexTomTilbodslinje()]).map((l) => ({ ...l })),
+    rabattProsent: t.rabattProsent || "",
+    rabattKr: t.rabattKr || "",
+    fastpris: t.fastpris || "",
+    gyldigTil: t.gyldigTil || "",
+    notat: t.notat || "",
+  };
+  teiknTilbodsdialog(lead);
+}
+
+function teiknTilbodsdialog(lead) {
+  const u = tilbodsutkast;
+  const r = vindexRegnTilbod(u);
+
+  const rader = u.linjer
+    .map(
+      (linje, i) => `<tr data-linje="${i}">
+        <td><input data-felt="navn" value="${(linje.navn || "").replace(/"/g, "&quot;")}"
+              placeholder="F.eks. Rekkverk VBC 1000 mm"></td>
+        <td style="width:5.5rem"><input data-felt="antall" type="number" min="0" step="0.5" value="${linje.antall}"></td>
+        <td style="width:6rem"><select data-felt="enhet">${VINDEX_TILBODSENHETAR.map(
+          (e) => `<option value="${e}"${e === linje.enhet ? " selected" : ""}>${e}</option>`
+        ).join("")}</select></td>
+        <td style="width:7rem"><input data-felt="enhetspris" type="number" min="0" step="10" value="${linje.enhetspris}"></td>
+        <td class="tal linjesum">${kr(r.linjer[i].sum)}</td>
+        <td style="width:2.5rem"><button class="btn btn-ghost btn-sm" data-slett="${i}"
+              aria-label="Slett linjen">✕</button></td>
+      </tr>`
+    )
+    .join("");
+
+  const innhald = `
+    <div id="tilbodsskjema">
+    <p class="hint">Prisene finnes bare her, aldri på nettsiden. Kunden ser ingenting
+      før du deler tilbudet.</p>
+    <div class="table-scroll" style="border:none">
+      <table class="linjer">
+        <thead><tr>
+          <th>Hva</th><th class="tal">Antall</th><th>Enhet</th>
+          <th class="tal">Pris per enhet</th><th class="tal">Sum</th><th></th>
+        </tr></thead>
+        <tbody id="tilbodsrader">${rader}</tbody>
+      </table>
+    </div>
+    <div class="btn-row mt-1">
+      <button class="btn btn-ghost btn-sm" id="tbNyLinje">+ Legg til linje</button>
+    </div>
+
+    <div class="feltrutenett mt-2">
+      <div class="field"><label for="tbRabattP">Rabatt (%)</label>
+        <input id="tbRabattP" type="number" min="0" max="100" step="1" value="${u.rabattProsent}"></div>
+      <div class="field"><label for="tbRabattKr">Rabatt (kr)</label>
+        <input id="tbRabattKr" type="number" min="0" step="100" value="${u.rabattKr}"
+          placeholder="${r.rabattProsent ? Math.round((r.linjesum * r.rabattProsent) / 100) : ""}"></div>
+      <div class="field"><label for="tbFastpris">Fast pris for hele prosjektet (kr)</label>
+        <input id="tbFastpris" type="number" min="0" step="100" value="${u.fastpris}">
+        <p class="hint">Fylles denne ut, overstyrer den summen av linjene.</p></div>
+      <div class="field"><label for="tbGyldig">Gyldig til</label>
+        <input id="tbGyldig" type="date" value="${u.gyldigTil}"></div>
+      <div class="field brei"><label for="tbNotat">Notat til kunden</label>
+        <textarea id="tbNotat" style="min-height:60px"
+          placeholder="Leveringstid, forbehold, hva som er inkludert …">${u.notat || ""}</textarea></div>
+    </div>
+
+    <div class="tilbodsum">
+      <div><span>Sum linjer</span><span class="linjesum">${kr(r.linjesum)}</span></div>
+      ${r.rabattKr ? `<div><span>Rabatt${r.rabattProsent ? " (" + r.rabattProsent + " %)" : ""}</span><span class="linjesum">− ${kr(r.rabattKr)}</span></div>` : ""}
+      ${
+        r.harFastpris
+          ? `<div class="avvik"><span>Fast prosjektpris i stedet for ${kr(r.etterRabatt)}</span>
+               <span class="linjesum">${r.avvik > 0 ? "− " + kr(r.avvik) : r.avvik < 0 ? "+ " + kr(-r.avvik) : "±0"}</span></div>`
+          : ""
+      }
+      <div class="total"><span>Til kunden</span><span class="linjesum">${kr(r.sum)}</span></div>
+    </div>
+    <p class="hint mt-1">Alle priser eks. mva.</p>
+    </div>`;
+
+  opneModal(
+    "Tilbud til " + ((lead.kunde || {}).navn || "kunden"),
+    innhald,
+    `<span class="spacer hint">${
+      (lead.tilbud || {}).deltMedKunde ? "Delt med kunden " + datoTekst(lead.tilbud.deltMedKunde) : "Ikke delt med kunden"
+    }</span>
+     <button class="btn btn-ghost" id="tbAvbryt">Avbryt</button>
+     <button class="btn btn-accent" id="tbLagre">Lagre tilbudet</button>`
+  );
+
+  // Les alt inn i utkastet og teikn på nytt, så summen følgjer med medan
+  // seljaren skriv. Fokuset blir sett tilbake der han var.
+  const les = () => {
+    $$("#tilbodsrader tr").forEach((rad, i) => {
+      rad.querySelectorAll("[data-felt]").forEach((felt) => {
+        const verdi = felt.value;
+        u.linjer[i][felt.dataset.felt] =
+          felt.dataset.felt === "antall" || felt.dataset.felt === "enhetspris"
+            ? verdi === "" ? "" : parseFloat(verdi)
+            : verdi;
+      });
+    });
+    const verdiAv = (id) => {
+      const el = $(id);
+      return el ? el.value : "";
+    };
+    u.rabattProsent = verdiAv("#tbRabattP");
+    u.rabattKr = verdiAv("#tbRabattKr");
+    u.fastpris = verdiAv("#tbFastpris");
+    u.gyldigTil = verdiAv("#tbGyldig");
+    u.notat = verdiAv("#tbNotat");
+  };
+
+  const teiknPaaNytt = () => {
+    const aktiv = document.activeElement;
+    const merke = aktiv && aktiv.closest("tr[data-linje]")
+      ? { linje: aktiv.closest("tr[data-linje]").dataset.linje, felt: aktiv.dataset.felt }
+      : aktiv && aktiv.id
+      ? { id: aktiv.id }
+      : null;
+    teiknTilbodsdialog(lead);
+    if (!merke) return;
+    const attende = merke.id
+      ? document.getElementById(merke.id)
+      : document.querySelector(`tr[data-linje="${merke.linje}"] [data-felt="${merke.felt}"]`);
+    if (attende) {
+      attende.focus();
+      if (attende.setSelectionRange && attende.type !== "number" && attende.type !== "date")
+        attende.setSelectionRange(attende.value.length, attende.value.length);
+    }
+  };
+
+  // Lyttaren heng på skjemaet, ikkje på dialogen. Dialogen blir gjenbrukt av
+  // ordreseddelen og bekreftelsen, og ein lyttar frå tilbodet ville då lese
+  // etter felt som ikkje finst — og kaste feil ved kvart tastetrykk.
+  $("#tilbodsskjema").addEventListener("input", () => {
+    les();
+    teiknPaaNytt();
   });
 
-  const ordreQ = alt
-    ? fb.query(fb.ordersCol(), fb.orderBy("opprettet", "desc"), fb.limit(500))
-    : fb.query(fb.ordersCol(), fb.where("seljarId", "==", app.brukar.uid), fb.orderBy("opprettet", "desc"), fb.limit(300));
-  fb.onSnapshot(ordreQ, (snap) => {
-    app.ordrar = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  $("#tbNyLinje").addEventListener("click", () => {
+    les();
+    u.linjer.push(vindexTomTilbodslinje());
+    teiknTilbodsdialog(lead);
+  });
+
+  $$("#tilbodsrader [data-slett]").forEach((b) =>
+    b.addEventListener("click", () => {
+      les();
+      u.linjer.splice(parseInt(b.dataset.slett, 10), 1);
+      if (!u.linjer.length) u.linjer.push(vindexTomTilbodslinje());
+      teiknTilbodsdialog(lead);
+    })
+  );
+
+  $("#tbAvbryt").addEventListener("click", lukkModal);
+  $("#tbLagre").addEventListener("click", async () => {
+    les();
+    const rekna = vindexRegnTilbod(u);
+    if (!rekna.gyldig) return melding("Legg inn minst én linje med pris, eller en fast prosjektpris.", "warn");
+
+    const tilbud = {
+      ...(lead.tilbud || {}),
+      linjer: u.linjer.filter((x) => x.navn || x.enhetspris),
+      rabattProsent: parseFloat(u.rabattProsent) || 0,
+      rabattKr: rekna.rabattKr,
+      fastpris: rekna.fastpris,
+      gyldigTil: u.gyldigTil,
+      notat: u.notat.trim(),
+      sum: rekna.sum,
+      dato: new Date().toISOString(),
+      av: app.brukar.navn,
+    };
+    await lagreLead(lead, { tilbud }, [
+      `Tilbud satt opp: ${kr(rekna.sum)}${rekna.harFastpris ? " (fast prosjektpris)" : ""}, ${
+        tilbud.linjer.length
+      } linjer. Ikke delt med kunden ennå.`,
+    ]);
+    lukkModal();
     teikn();
+    melding("Tilbudet er lagret. Del det når du er klar.");
+  });
+}
+
+/** Tilbodet slik kunden ser det — utskriftsvenleg. */
+function tilbodsHtml(lead) {
+  const t = lead.tilbud || {};
+  const r = vindexRegnTilbod(t);
+  const k = lead.kunde || {};
+  const seljar = app.seljarar.find((s) => s.id === lead.seljarId) || app.brukar;
+
+  return `<div class="tilbodsark">
+    <p class="hint mb-0">${VINDEX_FIRMA.navn} · ${VINDEX_FIRMA.adresse || ""} · ${VINDEX_FIRMA.telefon}</p>
+    <h3 class="mt-1">Tilbud til ${k.navn || "kunde"}</h3>
+    <p class="hint">${[k.adresse, k.postnr, k.poststed].filter(Boolean).join(", ")}
+      · ${new Date().toLocaleDateString("nb-NO")}${t.gyldigTil ? " · gyldig til " + t.gyldigTil : ""}</p>
+    <table class="data">
+      <thead><tr><th>Beskrivelse</th><th>Antall</th><th>Pris per enhet</th><th>Sum</th></tr></thead>
+      <tbody>
+        ${r.linjer
+          .filter((l) => l.navn)
+          .map(
+            (l) => `<tr><td>${l.navn}</td><td>${l.antall} ${l.enhet}</td>
+              <td>${kr(l.enhetspris)}</td><td>${kr(l.sum)}</td></tr>`
+          )
+          .join("")}
+      </tbody>
+    </table>
+    <div class="tilbodsum">
+      ${
+        r.harFastpris
+          ? `<div class="total"><span>Fast pris for hele prosjektet</span><span>${kr(r.sum)}</span></div>`
+          : `${r.rabattKr ? `<div><span>Sum</span><span>${kr(r.linjesum)}</span></div>
+               <div><span>Rabatt</span><span>− ${kr(r.rabattKr)}</span></div>` : ""}
+             <div class="total"><span>Sum</span><span>${kr(r.sum)}</span></div>`
+      }
+    </div>
+    <p class="hint mt-1">Alle priser eks. mva. ${
+      VINDEX_FIRMA.garantiAr ? VINDEX_FIRMA.garantiAr + " års garanti." : ""
+    }</p>
+    ${t.notat ? `<p>${t.notat}</p>` : ""}
+    <p class="mt-2">Med vennlig hilsen<br><strong>${seljar.navn}</strong><br>
+      ${seljar.telefon || ""} ${seljar.epost ? "· " + seljar.epost : ""}</p>
+  </div>`;
+}
+
+function visTilbodsvindu(lead) {
+  opneModal(
+    "Tilbudet slik kunden ser det",
+    tilbodsHtml(lead),
+    `<span class="spacer hint">${
+      (lead.tilbud || {}).deltMedKunde ? "Delt " + datoTekst(lead.tilbud.deltMedKunde) : "Ikke delt med kunden"
+    }</span>
+     <button class="btn btn-ghost" id="tvLukk">Lukk</button>
+     <button class="btn" id="tvSkrivUt">Skriv ut / lagre som PDF</button>`
+  );
+  $("#tvLukk").addEventListener("click", lukkModal);
+  $("#tvSkrivUt").addEventListener("click", () => window.print());
+}
+
+/**
+ * Del tilbodet med kunden.
+ *
+ * Dette er det einaste steget som gjer tilbodet synleg utanfor verktøyet, så
+ * det skal vere eit medvite klikk — og det er her statusen går til «tilbud
+ * sendt», ikkje når summen blei rekna ut.
+ */
+async function delTilbod(lead) {
+  const t = lead.tilbud || {};
+  const r = vindexRegnTilbod(t);
+  const k = lead.kunde || {};
+
+  opneModal(
+    "Del tilbudet med kunden",
+    `<p>Tilbudet på <strong>${kr(r.sum)}</strong>${r.harFastpris ? " (fast prosjektpris)" : ""}
+       blir markert som sendt til <strong>${k.navn}</strong>.</p>
+     <p class="hint">Verktøyet sender ingenting selv — du sender tilbudet slik du pleier,
+       på e-post eller i posten. Dette registrerer at det er gjort, slik at oppfølgingen
+       og statistikken stemmer.</p>
+     ${
+       k.epost
+         ? `<p class="mt-1"><a class="btn btn-sm" id="dtEpost"
+              href="mailto:${k.epost}?subject=${encodeURIComponent("Tilbud fra Vindex")}&body=${encodeURIComponent(
+             "Hei " + (k.navn || "") + ",\\n\\nTakk for henvendelsen. Her er tilbudet vårt på " +
+               kr(r.sum) + " eks. mva.\\n\\n" + (t.notat || "") +
+               "\\n\\nMed vennlig hilsen\\n" + app.brukar.navn + "\\n" + VINDEX_FIRMA.navn
+           )}">✉️ Åpne e-post til ${k.epost}</a></p>`
+         : '<p class="hint">Kunden har ingen e-postadresse registrert.</p>'
+     }`,
+    `<button class="btn btn-ghost" id="dtAvbryt">Avbryt</button>
+     <button class="btn btn-accent" id="dtBekreft">Marker som sendt</button>`
+  );
+
+  $("#dtAvbryt").addEventListener("click", lukkModal);
+  $("#dtBekreft").addEventListener("click", async () => {
+    const naa = new Date().toISOString();
+    await lagreLead(
+      lead,
+      {
+        tilbud: { ...t, deltMedKunde: naa, sum: r.sum },
+        status: vindexLoftStatus(lead.status, "tilbud_sendt"),
+        // Å sende tilbod er kundekontakt. Utan dette ville leadet blitt raudt
+        // dagen etter, sjølv om seljaren nettopp hadde vore i kontakt.
+        sisteKontakt: naa,
+      },
+      [`Tilbud på ${kr(r.sum)} delt med kunden.`]
+    );
+    lukkModal();
+    teikn();
+    melding("Tilbudet er registrert som sendt.");
+  });
+}
+
+/** Kunden sa ja: gå rett til ordreseddelen med delelista som utgangspunkt. */
+function akseptertTilbod(lead) {
+  const r = vindexRegnTilbod(lead.tilbud || {});
+  const skjema = vindexSkjemaFor((lead.produkt || {}).id);
+
+  opneModal(
+    "Kunden aksepterte",
+    `<p>Tilbudet på <strong>${kr(r.sum)}</strong> er akseptert. Neste steg er
+       ordreseddelen — «${skjema.kort}».</p>
+     <div class="notice notice-info">
+       <strong>Delelisten følger med:</strong><br>
+       ${
+         r.linjer.filter((l) => l.navn).length
+           ? r.linjer.filter((l) => l.navn).map((l) => `${l.antall} ${l.enhet} ${l.navn}`).join("<br>")
+           : "Ingen linjer — bare fast prosjektpris."
+       }
+     </div>
+     <p class="hint">Delelisten er det du lovet kunden. Ordreseddelen er det produksjonen
+       skal lage — målene må kontrolleres der uansett.</p>`,
+    `<button class="btn btn-ghost" id="atAvbryt">Ikke ennå</button>
+     <button class="btn btn-accent" id="atOrdre">Åpne ordreseddelen</button>`
+  );
+
+  $("#atAvbryt").addEventListener("click", lukkModal);
+  $("#atOrdre").addEventListener("click", async () => {
+    await lagreLead(lead, { tilbud: { ...(lead.tilbud || {}), akseptert: new Date().toISOString() } }, [
+      `Kunden aksepterte tilbudet på ${kr(r.sum)}.`,
+    ]);
+    // Delelista blir med inn i ordreseddelen som notat, slik at seljaren ikkje
+    // skriv den same spesifikasjonen to gonger.
+    opneOrdreskjema(lead, {
+      felt: {
+        referanse: "Tilbud " + datoTekst((lead.tilbud || {}).dato),
+        annet: vindexLinjerTilOrdrenotat(lead.tilbud || {}),
+        pris_total: r.sum,
+      },
+      rader: [],
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Bistand frå daglig leder
+// ---------------------------------------------------------------------------
+function opneBistand(lead) {
+  const leiar = (VINDEX_KONTAKTAR || []).find((k) => /daglig leder/i.test(k.rolle || "")) || {};
+
+  opneModal(
+    "Involver daglig leder",
+    `<p class="hint">Forespørselen legger seg på dette leadet, ikke i en innboks. Både du
+       og daglig leder ser den her, og den blir stående til den er besvart.</p>
+     <div class="field">
+       <label for="biSak">Hva gjelder det?</label>
+       <select id="biSak">
+         ${VINDEX_BISTANDSSAKER.map((s) => `<option value="${s.id}">${s.navn}${s.hjelp ? " — " + s.hjelp : ""}</option>`).join("")}
+       </select>
+     </div>
+     <div class="field">
+       <label for="biTekst">Kort om saken</label>
+       <textarea id="biTekst" style="min-height:90px"
+         placeholder="Hva står du fast på, og hva trenger du svar på?"></textarea>
+     </div>
+     <p class="field-error hidden" id="biFeil">Skriv noen ord om hva du trenger hjelp til.</p>
+     ${
+       leiar.navn
+         ? `<p class="hint">Går til ${leiar.navn}${leiar.telefon ? " · " + leiar.telefon : ""}.
+              Haster det, ring — dette er ikke et varslingssystem.</p>`
+         : ""
+     }`,
+    `<button class="btn btn-ghost" id="biAvbryt">Avbryt</button>
+     <button class="btn btn-accent" id="biSend">Be om bistand</button>`
+  );
+
+  $("#biAvbryt").addEventListener("click", lukkModal);
+  $("#biSend").addEventListener("click", async () => {
+    const beskrivelse = $("#biTekst").value.trim();
+    if (beskrivelse.length < 5) {
+      $("#biFeil").classList.remove("hidden");
+      return;
+    }
+    const sak = $("#biSak").value;
+    await lagreLead(
+      lead,
+      {
+        bistand: {
+          sak,
+          beskrivelse,
+          bedt: new Date().toISOString(),
+          av: app.brukar.navn,
+          avId: app.brukar.uid,
+          status: "bedt",
+        },
+      },
+      [`Ba daglig leder om bistand (${vindexBistandNavn(sak)}): ${beskrivelse}`]
+    );
+    lukkModal();
+    teikn();
+    melding("Daglig leder ser forespørselen på leadet.");
+  });
+}
+
+function opneBistandssvar(lead) {
+  const b = lead.bistand || {};
+  opneModal(
+    "Svar på bistandsforespørselen",
+    `<div class="notice notice-info">
+       <strong>${vindexBistandNavn(b.sak)}</strong> — ${b.av}, ${datoTekst(b.bedt)}<br>«${b.beskrivelse}»
+     </div>
+     <div class="field">
+       <label for="bsSvar">Svar</label>
+       <textarea id="bsSvar" style="min-height:90px"
+         placeholder="Hva er avklart, og hva kan selgeren love kunden?"></textarea>
+     </div>
+     <p class="field-error hidden" id="bsFeil">Skriv et svar først.</p>`,
+    `<button class="btn btn-ghost" id="bsAvbryt">Avbryt</button>
+     <button class="btn btn-accent" id="bsLagre">Send svar</button>`
+  );
+
+  $("#bsAvbryt").addEventListener("click", lukkModal);
+  $("#bsLagre").addEventListener("click", async () => {
+    const svar = $("#bsSvar").value.trim();
+    if (svar.length < 3) {
+      $("#bsFeil").classList.remove("hidden");
+      return;
+    }
+    await lagreLead(
+      lead,
+      {
+        bistand: {
+          ...b,
+          status: "besvart",
+          svar,
+          svarAv: app.brukar.navn,
+          svarTid: new Date().toISOString(),
+        },
+      },
+      [`Daglig leder svarte: ${svar}`]
+    );
+    lukkModal();
+    teikn();
+    melding("Svaret ligger på leadet.");
   });
 }

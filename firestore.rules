@@ -64,12 +64,28 @@ service cloud.firestore {
              && d.produkt.id is string;
     }
 
+    // Eit svar på ein bistandsførespurnad kjem frå daglig leder. Utan denne
+    // regelen kunne ein seljar skrive svaret sjølv på sitt eige lead, og då
+    // ville «daglig leder har godkjent rabatten» ikkje vere verdt noko.
+    function berreAdminSvararBistand() {
+      return erAdmin()
+             || !request.resource.data.keys().hasAny(['bistand'])
+             || request.resource.data.bistand.get('status', 'bedt') != 'besvart'
+             || request.resource.data.bistand.get('status', 'bedt')
+                == resource.data.get('bistand', {}).get('status', '');
+    }
+
     match /leads/{leadId} {
       // Ope for skjemaet, og for seljarar som registrerer leads manuelt.
       allow create: if gyldigNyttLead(request.resource.data)
                     || (erSeljar() && !erLager());
-      allow read, update: if erSeljar()
-                          && (resource.data.seljarId == request.auth.uid || erAdmin());
+      allow read: if erSeljar()
+                  && (resource.data.seljarId == request.auth.uid || erAdmin());
+      // Felt som blir sette undervegs i salsløpet: sisteKontakt, fristBrote,
+      // arkivert, arkiv, bistand, tilbud (med linjer og fastpris).
+      allow update: if erSeljar()
+                    && (resource.data.seljarId == request.auth.uid || erAdmin())
+                    && berreAdminSvararBistand();
       allow delete: if erAdmin();
     }
 
