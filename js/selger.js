@@ -946,6 +946,22 @@ function opneNyttLead() {
   const innhald = `
     <p class="hint">Leads fra nettsiden kommer inn automatisk. Her legger du inn dem som
       kommer på telefon, e-post, messe eller ved besøk — de fordeles på samme måte.</p>
+
+    <!-- Så lenge den gamle nettsiden er i drift, kommer forespørslene som
+         e-post. Lim inn hele e-posten her, så leser verktøyet ut feltene i
+         stedet for at noen skal skrive dem inn på nytt. -->
+    <details class="limboks" id="limBoks">
+      <summary>Har du forespørselen som e-post? Lim den inn her</summary>
+      <p class="hint mt-1">Kopier hele e-posten — også headere og signatur — og lim den inn.
+        Verktøyet fyller ut det den finner, og du kontrollerer resten selv.</p>
+      <textarea id="limTekst" style="min-height:120px;width:100%"
+        placeholder="Navn: Ola Nordmann&#10;Telefon: 900 12 345&#10;Postnummer: 6440&#10;Melding: Ønsker tilbud på rekkverk, ca 20 meter"></textarea>
+      <div class="btn-row mt-1">
+        <button class="btn btn-sm" type="button" id="limLes">Les ut feltene</button>
+        <span class="hint" id="limSvar"></span>
+      </div>
+    </details>
+
     <div class="feltrutenett mt-1">
       <div class="field"><label for="nlNavn">Navn *</label><input id="nlNavn" required></div>
       <div class="field"><label for="nlTelefon">Telefon *</label><input id="nlTelefon" type="tel"></div>
@@ -990,6 +1006,62 @@ function opneNyttLead() {
 
   $("#nlAvbryt").addEventListener("click", lukkModal);
   $("#nlLagre").addEventListener("click", lagreNyttLead);
+  $("#limLes").addEventListener("click", lesInnLimtTekst);
+}
+
+/**
+ * Les det som er limt inn, og fyll skjemaet.
+ *
+ * Vi skriv aldri over noko seljaren alt har fylt ut sjølv, og vi opprettar
+ * ikkje leadet — skjemaet blir berre fylt, og han trykker «Registrer» sjølv.
+ * Under står det kva som blei funne og kva som framleis manglar, slik at han
+ * ser kva han godkjenner.
+ */
+function lesInnLimtTekst() {
+  const tekst = $("#limTekst").value;
+  const svar = $("#limSvar");
+  if (tekst.trim().length < 10) {
+    svar.textContent = "Lim inn e-posten først.";
+    return;
+  }
+
+  const lest = vindexLesLead(tekst);
+  const settOm = (id, verdi) => {
+    const el = $(id);
+    if (el && verdi && !el.value.trim()) el.value = verdi;
+  };
+
+  settOm("#nlNavn", lest.navn);
+  settOm("#nlTelefon", lest.telefon);
+  settOm("#nlEpost", lest.epost);
+  settOm("#nlAdresse", lest.adresse);
+  settOm("#nlPostnr", lest.postnr);
+  settOm("#nlPoststed", lest.poststed);
+  settOm("#nlKommentar", lest.kommentar);
+  if (lest.mengde) settOm("#nlMengde", lest.mengde);
+  if (lest.produktId && vindexProdukt(lest.produktId)) $("#nlProdukt").value = lest.produktId;
+
+  // Kjelda er e-post når leadet kom den vegen.
+  $("#nlKilde").value = "e-post";
+  $("#nlDistrikt").textContent = lest.distrikt ? lest.distrikt.navn : "";
+
+  const namn = {
+    navn: "navn", telefon: "telefon", epost: "e-post", postnr: "postnummer",
+    adresse: "adresse", poststed: "poststed", kommentar: "melding",
+    produkt: "produkt", mengde: "omfang",
+  };
+  const funne = lest.funne.map((f) => namn[f] || f);
+  svar.innerHTML = funne.length
+    ? `Fant ${funne.join(", ")}.` +
+      (lest.mangler.length
+        ? ` <strong>Mangler ${lest.mangler.map((f) => namn[f]).join(" og ")}</strong> — fyll ut selv.`
+        : " Kontroller feltene før du registrerer.")
+    : "<strong>Fant ingenting å lese ut.</strong> Fyll ut feltene manuelt.";
+
+  // Fokuset går til det første feltet som framleis er tomt, slik at seljaren
+  // kan skrive vidare med ein gong.
+  const tomt = ["#nlNavn", "#nlTelefon", "#nlPostnr"].find((id) => !$(id).value.trim());
+  if (tomt) $(tomt).focus();
 }
 
 async function lagreNyttLead() {

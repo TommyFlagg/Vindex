@@ -160,6 +160,39 @@ Leads som kommer på telefon, e-post, messe eller besøk legges inn manuelt med
 **+ Nytt lead**. De rutes på nøyaktig samme måte, men selgeren kan overstyre og
 ta leadet selv.
 
+### Lim inn e-posten i stedet for å skrive den av
+
+Så lenge den gamle nettsiden fortsatt er i drift, kommer forespørslene som
+e-post. I **+ Nytt lead** ligger derfor en innlimingsboks: kopier hele e-posten
+— headere og signatur og alt — og trykk **Les ut feltene**.
+
+`js/leadtekst.js` finner navn, telefon, e-post, adresse, postnummer, poststed,
+melding, produkt og omfang. Den takler både «Navn: …»-skjemaer og ren fritekst,
+og den fjerner sitert svar, «Sendt fra min iPhone» og signaturer før den leser.
+
+To ting den gjør *ikke*, med vilje:
+
+- **Den oppretter aldri leadet selv.** Den fyller skjemaet, viser hva den fant
+  og hva som mangler, og selgeren trykker Registrer.
+- **Den overskriver aldri noe som allerede er fylt ut.** Har du skrevet navnet
+  selv, blir det stående.
+
+Den gjetter heller ikke i blinde. Et løst firesifret tall kan være et årstall
+eller et ordrenummer, så postnummeret leses bare når det står bak en etikett,
+foran et stedsnavn, eller er det eneste gyldige postnummeret i teksten.
+Telefonnummeret må være åtte siffer og ikke begynne på 0 eller 1, slik at et
+organisasjonsnummer ikke havner i telefonfeltet.
+
+Kjenner den ikke igjen en etikettvariant, er det én linje å legge til i
+`VINDEX_ETIKETTAR`.
+
+> **Dette er en bro, ikke et endelig oppsett.** Når den nye nettsiden går live,
+> skriver bestillingsskjemaet rett til Firestore, og da trengs ikke innliming
+> for de leadene. Skal e-poster fanges opp helt automatisk, må en
+> videresendingsadresse (f.eks. `leads@vindex.no`) sendes til en Cloud Function
+> som oppretter leadet — det krever Firebase på Blaze-planen, en MX-oppføring
+> og en innkommende e-posttjeneste.
+
 ## Salgsløpet
 
 | Status | Settes | Av |
@@ -630,6 +663,7 @@ js/verktoy-felles.js     Delt grunnmur: innlogging, demodata, lagring, dialog
 js/selger.js             Selgerens dashbord: leads, tilbud, kalender, ordre, arkiv
 js/admin.js              Hovedkontoret: apparatet, kanaler, statistikk
 js/oppfolging.js         Kontakttemperatur, arkiv, bistand, tilbudslinjer, tips
+js/leadtekst.js          Leser et lead ut av en innlimt e-post
 js/ordre.js              Ordreskjema, statusflyt og plukklistelogikk
 js/kalender.js           Avtaler og .ics-eksport til telefonkalender
 js/nokkeltal.js          Nøkkeltall, oppfølgingsrate og produksjonskø

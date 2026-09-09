@@ -1663,3 +1663,17 @@ body.tema-mork .fordelingsstolpe i { background: var(--accent); }
 /* Ein tom seksjon skal ikkje legge igjen luft. Bistandsvarselet på
    hovudkontoret er der berre når nokon faktisk ventar på svar. */
 #seksjonBistand:empty { display: none; }
+
+/* Innlimingsboksen i «Nytt lead». Lukka som standard — den er der for
+   overgangsperioden mens den gamle nettsiden fortsatt sender e-post. */
+.limboks {
+  border: 1.5px dashed var(--border); border-radius: var(--radius-sm);
+  padding: 0.7rem 0.85rem; background: var(--surface-alt);
+}
+.limboks summary { cursor: pointer; font-weight: 700; font-size: 0.92rem; }
+.limboks[open] summary { margin-bottom: 0.3rem; }
+.limboks textarea {
+  font: inherit; font-size: 0.88rem; padding: 0.6rem 0.7rem;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink); resize: vertical;
+}
