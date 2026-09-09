@@ -460,8 +460,7 @@ export function demoOrdrar() {
       seljarNavn: (VINDEX_TEAM[1] || {}).navn || "Selger",
       kunde: { navn: "Kjell Aune", telefon: "92000001", epost: "kjell@eksempel.no", adresse: "Eksempelvegen 12", postnr: "7010", poststed: "Trondheim" },
       felt: {
-        profil: "A19",
-        modell1: "VBC",
+        modell1: "VBC-A19",
         modell1_meter: 46,
         modell1_hoyde: 1000,
         stolpe1_type: "7500",

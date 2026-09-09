@@ -86,11 +86,12 @@ const ORDRESEDDEL_REKKVERK = {
       hjelp:
         "Velg modell fra prislisten og fyll inn antall meter. Modellkoden er det " +
         "produksjonen jobber etter, så den skal alltid stå her — også når prosjektet " +
-        "er en kombinasjon av flere.",
+        "er en kombinasjon av flere. Hver VB-modell står to ganger, én for hver " +
+        "håndløper: A14 er glatt, A19 er profilert — den vanligste, finere og litt " +
+        "mer solid på grunn av profilen.",
       felt: [
-        { id: "profil", navn: "Tverrstag", type: "valg", register: "profil",
-          hjelp: "A14 eller A19. Valget bestemmer både artikkelnummer og pris på VB-modellene." },
-        { id: "modell1", navn: "Modell 1", type: "valg", register: "modell" },
+        { id: "modell1", navn: "Modell 1", type: "valg", register: "modell",
+          hjelp: "F.eks. VBA m/A19 — modell og håndløper velges samlet, slik prislisten er satt opp." },
         { id: "modell1_meter", navn: "Ant. meter", type: "tal", enhet: "lm" },
         { id: "modell1_hoyde", navn: "Høyde", type: "tal", enhet: "mm" },
         { id: "modell2", navn: "Modell 2", type: "valg", register: "modell" },

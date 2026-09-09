@@ -25,23 +25,60 @@ const VINDEX_PRISLISTE = {
   kjelde: "Vindex AS prisliste 2026, gjelder fra 01.03.2026",
 };
 
+/** Meirverdiavgifta prisane i lista er rekna med. */
+const VINDEX_MVA = 0.25;
+
 /** Prisen slik den skal stå på skjermen: «1 248 kr». */
 function vindexKr(tal) {
   if (tal === null || tal === undefined || tal === "") return "";
   return Math.round(tal).toLocaleString("nb-NO") + " kr";
 }
 
+/**
+ * Same prisen utan meirverdiavgift.
+ *
+ * Lista er skriven inkl. mva, fordi det er det ein privatkunde skal betale.
+ * Men seljaren treng ofte det andre talet òg — mot ein entreprenør, og når
+ * summen skal samanliknast med ordreinngangen, som er eks. mva. Difor reknar
+ * vi det ut i staden for å be nokon om å gjere det i hovudet.
+ */
+function vindexEksMva(inklMva) {
+  if (inklMva === null || inklMva === undefined || inklMva === "") return null;
+  return Math.round(inklMva / (1 + VINDEX_MVA));
+}
+
+/** «1 248 kr inkl. mva (998 kr eks. mva)» — begge tala, i den rekkjefølgja. */
+function vindexPrisTekst(inklMva) {
+  if (inklMva === null || inklMva === undefined || inklMva === "") return "";
+  return `${vindexKr(inklMva)} inkl. mva (${vindexKr(vindexEksMva(inklMva))} eks. mva)`;
+}
+
 // ---------------------------------------------------------------------------
-// Tverrstagprofil
+// Håndløparen: A14 eller A19
 // ---------------------------------------------------------------------------
-// Kvar VB-modell finst i to utgåver — med A14- eller A19-tverrstag. Det er to
-// ulike artiklar med to ulike prisar, så profilen må veljast før prisen er
-// kjend. A19 ligg jamt 56 kroner over A14 på lista.
+// Dette er grunnen til at rekkverkslista står dobbelt opp. Kvar VB-modell
+// finst med to håndløparar:
+//
+//   A14 — glatt håndløpar.
+//   A19 — profilert håndløpar. Den vanlegaste. Finare, og litt meir solid,
+//         nettopp fordi profilen gir den stivleik.
+//
+// Det er to ulike artiklar med to ulike prisar — A19 ligg jamt 56 kroner over
+// A14 — så valet må takast før prisen finst. Difor er kvar kombinasjon si eiga
+// linje i registeret under, akkurat som på papirlista: seljaren vel «VBA m/A19»,
+// ikkje «VBA» og så eit tverrstag i eit felt lenger nede.
 
 const VINDEX_PROFILAR = [
-  { id: "A14", navn: "A14", mal: "50,8 × 88,5 mm" },
-  { id: "A19", navn: "A19", mal: "50,8 × 152,4 mm" },
+  { id: "A14", navn: "A14 — glatt håndløper", mal: "50,8 × 88,5 mm",
+    beskriving: "Glatt håndløper." },
+  { id: "A19", navn: "A19 — profilert håndløper", mal: "50,8 × 152,4 mm",
+    beskriving: "Profilert håndløper. Den vanligste — finere, og litt mer solid på grunn av profilen." },
 ];
+
+/** Kva håndløparen heiter og kva som kjenneteiknar den. */
+function vindexProfil(id) {
+  return VINDEX_PROFILAR.find((p) => p.id === String(id || "").toUpperCase()) || null;
+}
 
 // ---------------------------------------------------------------------------
 // Modellane
@@ -53,30 +90,25 @@ const VINDEX_MODELLSERIAR = [
     navn: "Rekkverk og gjerde",
     gjelderProdukt: ["rekkverk", "glassrekkverk", "gjerde"],
     enhet: "lm",
-    harProfil: true,
+    // Hver modell står to ganger — én gang per håndløper, slik prislisten selv
+    // er satt opp. Det er kombinasjonen som er artikkelen, ikke modellen alene.
     modellar: [
-      { kode: "VBA", navn: "VBA", mal: "38,1 × 38,1",
-        variantar: [{ profil: "A14", artikkel: "7407", pris: 1248 },
-                    { profil: "A19", artikkel: "7630", pris: 1304 }] },
-      { kode: "VBB", navn: "VBB", mal: "22,2 × 38,1",
-        variantar: [{ profil: "A14", artikkel: "7409", pris: 1175 },
-                    { profil: "A19", artikkel: "7631", pris: 1231 }] },
-      { kode: "VBC", navn: "VBC", mal: "22,2 × 76,2",
-        variantar: [{ profil: "A14", artikkel: "7411", pris: 1172 },
-                    { profil: "A19", artikkel: "7632", pris: 1228 }] },
-      { kode: "VBD", navn: "VBD", mal: "22,2 × 152,4 – 22,2 × 38,1",
-        variantar: [{ profil: "A14", artikkel: "7413", pris: 1175 },
-                    { profil: "A19", artikkel: "7633", pris: 1231 }] },
-      { kode: "VBE", navn: "VBE", mal: "38,1 × 38,1 – 3 tverrstag",
-        variantar: [{ profil: "A14", artikkel: "7415", pris: 1579 },
-                    { profil: "A19", artikkel: "7634", pris: 1635 }] },
-      { kode: "VBF", navn: "VBF", mal: "22,2 × 152,4",
-        variantar: [{ profil: "A14", artikkel: "7438", pris: 1162 },
-                    { profil: "A19", artikkel: "7635", pris: 1218 }] },
-      { kode: "VBG", navn: "VBG", mal: "Glass",
-        merknad: "Glasset kjem i tillegg — sjå glasdelane.",
-        variantar: [{ profil: "A14", artikkel: "7471", pris: 816 },
-                    { profil: "A19", artikkel: "7636", pris: 872 }] },
+      { kode: "VBA-A14", basis: "VBA", profil: "A14", navn: "VBA m/A14", mal: "38,1 × 38,1", artikkel: "7407", pris: 1248 },
+      { kode: "VBA-A19", basis: "VBA", profil: "A19", navn: "VBA m/A19", mal: "38,1 × 38,1", artikkel: "7630", pris: 1304 },
+      { kode: "VBB-A14", basis: "VBB", profil: "A14", navn: "VBB m/A14", mal: "22,2 × 38,1", artikkel: "7409", pris: 1175 },
+      { kode: "VBB-A19", basis: "VBB", profil: "A19", navn: "VBB m/A19", mal: "22,2 × 38,1", artikkel: "7631", pris: 1231 },
+      { kode: "VBC-A14", basis: "VBC", profil: "A14", navn: "VBC m/A14", mal: "22,2 × 76,2", artikkel: "7411", pris: 1172 },
+      { kode: "VBC-A19", basis: "VBC", profil: "A19", navn: "VBC m/A19", mal: "22,2 × 76,2", artikkel: "7632", pris: 1228 },
+      { kode: "VBD-A14", basis: "VBD", profil: "A14", navn: "VBD m/A14", mal: "22,2 × 152,4 – 22,2 × 38,1", artikkel: "7413", pris: 1175 },
+      { kode: "VBD-A19", basis: "VBD", profil: "A19", navn: "VBD m/A19", mal: "22,2 × 152,4 – 22,2 × 38,1", artikkel: "7633", pris: 1231 },
+      { kode: "VBE-A14", basis: "VBE", profil: "A14", navn: "VBE m/A14", mal: "38,1 × 38,1 – 3 tverrstag", artikkel: "7415", pris: 1579 },
+      { kode: "VBE-A19", basis: "VBE", profil: "A19", navn: "VBE m/A19", mal: "38,1 × 38,1 – 3 tverrstag", artikkel: "7634", pris: 1635 },
+      { kode: "VBF-A14", basis: "VBF", profil: "A14", navn: "VBF m/A14", mal: "22,2 × 152,4", artikkel: "7438", pris: 1162 },
+      { kode: "VBF-A19", basis: "VBF", profil: "A19", navn: "VBF m/A19", mal: "22,2 × 152,4", artikkel: "7635", pris: 1218 },
+      { kode: "VBG-A14", basis: "VBG", profil: "A14", navn: "VBG m/A14", mal: "Glass", artikkel: "7471", pris: 816,
+        merknad: "Glasset kommer i tillegg — se glassdelene." },
+      { kode: "VBG-A19", basis: "VBG", profil: "A19", navn: "VBG m/A19", mal: "Glass", artikkel: "7636", pris: 872,
+        merknad: "Glasset kommer i tillegg — se glassdelene." },
     ],
   },
   {
@@ -458,15 +490,42 @@ function vindexAlleModellar() {
       serie: s.id,
       serieNavn: s.navn,
       enhet: m.enhet || s.enhet,
-      harProfil: !!s.harProfil,
     }))
   );
 }
 
-/** Slå opp ein modellkode. Tåler «vbc», «VBC» og «A11». */
-function vindexModell(kode) {
-  const n = String(kode || "").trim().toUpperCase();
-  return vindexAlleModellar().find((m) => m.kode === n) || null;
+/**
+ * Normaliser ein modellkode.
+ *
+ * Same modellen blir skriven på mange vis — «VBA-A19», «vba a19», «VBA m/A19»
+ * — og alle skal treffe. Difor tek vi bort mellomrom, bindestrekar og «m/»
+ * før vi samanliknar.
+ */
+function vindexKodenokkel(kode) {
+  return String(kode || "").toUpperCase().replace(/M\//g, "").replace(/[^A-Z0-9]/g, "");
+}
+
+/**
+ * Slå opp ein modell. Tåler «VBA-A19», «VBA m/A19» og «A11».
+ *
+ * Er berre grunnmodellen oppgitt («VBA»), treng vi håndløparen i tillegg for å
+ * vite kva artikkel det er. Manglar den, får vi ingenting — det er betre enn å
+ * velje A14 i det stille.
+ */
+function vindexModell(kode, profil) {
+  const alle = vindexAlleModellar();
+  const n = vindexKodenokkel(kode);
+  if (!n) return null;
+
+  const direkte = alle.find((m) => vindexKodenokkel(m.kode) === n);
+  if (direkte) return direkte;
+
+  if (profil) {
+    const saman = vindexKodenokkel(kode + String(profil));
+    const treff = alle.find((m) => vindexKodenokkel(m.kode) === saman);
+    if (treff) return treff;
+  }
+  return null;
 }
 
 /** Kva seriar gjeld for eit produkt? Tom liste om produktet ikkje har modellar. */
@@ -494,6 +553,25 @@ function vindexModellgrupper(produktId) {
 }
 
 /**
+ * Grunnmodellane i ein serie, kvar med håndløparane sine.
+ *
+ * Brukt der ein vil vise VBA éin gong med to val under, i staden for to
+ * sidestilte linjer.
+ */
+function vindexGrunnmodellar(serieId) {
+  const serie = VINDEX_MODELLSERIAR.find((s) => s.id === serieId);
+  if (!serie) return [];
+  const ut = [];
+  serie.modellar.forEach((m) => {
+    const basis = m.basis || m.kode;
+    let rad = ut.find((r) => r.basis === basis);
+    if (!rad) ut.push((rad = { basis, mal: m.mal, variantar: [] }));
+    rad.variantar.push(m);
+  });
+  return ut;
+}
+
+/**
  * Kva kostar denne modellen per meter?
  *
  * VB-modellane har to prisar — ein for A14 og ein for A19 — så profilen må
@@ -502,40 +580,34 @@ function vindexModellgrupper(produktId) {
  * meteren.
  */
 function vindexModellpris(kode, profil) {
-  const m = vindexModell(kode);
-  if (!m) return null;
-  if (!m.variantar) return m.pris == null ? null : m.pris;
-  if (!profil) return null;
-  const v = m.variantar.find((x) => x.profil === String(profil).toUpperCase());
-  return v ? v.pris : null;
+  const m = vindexModell(kode, profil);
+  return m && m.pris != null ? m.pris : null;
 }
 
 /** Artikkelnummeret som skal på ordreseddelen. */
 function vindexModellartikkel(kode, profil) {
-  const m = vindexModell(kode);
-  if (!m) return null;
-  if (!m.variantar) return m.artikkel || null;
-  const v = m.variantar.find((x) => x.profil === String(profil || "").toUpperCase());
-  return v ? v.artikkel : null;
+  const m = vindexModell(kode, profil);
+  return m ? m.artikkel || null : null;
 }
 
 /** Har vi prisar i det heile? Styrer om verktøyet lovar ei utrekning. */
 function vindexHarPrisliste() {
-  return vindexAlleModellar().some((m) => m.pris != null || (m.variantar || []).some((v) => v.pris != null));
+  return vindexAlleModellar().some((m) => m.pris != null);
 }
 
 /** Alle artiklane i lista, flatt — brukt av prisoppslaget i tilbodet. */
 function vindexPrisbok() {
   const linjer = [];
   VINDEX_MODELLSERIAR.forEach((s) =>
-    s.modellar.forEach((m) => {
-      const enhet = m.enhet || s.enhet;
-      if (m.variantar)
-        m.variantar.forEach((v) =>
-          linjer.push({ gruppe: s.navn, kode: v.artikkel, navn: `${m.navn} m/${v.profil}${m.mal ? " " + m.mal : ""}`, pris: v.pris, enhet })
-        );
-      else linjer.push({ gruppe: s.navn, kode: m.artikkel, navn: m.navn, pris: m.pris, enhet });
-    })
+    s.modellar.forEach((m) =>
+      linjer.push({
+        gruppe: s.navn,
+        kode: m.artikkel,
+        navn: m.navn + (m.mal ? " " + m.mal : ""),
+        pris: m.pris,
+        enhet: m.enhet || s.enhet,
+      })
+    )
   );
   VINDEX_STOLPETYPAR.forEach((s) => linjer.push({ gruppe: "Stolper", kode: s.kode, navn: s.navn, pris: s.pris, enhet: "stk" }));
   VINDEX_TOPPTYPAR.forEach((t) => linjer.push({ gruppe: "Stolpetopper", kode: t.kode, navn: t.navn, pris: t.pris, enhet: "stk" }));

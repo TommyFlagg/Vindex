@@ -207,15 +207,31 @@ tilleggsdeler, begge fraktabellene og hele prismatrisen for sprosser.
 
 Tre ting det er verdt å vite om hvordan den er lagt inn:
 
-**Prisene er inkl. mva.** Det er slik listen er skrevet, og slik en privatkunde
-leser prisen. Tilbudet i verktøyet sier derfor nå «Alle priser inkl. mva» og
-navngir prisgrunnlaget. Ordreinngangstallene i `js/team.js` og `js/nokkeltal.js`
-er derimot **eks. mva**, fordi de kommer fra årsrapporten — de to skal ikke
-blandes, og står med hver sin merknad.
+**Prisene er inkl. mva, og begge tallene vises.** Listen er skrevet inkl. mva,
+fordi det er det en privatkunde skal betale — så det er tallet som står først
+overalt. Ved siden av står summen uten mva, for de gangene selgeren trenger
+den: mot en entreprenør, og når summen skal sammenlignes med ordreinngangen.
+`vindexEksMva()` og `vindexPrisTekst()` gjør regnestykket ett sted, slik at
+ingen gjør det i hodet. Ordreinngangstallene i `js/team.js` og `js/nokkeltal.js`
+er **eks. mva**, fordi de kommer fra årsrapporten, og står med hver sin merknad.
 
-**VB-modellene har to priser, ikke én.** Hver modell finnes med A14- og
-A19-tverrstag, med hvert sitt artikkelnummer og 56 kroner mellom seg. Derfor må
-tverrstaget velges før prisen er kjent; `vindexModellpris("VBA")` uten profil
+Mva-satsen er ikke gjettet: fraktabellen i prislisten oppgir både eks. og inkl.
+mva i hver rad, og alle sju radene stemmer med 25 %.
+
+**A14 eller A19 — håndløperen er grunnen til at listen står dobbelt opp.**
+Hver VB-modell finnes med to håndløpere:
+
+- **A14** — glatt håndløper.
+- **A19** — profilert håndløper. Den vanligste. Finere, og litt mer solid,
+  nettopp fordi profilen gir den stivhet.
+
+Det er to ulike artikler med to ulike priser — A19 ligger jevnt 56 kroner over
+A14. Derfor er hver kombinasjon sin egen linje i registeret, akkurat som på
+papirlisten, og selgeren velger **VBA m/A19** i én nedtrekksliste i stedet for å
+velge modell ett sted og håndløper et annet. Det gjør også at modell 1 og
+modell 2 kan ha hver sin håndløper, og at det ikke går an å velge en modell uten
+å ha bestemt prisen. `vindexModell()` tåler «VBA-A19», «VBA m/A19» og
+«VBA» + profil som eget argument; `vindexModellpris("VBA")` uten håndløper
 returnerer `null` i stedet for å gjette på A14.
 
 **Portprisen følger produktfamilien, ikke modellen.** En port i VBA og en i VBF
@@ -230,9 +246,9 @@ selv. En gjettet pris er verre enn ingen pris.
 
 ### Hvor prisene brukes
 
-- **Ordreseddelen** — modell, stolpetype, stolpetopp og port er nedtrekkslister
-  hentet rett fra listen, gruppert per serie. Er registeret tomt for produktet,
-  blir feltet et skrivefelt i stedet for en tom nedtrekksliste.
+- **Ordreseddelen** — modell (med håndløper), stolpetype, stolpetopp og port er
+  nedtrekkslister hentet rett fra listen, gruppert per serie. Er registeret tomt
+  for produktet, blir feltet et skrivefelt i stedet for en tom nedtrekksliste.
 - **Tilbudet** — «Hent fra prislisten» legger artikkelen inn som en ferdig linje
   med pris og enhet. Selgeren kan overstyre prisen på linjen.
 - **Målskjema sprosser** — prisen regnes ut løpende av målene som alt står i
@@ -748,13 +764,15 @@ Vilkårene står i `garanti.html`, gjengitt fra garantidokumentet.
 - [ ] Komprimer bildene (de er i full oppløsning, ca. 2,7 MB til sammen)
 - [ ] Fyll inn Instagram- og finn.no-lenker i `VINDEX_FIRMA`
 - [ ] Vurder om prisestimatet skal slås på (se over)
-- [ ] **Pyntekrans:** listen har to artikler — 7448 Pyntekrans (70) og 7449
-      Pyntekrans splitt (82). Begge er lagt inn som hvert sitt antallsfelt.
-      Bekreft at det er riktig, eller si fra om bare den ene skal brukes.
 - [ ] **Robotklipperhus (3149) og postkassestativ (7640)** står i prislisten,
       men finnes ikke i produktkatalogen på nettsiden. De er lagt inn i
       prisboken, så de kan tilbys — avklar om de også skal på nettsiden.
-- [ ] Portartikkelnumrene for VBB, VBE og VBG er ikke lest av listen ennå
+- [ ] **Portartikkelnumrene for VBB, VBE og VBG mangler fortsatt.** Portene
+      ligger i 45xx-serien (4508-VBA, 4510-VBC, 4511-VBD, 4513-VBF), mens 7409,
+      7415 og 7471 er rekkverksartiklene for VBB, VBE og VBG m/A14 — de står
+      allerede inne som det. Mangler bare portlinjene fra de tre sidene.
+      Portprisen er uansett riktig, siden den følger produktfamilien og
+      lysmålet, ikke modellen.
 - [ ] Legg inn produktfilmen og «hør forskjellen på lyd»-videoen
 - [ ] Slå på [Firebase App Check](https://firebase.google.com/docs/app-check)
       (reCAPTCHA) — skjemaet er åpent for innsending, og App Check er

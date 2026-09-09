@@ -1241,10 +1241,10 @@ function sprosseprisHtml(rader) {
   return `<div class="notice notice-info">
     <strong>Veiledende pris etter ${VINDEX_PRISLISTE.namn}</strong>
     <ul class="plukk-linjer mt-1">${r.linjer.map(rad).join("")}</ul>
-    <p class="mb-0"><strong>Sum sprosser: ${kr(r.sum)}</strong>${
-      r.frakt ? ` · frakt ${r.stk} sprosser: ${kr(r.frakt)}` : ""
+    <p class="mb-0"><strong>Sum sprosser: ${vindexPrisTekst(r.sum)}</strong>${
+      r.frakt ? ` · frakt ${r.stk} sprosser: ${vindexPrisTekst(r.frakt)}` : ""
     }${r.uavklart ? ` · ${r.uavklart} linje${r.uavklart > 1 ? "r" : ""} må prises manuelt` : ""}</p>
-    <p class="hint mb-0">${VINDEX_PRISLISTE.mvaTekst} Prisen er veiledende — det er tilbudet som gjelder.</p>
+    <p class="hint mb-0">Prisen er veiledende — det er tilbudet som gjelder.</p>
   </div>`;
 }
 
@@ -1782,7 +1782,7 @@ function teiknTilbodsdialog(lead) {
             .join("")}</optgroup>`)
           .join("")}
       </select>
-      <p class="hint">Prisen kommer ferdig utfylt, men du kan overstyre den på linjen.</p>
+      <p class="hint">Prisen kommer ferdig utfylt inkl. mva, men du kan overstyre den på linjen.</p>
     </div>
     <div class="table-scroll" style="border:none">
       <table class="linjer">
@@ -1823,9 +1823,11 @@ function teiknTilbodsdialog(lead) {
           : ""
       }
       <div class="total"><span>Til kunden</span><span class="linjesum">${kr(r.sum)}</span></div>
+      <div><span class="hint">Herav uten mva</span><span class="hint">${kr(vindexEksMva(r.sum))}</span></div>
     </div>
-    <p class="hint mt-1">${VINDEX_PRISLISTE.mvaTekst} Prisgrunnlag:
-      ${VINDEX_PRISLISTE.kjelde}.</p>
+    <p class="hint mt-1">Prisene i listen er inkl. mva — det er det privatkunden
+      betaler. Tallet uten mva står ved siden av, for de tilfellene du trenger det.
+      Prisgrunnlag: ${VINDEX_PRISLISTE.kjelde}.</p>
     </div>`;
 
   opneModal(
@@ -1989,7 +1991,7 @@ function tilbodsHtml(lead) {
              <div class="total"><span>Sum</span><span>${kr(r.sum)}</span></div>`
       }
     </div>
-    <p class="hint mt-1">${VINDEX_PRISLISTE.mvaTekst} ${
+    <p class="hint mt-1">${VINDEX_PRISLISTE.mvaTekst} Sum uten mva: ${kr(vindexEksMva(r.sum))}. ${
       VINDEX_FIRMA.garantiAr ? VINDEX_FIRMA.garantiAr + " års garanti." : ""
     }</p>
     ${t.notat ? `<p>${t.notat}</p>` : ""}
@@ -2036,7 +2038,7 @@ async function delTilbod(lead) {
          ? `<p class="mt-1"><a class="btn btn-sm" id="dtEpost"
               href="mailto:${k.epost}?subject=${encodeURIComponent("Tilbud fra Vindex")}&body=${encodeURIComponent(
              "Hei " + (k.navn || "") + ",\\n\\nTakk for henvendelsen. Her er tilbudet vårt på " +
-               kr(r.sum) + " inkl. mva.\\n\\n" + (t.notat || "") +
+               kr(r.sum) + " inkl. mva (" + kr(vindexEksMva(r.sum)) + " eks. mva).\\n\\n" + (t.notat || "") +
                "\\n\\nMed vennlig hilsen\\n" + app.brukar.navn + "\\n" + VINDEX_FIRMA.navn
            )}">✉️ Åpne e-post til ${k.epost}</a></p>`
          : '<p class="hint">Kunden har ingen e-postadresse registrert.</p>'
