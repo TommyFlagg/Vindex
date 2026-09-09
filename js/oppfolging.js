@@ -290,6 +290,48 @@ function vindexRegnMontering(m = {}) {
 }
 
 /**
+ * Frakt — eigen linje, med prisen frå fraktabellen.
+ *
+ * Frakta blir ikkje rekna av vekt, men av kor mange seksjonar som skal sendast.
+ * Seljaren vel bandet, og lista gir prisen. Sprosser har si eiga tabell etter
+ * tal sprosser, og somme kundar hentar sjølve — då er frakta null, ikkje tom.
+ */
+function vindexRegnFrakt(f = {}) {
+  const kjelde = f.kjelde || "seksjonar";
+  const hentesSjolv = kjelde === "hentes";
+
+  let rad = null;
+  let sum = 0;
+  if (kjelde === "seksjonar" && f.seksjonar && typeof vindexFraktRekkverk === "function") {
+    rad = vindexFraktRekkverk(f.seksjonar);
+    sum = rad ? rad.inkl : 0;
+  } else if (kjelde === "sprosser" && f.sprosser && typeof vindexFraktSprosser === "function") {
+    rad = vindexFraktSprosser(f.sprosser);
+    sum = rad ? rad.inkl : 0;
+  } else if (kjelde === "manuell") {
+    sum = Math.max(0, Math.round(parseFloat(f.manuell) || 0));
+  }
+
+  // Over 36 seksjonar sluttar tabellen. Då er det ikkje vår jobb å gjette —
+  // transporten må avtalast, og seljaren må skrive summen sjølv.
+  const utanforTabellen =
+    (kjelde === "seksjonar" && !!f.seksjonar && !rad) ||
+    (kjelde === "sprosser" && !!f.sprosser && !rad);
+
+  return {
+    kjelde,
+    hentesSjolv,
+    seksjonar: f.seksjonar || "",
+    sprosser: f.sprosser || "",
+    manuell: f.manuell || "",
+    rad,
+    sum: hentesSjolv ? 0 : sum,
+    utanforTabellen,
+    oppgitt: hentesSjolv || sum > 0 || utanforTabellen,
+  };
+}
+
+/**
  * Rekn ut eit tilbod frå linjene.
  *
  * Rekkefølgja er: linjesum -> rabatt -> fastpris. Set seljaren ein fast pris,
@@ -310,13 +352,33 @@ function vindexRegnTilbod(tilbod = {}) {
       listepris,
       listesum: Math.round(antall * (listepris == null ? parseFloat(l.enhetspris) || 0 : listepris)),
       frittSett: listepris == null,
+      maksRabatt: typeof vindexMaksRabatt === "function" ? vindexMaksRabatt(l.kode) : 100,
     };
   });
   const linjesum = linjer.reduce((n, l) => n + l.sum, 0);
   const listesum = linjer.reduce((n, l) => n + l.listesum, 0);
 
-  const rabattProsent = parseFloat(tilbod.rabattProsent) || 0;
-  const rabattKr = parseFloat(tilbod.rabattKr) || Math.round((linjesum * rabattProsent) / 100);
+  // Rabatten blir gitt per linje, og kvar linje har si grense. Skriv seljaren
+  // 40 % på eit tilbod med produserte seksjonar, får seksjonane 25 og resten
+  // det dei toler — og vi seier frå om at det blei avkorta.
+  const onskaProsent = Math.max(0, parseFloat(tilbod.rabattProsent) || 0);
+  linjer.forEach((l) => {
+    l.rabattProsent = Math.min(onskaProsent, l.maksRabatt);
+    l.rabattKr = Math.round((l.sum * l.rabattProsent) / 100);
+  });
+  const maksRabattKr = linjer.reduce((n, l) => n + Math.round((l.sum * l.maksRabatt) / 100), 0);
+  const frProsent = linjer.reduce((n, l) => n + l.rabattKr, 0);
+
+  // Ein rabatt oppgitt i kroner er eit overstyring, men den same grensa gjeld.
+  const onskaKr = tilbod.rabattKr === "" || tilbod.rabattKr === null || tilbod.rabattKr === undefined
+    ? null
+    : parseFloat(tilbod.rabattKr);
+  const harKronerabatt = onskaKr !== null && !isNaN(onskaKr) && onskaKr > 0;
+  const onska = harKronerabatt ? Math.round(onskaKr) : frProsent;
+  const rabattKr = Math.min(onska, maksRabattKr);
+  const rabattAvkorta = onska > rabattKr;
+  const avkortaLinjer = linjer.filter((l) => l.navn && onskaProsent > l.maksRabatt).length;
+  const rabattProsent = onskaProsent;
   const etterRabatt = Math.max(0, linjesum - rabattKr);
 
   const fastprisRaa = tilbod.fastpris === "" || tilbod.fastpris === null || tilbod.fastpris === undefined
@@ -328,9 +390,15 @@ function vindexRegnTilbod(tilbod = {}) {
   // Prosjektprisen: det delelista eller fastprisen kjem til.
   const prosjekt = harFastpris ? Math.round(fastpris) : etterRabatt;
 
-  // Montering ligg utanfor prosjektprisen og blir lagt til på slutten, slik at
-  // kunden ser kva som er materiell og kva som er arbeid.
+  // Montering og frakt ligg utanfor prosjektprisen og blir lagde til på slutten,
+  // slik at kunden ser kva som er materiell, kva som er arbeid og kva som er
+  // transport.
   const montering = vindexRegnMontering(tilbod.montering);
+  const frakt = vindexRegnFrakt(tilbod.frakt);
+
+  // Fastprisen kan gå under grensene utan at nokon merkar det, så vi reknar ut
+  // kva den faktisk utgjer i rabatt og seier frå om den er for djup.
+  const fastprisRabatt = harFastpris ? linjesum - Math.round(fastpris) : 0;
 
   return {
     linjer,
@@ -350,7 +418,18 @@ function vindexRegnTilbod(tilbod = {}) {
     avvik: harFastpris ? etterRabatt - Math.round(fastpris) : 0,
     prosjekt,
     montering,
-    sum: prosjekt + montering.sum,
+    frakt,
+    // Rabattgrensene: kor mykje som var ynskt, kor mykje som blei gitt, og om
+    // noko blei avkorta undervegs.
+    maksRabattKr,
+    rabattAvkorta,
+    avkortaLinjer,
+    fastprisRabatt,
+    fastprisOverGrensa: harFastpris && fastprisRabatt > maksRabattKr,
+    sum: prosjekt + montering.sum + frakt.sum,
+    // Skal kunden sjå kva kvar linje kostar, eller berre totalen? Somme tilbod
+    // er lettast å seie ja til når dei er eitt tal.
+    visLinjeprisar: tilbod.visLinjeprisar !== false,
     // Eit tilbod utan linjer, utan fastpris og utan montering er ikkje eit tilbod.
     gyldig: linjer.some((l) => l.navn && l.sum > 0) || harFastpris || montering.oppgitt,
   };

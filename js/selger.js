@@ -749,8 +749,8 @@ function visDetalj(id) {
             : ""
         }
         ${
-          rekna.gyldig && t.deltMedKunde && l.status !== "solgt"
-            ? '<button class="btn btn-accent btn-sm" id="akseptTilbod">Kunden aksepterte → ordreseddel</button>'
+          rekna.gyldig && l.status !== "solgt"
+            ? '<button class="btn btn-accent btn-sm" id="akseptTilbod">Kunden aksepterte → fyll ordreseddelen</button>'
             : ""
         }
       </div>
@@ -1882,6 +1882,13 @@ function opneTilbod(lead) {
       rabattProsent: (t.montering || {}).rabattProsent || "",
       etterAvtale: !!(t.montering || {}).etterAvtale,
     },
+    frakt: {
+      kjelde: (t.frakt || {}).kjelde || "seksjonar",
+      seksjonar: (t.frakt || {}).seksjonar || "",
+      sprosser: (t.frakt || {}).sprosser || "",
+      manuell: (t.frakt || {}).manuell || "",
+    },
+    visLinjeprisar: t.visLinjeprisar !== false,
   };
 
   // Låg det eit uferdig utkast igjen frå sist, tek vi opp tråden der. Er
@@ -1899,6 +1906,74 @@ function opneTilbod(lead) {
 
   lagreTilbodskladd = kladdlagrar(tilbodskladdnokkel(lead), () => tilbodsutkast);
   teiknTilbodsdialog(lead);
+}
+
+/**
+ * Listeprisen rett under delelista, i liten skrift.
+ *
+ * Summen står i bunnen òg, men den er langt nede når lista er lang. Her ser
+ * seljaren fortløpande kva delelista er verdt etter prislista, medan han
+ * bygger den.
+ */
+function listeprisHtml(r) {
+  if (!r.listesum) return "";
+  const bit = [`Delelisten etter prisliste: <strong>${kr(r.listesum)}</strong> inkl. mva
+    (${kr(vindexEksMva(r.listesum))} eks. mva)`];
+  if (r.listesum !== r.linjesum) bit.push(`med prisene du skrev: ${kr(r.linjesum)}`);
+  if (r.utanforLista)
+    bit.push(`${r.utanforLista} linje${r.utanforLista > 1 ? "r" : ""} står ikke i prislisten`);
+  return bit.join(" · ");
+}
+
+/**
+ * Frakt — fast linje i tilbodet, med prisen frå fraktabellen.
+ *
+ * Frakta blir ikkje rekna av vekt, men av kor mange seksjonar som skal sendast.
+ * Seljaren vel bandet, og lista gir prisen — då er det ingen som gjettar, og
+ * ingen som gløymer frakta før kunden har sagt ja.
+ */
+function fraktfeltHtml(f, r) {
+  const band = (liste, valt, alt) =>
+    `<option value="">–</option>` +
+    liste
+      .map((b) => {
+        const v = b.til;
+        return `<option value="${v}"${String(v) === String(valt) ? " selected" : ""}>${b.fra}–${b.til} ${alt} — ${vindexKr(b.inkl)}</option>`;
+      })
+      .join("");
+
+  return `<fieldset class="monteringsfelt mt-2">
+    <legend>Frakt</legend>
+    <div class="feltrutenett">
+      <div class="field"><label for="tbFraktKjelde">Hvordan sendes det</label>
+        <select id="tbFraktKjelde">
+          <option value="seksjonar"${f.kjelde === "seksjonar" ? " selected" : ""}>Etter antall seksjoner</option>
+          <option value="sprosser"${f.kjelde === "sprosser" ? " selected" : ""}>Etter antall sprosser</option>
+          <option value="manuell"${f.kjelde === "manuell" ? " selected" : ""}>Egen sum</option>
+          <option value="hentes"${f.kjelde === "hentes" ? " selected" : ""}>Kunden henter selv</option>
+        </select></div>
+      <div class="field${f.kjelde === "seksjonar" ? "" : " hidden"}" id="fraktFeltSeksjonar"><label for="tbFraktSeksjonar">Antall seksjoner som sendes</label>
+        <select id="tbFraktSeksjonar">${band(VINDEX_FRAKT_REKKVERK, f.seksjonar, "seksjoner")}</select></div>
+      <div class="field${f.kjelde === "sprosser" ? "" : " hidden"}" id="fraktFeltSprosser"><label for="tbFraktSprosser">Antall sprosser</label>
+        <select id="tbFraktSprosser">${band(VINDEX_FRAKT_SPROSSER, f.sprosser, "sprosser")}</select></div>
+      <div class="field${f.kjelde === "manuell" ? "" : " hidden"}" id="fraktFeltManuell"><label for="tbFraktManuell">Fraktsum (kr)</label>
+        <input id="tbFraktManuell" type="number" min="0" step="50" value="${f.manuell}"></div>
+    </div>
+    <div id="fraktSum">${fraktSumHtml(r)}</div>
+  </fieldset>`;
+}
+
+function fraktSumHtml(r) {
+  if (r.hentesSjolv)
+    return `<p class="hint mb-0">Kunden henter selv — ingen frakt på tilbudet.</p>`;
+  if (r.utanforTabellen)
+    return `<div class="notice notice-warn mt-1 mb-0">Antallet er utenfor fraktabellen.
+      Transporten må avtales — velg «Egen sum» og skriv inn prisen.</div>`;
+  if (!r.sum) return "";
+  return `<div class="tilbodsum tilbodsum-liten mt-1">
+    ${r.rad && r.rad.paller ? `<div><span>${r.rad.paller} pall${r.rad.paller === "1" ? "" : "er"} · ${r.rad.vektKg} kg</span><span></span></div>` : ""}
+    <div class="total"><span>Frakt</span><span>${kr(r.sum)}</span></div>
+  </div>`;
 }
 
 /**
@@ -1994,7 +2069,7 @@ function tilbodsumHtml(r) {
         ? `<div><span>Sum med prisene du skrev</span><span class="linjesum">${kr(r.linjesum)}</span></div>`
         : ""
     }
-    ${r.rabattKr ? `<div><span>Rabatt${r.rabattProsent ? " (" + r.rabattProsent + " %)" : ""}</span><span class="linjesum">− ${kr(r.rabattKr)}</span></div>` : ""}
+    ${r.rabattKr ? `<div><span>Rabatt${r.rabattProsent ? " (inntil " + r.rabattProsent + " %)" : ""}</span><span class="linjesum">− ${kr(r.rabattKr)}</span></div>` : ""}
     ${
       r.harFastpris
         ? `<div class="avvik"><span>Fast prosjektpris i stedet for ${kr(r.etterRabatt)}</span>
@@ -2002,9 +2077,20 @@ function tilbodsumHtml(r) {
         : ""
     }
     ${
+      r.montering.oppgitt || r.frakt.oppgitt
+        ? `<div><span>Materiell</span><span class="linjesum">${kr(r.prosjekt)}</span></div>`
+        : ""
+    }
+    ${
+      r.frakt.oppgitt
+        ? `<div><span>Frakt</span><span class="linjesum">${
+            r.frakt.hentesSjolv ? "Kunden henter" : r.frakt.utanforTabellen ? "Må avtales" : kr(r.frakt.sum)
+          }</span></div>`
+        : ""
+    }
+    ${
       r.montering.oppgitt
-        ? `<div><span>Materiell</span><span class="linjesum">${kr(r.prosjekt)}</span></div>
-           <div><span>Montering og reise</span><span class="linjesum">${
+        ? `<div><span>Montering og reise</span><span class="linjesum">${
              r.montering.etterAvtale ? "Etter avtale" : kr(r.montering.sum)
            }</span></div>`
         : ""
@@ -2018,7 +2104,28 @@ function tilbodsumHtml(r) {
           }</span><span class="linjesum">${r.avvikFraListe > 0 ? "− " : "+ "}${kr(Math.abs(r.avvikFraListe))}</span></div>`
         : ""
     }
-    ${r.montering.etterAvtale ? `<div><span class="hint">Montering kommer i tillegg, etter avtale</span><span></span></div>` : ""}`;
+    ${r.montering.etterAvtale ? `<div><span class="hint">Montering kommer i tillegg, etter avtale</span><span></span></div>` : ""}
+    ${rabattvarselHtml(r)}`;
+}
+
+/**
+ * Sier fra når rabatten støter mot grensene i prislisten.
+ *
+ * En rabatt som stilltiende ble kappet er verre enn ingen rabatt: selgeren tror
+ * han har gitt 40 %, kunden har fått 25, og ingen av dem vet det.
+ */
+function rabattvarselHtml(r) {
+  const bitar = [];
+  if (r.avkortaLinjer)
+    bitar.push(`${r.avkortaLinjer} linje${r.avkortaLinjer > 1 ? "r" : ""} tåler mindre rabatt enn du ba om`);
+  if (r.rabattAvkorta)
+    bitar.push(`rabatten er avkortet til ${kr(r.rabattKr)} — maks er ${kr(r.maksRabattKr)} på denne listen`);
+  if (r.fastprisOverGrensa)
+    bitar.push(`fastprisen gir ${kr(r.fastprisRabatt)} i avslag, mer enn de ${kr(r.maksRabattKr)} prislisten åpner for`);
+  if (!bitar.length) return "";
+  return `<div><span class="hint" style="grid-column:1/-1">⚠︎ ${
+    bitar.join(". ")
+  }. Grensene er 25 % på produserte seksjoner, 35 % på standard, 40 % på lys og strøm, og 0 % på stålfot, stolpefester og porthengsler.</span></div>`;
 }
 
 function teiknTilbodsdialog(lead) {
@@ -2086,6 +2193,7 @@ function teiknTilbodsdialog(lead) {
     <div class="btn-row mt-1">
       <button class="btn btn-ghost btn-sm" id="tbNyLinje">+ Legg til linje</button>
     </div>
+    <p class="hint mt-1 mb-0" id="tbListepris">${listeprisHtml(r)}</p>
 
     <div class="feltrutenett mt-2">
       <div class="field"><label for="tbRabattP">Rabatt (%)</label>
@@ -2104,6 +2212,14 @@ function teiknTilbodsdialog(lead) {
     </div>
 
     ${monteringsfeltHtml(u.montering, r.montering)}
+    ${fraktfeltHtml(u.frakt, r.frakt)}
+
+    <label class="avkryssrad mt-2">
+      <input type="checkbox" id="tbVisLinjeprisar"${u.visLinjeprisar ? " checked" : ""}>
+      <span>Vis prisen på hver linje i tilbudet kunden får</span>
+    </label>
+    <p class="hint">Uten haken ser kunden hva som inngår, men bare én pris —
+      den avtalte, inkludert frakt.</p>
 
     <div class="tilbodsum mt-2" id="tbSummar">${tilbodsumHtml(r)}</div>
     <p class="hint mt-1">Prisene i listen er inkl. mva — det er det privatkunden
@@ -2155,6 +2271,16 @@ function teiknTilbodsdialog(lead) {
       // ombestemmer seg.
       etterAvtale: avtale ? avtale.checked : false,
     };
+
+    u.frakt = {
+      kjelde: verdiAv("#tbFraktKjelde") || "seksjonar",
+      seksjonar: verdiAv("#tbFraktSeksjonar"),
+      sprosser: verdiAv("#tbFraktSprosser"),
+      manuell: verdiAv("#tbFraktManuell"),
+    };
+
+    const linjeprisar = $("#tbVisLinjeprisar");
+    u.visLinjeprisar = linjeprisar ? linjeprisar.checked : true;
   };
 
   /**
@@ -2176,6 +2302,10 @@ function teiknTilbodsdialog(lead) {
     if (summar) summar.innerHTML = tilbodsumHtml(rekna);
     const montSum = $("#montSum");
     if (montSum) montSum.innerHTML = monteringSumHtml(rekna.montering);
+    const fraktSum = $("#fraktSum");
+    if (fraktSum) fraktSum.innerHTML = fraktSumHtml(rekna.frakt);
+    const listeboks = $("#tbListepris");
+    if (listeboks) listeboks.innerHTML = listeprisHtml(rekna);
     const rabattKr = $("#tbRabattKr");
     if (rabattKr)
       rabattKr.placeholder = rekna.rabattProsent
@@ -2197,6 +2327,14 @@ function teiknTilbodsdialog(lead) {
     if (e.target && e.target.id === "tbMontAvtale") {
       const felt = $("#montFelt");
       if (felt) felt.classList.toggle("hidden", e.target.checked);
+    }
+    if (e.target && e.target.id === "tbFraktKjelde") {
+      const valt = e.target.value;
+      [["fraktFeltSeksjonar", "seksjonar"], ["fraktFeltSprosser", "sprosser"], ["fraktFeltManuell", "manuell"]]
+        .forEach(([id, kjelde]) => {
+          const el = document.getElementById(id);
+          if (el) el.classList.toggle("hidden", valt !== kjelde);
+        });
     }
     oppdaterSummar();
     lagreTilbodskladd();
@@ -2272,6 +2410,8 @@ function teiknTilbodsdialog(lead) {
       fastpris: rekna.fastpris,
       gyldigTil: u.gyldigTil,
       notat: u.notat.trim(),
+      frakt: { ...u.frakt, sum: rekna.frakt.sum },
+      visLinjeprisar: u.visLinjeprisar,
       montering: {
         ...u.montering,
         // Summen blir lagra ferdig rekna, så ordreseddelen og statistikken
@@ -2308,34 +2448,58 @@ function tilbodsHtml(lead) {
     <h3 class="mt-1">Tilbud til ${k.navn || "kunde"}</h3>
     <p class="hint">${[k.adresse, k.postnr, k.poststed].filter(Boolean).join(", ")}
       · ${new Date().toLocaleDateString("nb-NO")}${t.gyldigTil ? " · gyldig til " + t.gyldigTil : ""}</p>
-    <table class="data">
-      <thead><tr><th>Beskrivelse</th><th>Antall</th><th>Pris per enhet</th><th>Sum</th></tr></thead>
-      <tbody>
-        ${r.linjer
-          .filter((l) => l.navn)
-          .map(
-            (l) => `<tr><td>${l.navn}</td><td>${l.antall} ${l.enhet}</td>
-              <td>${kr(l.enhetspris)}</td><td>${kr(l.sum)}</td></tr>`
-          )
-          .join("")}
-      </tbody>
-    </table>
+    ${
+      r.visLinjeprisar
+        ? `<table class="data">
+             <thead><tr><th>Beskrivelse</th><th>Antall</th><th>Pris per enhet</th><th>Sum</th></tr></thead>
+             <tbody>
+               ${r.linjer
+                 .filter((l) => l.navn)
+                 .map(
+                   (l) => `<tr><td>${l.navn}</td><td>${l.antall} ${l.enhet}</td>
+                     <td>${kr(l.enhetspris)}</td><td>${kr(l.sum)}</td></tr>`
+                 )
+                 .join("")}
+             </tbody>
+           </table>`
+        : `<h4 class="mt-1">Dette inngår</h4>
+           <table class="data">
+             <thead><tr><th>Beskrivelse</th><th>Antall</th></tr></thead>
+             <tbody>
+               ${r.linjer
+                 .filter((l) => l.navn)
+                 .map((l) => `<tr><td>${l.navn}</td><td>${l.antall} ${l.enhet}</td></tr>`)
+                 .join("")}
+             </tbody>
+           </table>`
+    }
     <div class="tilbodsum">
       ${
-        r.harFastpris
-          ? `<div><span>Fast pris for materiell</span><span>${kr(r.prosjekt)}</span></div>`
-          : `${r.rabattKr ? `<div><span>Sum materiell</span><span>${kr(r.linjesum)}</span></div>
-               <div><span>Rabatt</span><span>− ${kr(r.rabattKr)}</span></div>` : ""}
-             <div><span>${r.rabattKr ? "Materiell etter rabatt" : "Sum materiell"}</span><span>${kr(r.prosjekt)}</span></div>`
-      }
-      ${
-        r.montering.oppgitt
-          ? `<div><span>Montering og reise</span><span>${
-              r.montering.etterAvtale ? "Etter avtale" : kr(r.montering.sum)
-            }</span></div>`
+        r.visLinjeprisar
+          ? `${
+              r.harFastpris
+                ? `<div><span>Fast pris for materiell</span><span>${kr(r.prosjekt)}</span></div>`
+                : `${r.rabattKr ? `<div><span>Sum materiell</span><span>${kr(r.linjesum)}</span></div>
+                     <div><span>Rabatt</span><span>− ${kr(r.rabattKr)}</span></div>` : ""}
+                   <div><span>${r.rabattKr ? "Materiell etter rabatt" : "Sum materiell"}</span><span>${kr(r.prosjekt)}</span></div>`
+            }
+            ${
+              r.frakt.oppgitt
+                ? `<div><span>Frakt</span><span>${
+                    r.frakt.hentesSjolv ? "Kunden henter selv" : r.frakt.utanforTabellen ? "Avtales" : kr(r.frakt.sum)
+                  }</span></div>`
+                : ""
+            }
+            ${
+              r.montering.oppgitt
+                ? `<div><span>Montering og reise</span><span>${
+                    r.montering.etterAvtale ? "Etter avtale" : kr(r.montering.sum)
+                  }</span></div>`
+                : ""
+            }`
           : ""
       }
-      <div class="total"><span>${r.montering.etterAvtale ? "Sum materiell" : "Sum"}</span><span>${kr(r.sum)}</span></div>
+      <div class="total"><span>${totaletikett(r)}</span><span>${kr(r.sum)}</span></div>
     </div>
     <p class="hint mt-1">${VINDEX_PRISLISTE.mvaTekst} Sum uten mva: ${kr(vindexEksMva(r.sum))}. ${
       VINDEX_FIRMA.garantiAr ? VINDEX_FIRMA.garantiAr + " års garanti." : ""
@@ -2352,6 +2516,21 @@ function tilbodsHtml(lead) {
     <p class="mt-2">Med vennlig hilsen<br><strong>${seljar.navn}</strong><br>
       ${seljar.telefon || ""} ${seljar.epost ? "· " + seljar.epost : ""}</p>
   </div>`;
+}
+
+/**
+ * Kva totalen faktisk omfattar.
+ *
+ * «Inkludert frakt og montering» på eit tilbod der kunden hentar sjølv og
+ * monteringa ikkje er avtalt, er ikkje ei forenkling — det er feil. Etiketten
+ * fortel kva som er med, og ikkje meir.
+ */
+function totaletikett(r) {
+  const med = [];
+  if (r.frakt.oppgitt && !r.frakt.hentesSjolv && !r.frakt.utanforTabellen) med.push("frakt");
+  if (r.montering.oppgitt && !r.montering.etterAvtale) med.push("montering");
+  if (!med.length) return "Avtalt pris";
+  return "Avtalt pris, inkludert " + med.join(" og ");
 }
 
 function visTilbodsvindu(lead) {

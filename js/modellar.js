@@ -554,6 +554,57 @@ function vindexMonteringsrabatt(timar) {
 }
 
 // ---------------------------------------------------------------------------
+// Rabattgrenser
+// ---------------------------------------------------------------------------
+// Kor mykje som kan gjevast bort avheng av kva slags vare det er. Ein seksjon
+// som blir produsert etter mål tåler mindre enn ein standardartikkel frå hylla,
+// og på nokre delar er marginen så tynn at det ikkje er noko å gi.
+//
+// Grensa høyrer heime her, i lista, og ikkje i hovudet til kvar enkelt seljar.
+// Skriv nokon 40 % på ei produsert seksjon, blir det 25 — og verktøyet seier
+// frå om at det blei avkorta, slik at ingen trur dei har gitt meir enn dei har.
+
+const VINDEX_RABATTGRUPPER = [
+  { id: "produsert", navn: "Spesial- og produserte seksjoner", maks: 25 },
+  { id: "standard", navn: "Standard artikler", maks: 35 },
+  { id: "lys", navn: "Lys og strømdeler", maks: 40 },
+  { id: "ingen", navn: "Stålfot, stolpefester og porthengsler", maks: 0 },
+];
+
+// Artiklar som ikkje tåler rabatt i det heile: stolpefoten, alt som festar ein
+// stolpe til vegg eller trapp, og hengslene til porten.
+const VINDEX_UTAN_RABATT = ["7359", "7557", "7376", "7556", "7564", "7535", "4423", "4434"];
+
+// Varegrupper som blir produserte etter mål. Resten er lagervare.
+const VINDEX_PRODUSERTE_GRUPPER = [
+  "Rekkverk og gjerde", "Levegg", "Stakitt og gjerde", "Gardsgjerde",
+  "Kystveggen", "Porter", "Sprossetillegg",
+];
+
+/**
+ * Kva rabattgruppe høyrer denne artikkelen til?
+ *
+ * `gruppe` er varegruppa frå prisboka. Er den ikkje kjend — ei linje seljaren
+ * har skrive sjølv — går vi ut frå at det er ein standardartikkel. Det er den
+ * midtre grensa, og den som gjer minst skade om vi gjettar feil.
+ */
+function vindexRabattgruppe(kode, gruppe) {
+  const n = String(kode || "");
+  if (VINDEX_UTAN_RABATT.includes(n)) return VINDEX_RABATTGRUPPER[3];
+  if (gruppe === "LED-lys") return VINDEX_RABATTGRUPPER[2];
+  // Spesialstolpen blir laga for kvar ordre, sjølv om den står blant stolpane.
+  if (n === "7501") return VINDEX_RABATTGRUPPER[0];
+  if (VINDEX_PRODUSERTE_GRUPPER.includes(gruppe)) return VINDEX_RABATTGRUPPER[0];
+  return VINDEX_RABATTGRUPPER[1];
+}
+
+/** Maks rabatt i prosent for ein artikkel. Ukjend artikkel = standardgrensa. */
+function vindexMaksRabatt(kode) {
+  const linje = typeof vindexPrislinje === "function" ? vindexPrislinje(kode) : null;
+  return vindexRabattgruppe(kode, linje ? linje.gruppe : null).maks;
+}
+
+// ---------------------------------------------------------------------------
 // Frakt
 // ---------------------------------------------------------------------------
 // Frakta på rekkverk blir rekna etter talet på seksjonar, ikkje etter vekt.
