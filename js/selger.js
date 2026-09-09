@@ -2031,45 +2031,95 @@ function sporGrunn(lead, nyStatus) {
   const grunnar = VINDEX_GRUNNAR[nyStatus] || [];
   const vunnen = nyStatus === "solgt";
 
+  const avkryss = (namn, liste, valde) =>
+    liste
+      .map(
+        (g) => `<label class="choice">
+          <input type="checkbox" name="${namn}" value="${g.id}"${(valde || []).includes(g.id) ? " checked" : ""}>
+          <span class="choice-title">${g.navn}</span>
+        </label>`
+      )
+      .join("");
+
   opneModal(
     vunnen ? "Solgt — hva avgjorde?" : "Avslått — hva var årsaken?",
-    `<p class="hint">Ett klikk. Dette er det eneste stedet vi får vite hvorfor,
-       og det havner i statistikken for ditt fylke.</p>
-     <div class="choices mt-1" id="grunnValg">
-       ${grunnar
-         .map(
-           (g) => `<label class="choice">
-             <input type="radio" name="grunn" value="${g.id}">
-             <span class="choice-title">${g.navn}</span>
-           </label>`
-         )
-         .join("")}
-     </div>
-     <div class="field mt-1">
+    `<p class="hint">Kryss av alt som spilte inn — det er sjelden bare én ting.
+       Dette er det eneste stedet vi får vite hvorfor, og det havner i statistikken
+       for ditt fylke og i hovedkontorets oversikt.</p>
+
+     <h4 class="mt-1 mb-0">${vunnen ? "Hva avgjorde?" : "Hva var årsaken?"}</h4>
+     <div class="choices mt-1" id="grunnValg">${avkryss("grunn", grunnar)}</div>
+
+     <h4 class="mt-2 mb-0">Hvem konkurrerte vi mot?</h4>
+     <p class="hint">Vet du det ikke, si det — «vet ikke» er et ærligere svar enn
+       ingenting, og teller ikke som at vi var alene.</p>
+     <div class="choices mt-1" id="konkValg">${avkryss("konkurrent", VINDEX_KONKURRENTAR)}</div>
+
+     ${
+       vunnen
+         ? ""
+         : `<h4 class="mt-2 mb-0">Hvem valgte de?</h4>
+            <div class="field mt-1">
+              <select id="grunnValde">
+                <option value="">– vet ikke / ikke aktuelt</option>
+                ${VINDEX_KONKURRENTAR.filter((k) => !k.eiKonkurrent)
+                  .map((k) => `<option value="${k.id}">${k.navn}</option>`)
+                  .join("")}
+              </select>
+            </div>`
+     }
+
+     <div class="field mt-2">
        <label for="grunnNotat">Utdyp <span class="optional">(valgfritt)</span></label>
        <input id="grunnNotat" placeholder="${vunnen ? "Hva var utslagsgivende?" : "Hvem tok jobben, og til hvilken pris?"}">
      </div>
-     <p class="field-error hidden" id="grunnFeil">Velg en årsak.</p>`,
+     <p class="field-error hidden" id="grunnFeil">Velg minst én årsak.</p>`,
     `<button class="btn btn-ghost" id="grunnAvbryt">Avbryt</button>
      <button class="btn ${vunnen ? "btn-accent" : ""}" id="grunnLagre">${vunnen ? "Registrer salg" : "Registrer avslag"}</button>`
   );
 
+  // «Ingen — vi var alene» og «vet ikke» utelukkar dei andre: det er ikkje eit
+  // felt der ein både var åleine og møtte Kystgjerdet.
+  $$('#konkValg input[name="konkurrent"]').forEach((boks) =>
+    boks.addEventListener("change", () => {
+      const einerad = (VINDEX_KONKURRENTAR.find((k) => k.id === boks.value) || {}).eiKonkurrent;
+      if (!boks.checked) return;
+      $$('#konkValg input[name="konkurrent"]').forEach((annan) => {
+        if (annan === boks) return;
+        const annanEinerad = (VINDEX_KONKURRENTAR.find((k) => k.id === annan.value) || {}).eiKonkurrent;
+        if (einerad || annanEinerad) annan.checked = false;
+      });
+    })
+  );
+
   $("#grunnAvbryt").addEventListener("click", lukkModal);
   $("#grunnLagre").addEventListener("click", async () => {
-    const valt = document.querySelector('input[name="grunn"]:checked');
-    if (!valt) {
+    const valde = $$('#grunnValg input[name="grunn"]:checked').map((i) => i.value);
+    if (!valde.length) {
       $("#grunnFeil").classList.remove("hidden");
       return;
     }
+    const konkurrentar = $$('#konkValg input[name="konkurrent"]:checked').map((i) => i.value);
+    const valdeLeverandor = vunnen ? "" : ($("#grunnValde") || {}).value || "";
+
     const tilbakemelding = {
-      grunn: valt.value,
+      grunnar: valde,
+      konkurrentar,
+      valdeLeverandor,
       kommentar: $("#grunnNotat").value.trim(),
       tid: new Date().toISOString(),
       av: app.brukar.navn,
     };
+
+    const grunntekst = valde.map((g) => vindexGrunnNavn(nyStatus, g)).join(", ");
+    const konktekst = konkurrentar.length
+      ? " Mot: " + konkurrentar.map(vindexKonkurrentNavn).join(", ") + "."
+      : "";
+    const valdtekst = valdeLeverandor ? ` Kunden valgte ${vindexKonkurrentNavn(valdeLeverandor)}.` : "";
+
     await lagreLead(lead, { status: nyStatus, tilbakemelding }, [
-      `${vunnen ? "Solgt" : "Avslått"} — ${vindexGrunnNavn(nyStatus, valt.value)}` +
-        (tilbakemelding.kommentar ? ": " + tilbakemelding.kommentar : "") + ".",
+      `${vunnen ? "Solgt" : "Avslått"} — ${grunntekst}` +
+        (tilbakemelding.kommentar ? ": " + tilbakemelding.kommentar : "") + "." + konktekst + valdtekst,
     ]);
     lukkModal();
     teikn();

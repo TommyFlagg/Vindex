@@ -557,6 +557,72 @@ function teiknGrunnar() {
   };
 
   $("#grunnar").innerHTML =
-    kort("solgt", "Derfor vant vi", "Hva selgerne oppgir når en sak lukkes som solgt.") +
-    kort("avslatt", "Derfor tapte vi", "Den dyreste informasjonen i verktøyet.");
+    kort("solgt", "Derfor vant vi", "Hva selgerne oppgir når en sak lukkes som solgt. En sak kan ha flere årsaker, så søylene summerer seg til mer enn antall saker.") +
+    kort("avslatt", "Derfor tapte vi", "Den dyreste informasjonen i verktøyet.") +
+    konkurrentkort() +
+    taptTilKort();
+}
+
+/**
+ * Konkurrentbildet.
+ *
+ * Ikke hvem som finnes — det vet alle — men hvem vi faktisk møter, og hvordan
+ * det går når vi møter dem. En konkurrent vi møter ti ganger og slår ni er et
+ * annet problem enn en vi møter tre ganger og taper alle tre.
+ */
+function konkurrentkort() {
+  const rader = vindexKonkurrenttal(app.leads);
+  const flest = Math.max(1, ...rader.map((r) => r.moter));
+
+  return `<div class="card">
+    <h3 class="mt-0">Hvem vi møter</h3>
+    <p class="hint">Saker der konkurrenten var med, og hvordan de endte. Treffprosenten
+      er vår andel av de avgjorte sakene mot akkurat dem.</p>
+    ${
+      rader.length
+        ? `<div class="table-scroll" style="border:none"><table class="data">
+             <thead><tr><th>Konkurrent</th><th class="tal">Møter</th><th class="tal">Vunnet</th>
+               <th class="tal">Tapt</th><th class="tal">Tok jobben</th><th class="tal">Treff</th></tr></thead>
+             <tbody>${rader
+               .map(
+                 (r) => `<tr>
+                   <td>${r.navn}<br>
+                     <span class="fordelingsstolpe" style="max-width:9rem"><i class="fyll-solgt"
+                       style="width:${Math.round((r.moter / flest) * 100)}%"></i></span></td>
+                   <td class="tal">${r.moter}</td>
+                   <td class="tal">${r.vunne}</td>
+                   <td class="tal">${r.tapt}</td>
+                   <td class="tal">${r.tokJobben || "–"}</td>
+                   <td class="tal">${r.treffprosent === null ? "–" : r.treffprosent + " %"}</td>
+                 </tr>`
+               )
+               .join("")}</tbody>
+           </table></div>`
+        : `<p class="hint">Ingen konkurrenter registrert ennå. Selgerne krysser av for
+             hvem som var med når en sak lukkes.</p>`
+    }
+  </div>`;
+}
+
+/** Hvem kundene valgte når det ikke ble oss. */
+function taptTilKort() {
+  const rader = vindexTaptTil(app.leads);
+  const total = rader.reduce((n, r) => n + r.tal, 0);
+  return `<div class="card">
+    <h3 class="mt-0">Hvem de valgte i stedet</h3>
+    <p class="hint">Bare de tapte sakene der selgeren vet hvem som tok jobben.</p>
+    ${
+      total
+        ? rader
+            .map(
+              (r) => `<div class="fordelingsrad">
+                <span class="fordelingsnavn">${r.navn}</span>
+                <span class="fordelingsstolpe"><i class="fyll-avslatt" style="width:${Math.round((r.tal / total) * 100)}%"></i></span>
+                <span class="fordelingstal">${r.tal}</span>
+              </div>`
+            )
+            .join("")
+        : '<p class="hint">Ingen registrert ennå.</p>'
+    }
+  </div>`;
 }

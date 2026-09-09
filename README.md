@@ -316,6 +316,31 @@ spesial — fordi det er plasseringen produksjonen trenger, ikke at det er «stk
 Stolpefoten ligger i samme liste som stolpene, der selgeren leter etter den, men
 har ingen plassering: den står ikke noe sted.
 
+## Hvorfor vi vinner og taper
+
+Selgeren blir spurt i det han setter «Solgt» eller «Avslått», for det er det
+eneste tidspunktet svaret finnes. Spørsmålet har tre deler:
+
+1. **Hva avgjorde** — flere avkryssinger, for det er sjelden bare én ting. En
+   sak teller i hver årsak den har, så søylene i statistikken summerer seg til
+   mer enn antall saker. Det er meningen: spørsmålet er «hvor ofte var pris med
+   på å avgjøre», ikke «hvor mange saker handlet bare om pris».
+2. **Hvem konkurrerte vi mot** — Kystgjerdet, Gjerdemannen, Euriwind,
+   Terrassegutta, lokal snekker, annen. «Ingen — vi var alene» og «vet ikke» er
+   egne valg som utelukker de andre; det er ikke et felt der man både var alene
+   og møtte Kystgjerdet. «Vet ikke» teller heller ikke som at vi var alene.
+3. **Hvem valgte de** — bare ved avslag, og bare når selgeren vet det.
+
+Hovedkontoret får fire kort ut av dette: derfor vant vi, derfor tapte vi, hvem
+vi møter, og hvem de valgte i stedet. Det tredje er det mest nyttige — det viser
+møter, vunnet, tapt, hvor mange ganger de tok jobben, og vår treffprosent mot
+akkurat dem. En konkurrent vi møter ti ganger og slår ni er et helt annet
+problem enn en vi møter tre ganger og taper alle tre.
+
+Feltet var et enkeltvalg før. Gamle leads har `grunn`, nye har `grunnar`, og
+`vindexGrunnarPa()` leser begge — statistikken får ikke hull i seg den dagen
+formatet endret seg.
+
 ## Høyder
 
 Høyden er ikke et fritt tall. Rekkverk lages i noen få standardhøyder og levegg

@@ -775,20 +775,116 @@ function vindexGrunnNavn(status, grunnId) {
   return g ? g.navn : grunnId || "–";
 }
 
-/** Tel tilbakemeldingar per grunn, for eit sett leads. */
+// ---------------------------------------------------------------------------
+// Konkurrentane
+// ---------------------------------------------------------------------------
+// Ein sak blir sjeldan vunnen eller tapt i eit tomrom. Kven som var med, og kven
+// kunden valde når det ikkje blei oss, er det einaste vi nokon gong får vite om
+// marknaden — og det forsvinn i det seljaren legg på røyret om ingen spør.
+//
+// Lista er kort med vilje. Ei lang liste blir ikkje fylt ut; ei kort blir det.
+// «Annen» fangar resten, og kommentarfeltet tek namnet.
+
+const VINDEX_KONKURRENTAR = [
+  { id: "ingen", navn: "Ingen — vi var alene", eiKonkurrent: true },
+  { id: "kystgjerdet", navn: "Kystgjerdet" },
+  { id: "gjerdemannen", navn: "Gjerdemannen" },
+  { id: "euriwind", navn: "Euriwind" },
+  { id: "terrassegutta", navn: "Terrassegutta" },
+  { id: "lokal", navn: "Lokal snekker eller entreprenør" },
+  { id: "annen", navn: "Annen — skriv i kommentaren" },
+  { id: "ukjent", navn: "Vet ikke", eiKonkurrent: true },
+];
+
+const vindexKonkurrentNavn = (id) =>
+  (VINDEX_KONKURRENTAR.find((k) => k.id === id) || { navn: id || "–" }).navn;
+
+/**
+ * Grunnane på eit lead, som liste.
+ *
+ * Feltet var eit enkeltval før og er fleirval no. Gamle leads har `grunn`,
+ * nye har `grunnar` — begge blir lesne, så statistikken ikkje får hol i seg
+ * den dagen formatet endra seg.
+ */
+function vindexGrunnarPa(lead) {
+  const t = (lead || {}).tilbakemelding;
+  if (!t) return [];
+  if (Array.isArray(t.grunnar) && t.grunnar.length) return t.grunnar;
+  return t.grunn ? [t.grunn] : [];
+}
+
+/**
+ * Tel tilbakemeldingar per grunn, for eit sett leads.
+ *
+ * Ei sak kan ha fleire grunnar, og då tel den i kvar av dei. Summen av søylene
+ * blir difor høgare enn talet på saker — det er meininga: spørsmålet er «kor
+ * ofte var pris med på å avgjere», ikkje «kor mange saker handla berre om pris».
+ */
 function vindexTilbakemeldingar(leads, status) {
   const tal = new Map();
   (leads || []).forEach((l) => {
-    const t = l.tilbakemelding;
-    if (!t || !t.grunn) return;
     if (status && l.status !== status) return;
-    const nokkel = l.status + "|" + t.grunn;
-    tal.set(nokkel, (tal.get(nokkel) || 0) + 1);
+    vindexGrunnarPa(l).forEach((g) => {
+      const nokkel = l.status + "|" + g;
+      tal.set(nokkel, (tal.get(nokkel) || 0) + 1);
+    });
   });
   return Array.from(tal.entries())
     .map(([nokkel, tal]) => {
       const [st, grunn] = nokkel.split("|");
       return { status: st, grunn, navn: vindexGrunnNavn(st, grunn), tal };
     })
+    .sort((a, b) => b.tal - a.tal);
+}
+
+/**
+ * Kor ofte møtte vi kvar konkurrent, og korleis gjekk det?
+ *
+ * `vunne` og `tapt` tel saker der konkurrenten var med. `tokJobben` tel dei
+ * gongene kunden valde nettopp dei — det er skilnaden mellom «vi tapte mot eit
+ * felt der Kystgjerdet var med» og «Kystgjerdet tok jobben».
+ */
+function vindexKonkurrenttal(leads) {
+  const tal = new Map();
+  const hent = (id) => {
+    if (!tal.has(id))
+      tal.set(id, { id, navn: vindexKonkurrentNavn(id), moter: 0, vunne: 0, tapt: 0, tokJobben: 0 });
+    return tal.get(id);
+  };
+
+  (leads || []).forEach((l) => {
+    const t = l.tilbakemelding;
+    if (!t) return;
+    const konkurrentar = (t.konkurrentar || []).filter(
+      (id) => !(VINDEX_KONKURRENTAR.find((k) => k.id === id) || {}).eiKonkurrent
+    );
+    konkurrentar.forEach((id) => {
+      const rad = hent(id);
+      rad.moter++;
+      if (l.status === "solgt") rad.vunne++;
+      if (l.status === "avslatt") rad.tapt++;
+    });
+    if (l.status === "avslatt" && t.valdeLeverandor) {
+      const v = VINDEX_KONKURRENTAR.find((k) => k.id === t.valdeLeverandor);
+      if (v && !v.eiKonkurrent) hent(t.valdeLeverandor).tokJobben++;
+    }
+  });
+
+  return Array.from(tal.values())
+    .map((r) => ({ ...r, treffprosent: r.moter ? Math.round((r.vunne / r.moter) * 100) : null }))
+    .sort((a, b) => b.moter - a.moter);
+}
+
+/** Kor mange saker blei tapte til kvar leverandør? */
+function vindexTaptTil(leads) {
+  const tal = new Map();
+  (leads || []).forEach((l) => {
+    if (l.status !== "avslatt") return;
+    const id = (l.tilbakemelding || {}).valdeLeverandor;
+    if (!id) return;
+    tal.set(id, (tal.get(id) || 0) + 1);
+  });
+  return Array.from(tal.entries())
+    .map(([id, tal]) => ({ id, navn: vindexKonkurrentNavn(id), tal }))
     .sort((a, b) => b.tal - a.tal);
 }

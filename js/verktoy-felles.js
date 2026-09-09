@@ -359,8 +359,23 @@ export function demoLeads() {
             rabattKr: i % 4 === 0 ? Math.round((18000 + i * 2300) * 0.1) : 0,
             dato: new Date(naa - (dagar - 2) * dag).toISOString(), gyldigTil: "", notat: "" }
         : null,
+      // Demoen skal vise konkurransebildet òg, ikkje berre årsakene. Ei sak har
+      // gjerne fleire grunnar og møter fleire konkurrentar.
       tilbakemelding: grunn
-        ? { grunn, kommentar: "", tid: new Date(naa - (dagar - 3) * dag).toISOString(), av: "Demo" }
+        ? {
+            grunnar: i % 3 === 0 ? [grunn] : [grunn, status === "solgt" ? "kvalitet" : "pris"],
+            konkurrentar: [
+              ["kystgjerdet"], ["gjerdemannen"], ["ingen"], ["kystgjerdet", "terrassegutta"],
+              ["euriwind"], ["lokal"], ["ukjent"], ["kystgjerdet", "gjerdemannen"],
+            ][i % 8],
+            valdeLeverandor:
+              status === "avslatt"
+                ? ["kystgjerdet", "gjerdemannen", "", "terrassegutta", "lokal", "", "euriwind", "kystgjerdet"][i % 8]
+                : "",
+            kommentar: "",
+            tid: new Date(naa - (dagar - 3) * dag).toISOString(),
+            av: "Demo",
+          }
         : null,
       avtaler: [],
       logg: [
