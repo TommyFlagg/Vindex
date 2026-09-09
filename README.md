@@ -316,6 +316,81 @@ spesial — fordi det er plasseringen produksjonen trenger, ikke at det er «stk
 Stolpefoten ligger i samme liste som stolpene, der selgeren leter etter den, men
 har ingen plassering: den står ikke noe sted.
 
+## Rabattgrenser
+
+Hvor mye som kan gis bort avhenger av hva slags vare det er, og grensen hører
+hjemme i verktøyet, ikke i hodet til hver enkelt selger:
+
+| Varegruppe | Maks rabatt |
+| --- | --- |
+| Spesial- og produserte seksjoner (VB-serien, levegg, stakitt, gardsgjerde, kystveggen, porter, sprossetillegg, spesialstolpe 7501) | 25 % |
+| Standard artikler (stolper, topper, pyntekrans, glass, gulv, flexigjerde, tilleggsdeler) | 35 % |
+| Lys og strømdeler (hele 44xx-serien) | 40 % |
+| Stålfot 7359, stolpe- og veggfester (7557, 7376, 7556, 7564, 7535), porthengsler (4423, 4434) | 0 % |
+
+Rabatten gis per linje og kappes mot linjens egen grense. Ber selgeren om 40 %
+på en liste med produserte seksjoner, får seksjonene 25 og resten det de tåler
+— og verktøyet sier fra om hvor mange linjer som ble avkortet. En rabatt som
+stilltiende ble kappet er verre enn ingen rabatt: selgeren tror han ga 40 %,
+kunden fikk 25, og ingen av dem vet det. Fastprisen kontrolleres mot samme
+grense, siden en fast pris er den samme rabatten i en annen innpakning.
+
+**Inndelingen er min lesning av regelen, ikke noe som står skrevet i
+prislisten.** Særlig to steder er det verdt å se etter: flexigjerdet er
+klassifisert som standard selv om det produseres, og spesialstolpen 7501 som
+produsert selv om den står blant stolpene. Tabellen ligger i `js/modellar.js`
+og er én linje å endre.
+
+## Frakt
+
+Frakten er en fast linje i tilbudet, ikke noe man husker på til slutt. Velg
+antall seksjoner, så gir fraktabellen prisen — sprosser har sin egen tabell
+etter antall. «Kunden henter selv» og egen sum er egne valg. Over 36 seksjoner
+slutter tabellen, og da gjetter vi ikke: transporten må avtales.
+
+## Vedlegg på ordreseddelen
+
+En skisse med mål på sier mer enn tre avsnitt i kommentarfeltet. Ordreseddelen
+tar imot bilder og PDF — håndtegningen fra befaringen, foto av veggen,
+tegningen fra arkitekten. De følger ordren og vises der lageret og produksjonen
+leser den, ikke bare der selgeren laget den.
+
+Bilder krympes i nettleseren før de sendes: et mobilfoto på 4 MB blir noen
+hundre kilobyte, og opplastingen går fra bilen. Produksjonen trenger ikke mer
+enn 1600 piksler for å se hva som er tegnet.
+
+I drift går filene til Firebase Storage, én mappe per ordre. **Storage må slås
+på i Firebase-konsollen, og `storage.rules` publiseres**, ellers feiler
+opplastingen. Reglene gir lesetilgang til alle innloggede i apparatet — lageret
+må se skissen for å plukke riktig — skrivetilgang til selgere og admin, og
+sletting bare til admin. En skisse som forsvinner etter at ordren er satt i
+produksjon, er en skisse ingen kan gå tilbake til.
+
+I demomodus finnes ingen server. Da blir filene liggende som data-URL-er i
+nettleseren, slik at flyten kan prøves, og de forlater aldri maskinen.
+
+## Provisjon
+
+Kundekortet har en rute som viser hva salget gir selgeren. Den er lukket som
+standard, og vises bare for selgeren som eier leadet — ikke for hovedkontoret,
+ikke for lageret, aldri i tilbudet kunden får, i e-poster, i utskrifter eller i
+noen rapport.
+
+Det er ikke bare et utseendevalg. Provisjon er en sak mellom selskapet og den
+enkelte, og den lekker lett ved et uhell — en utskrift på pauserommet, en
+skjermdeling i et møte. Derfor er ruta bygd for å forsvinne i alt som forlater
+skjermen, ikke bare for å se diskret ut.
+
+**Satsene er ikke lagt inn.** `js/provisjon.js` har en tom satsliste, og det er
+med vilje: en gjettet provisjonssats er verre enn ingen, fordi selgeren stoler
+på tallet og planlegger etter det. Fram til listen kommer viser ruta grunnlaget
+— materiell, frakt og montering hver for seg — og sier tydelig at satsen
+mangler. Kommer listen, er filen den eneste som må endres, og formen er
+forberedt for prosent per grunnlag.
+
+Én ting må avklares sammen med satsene: **regnes provisjonen av summen inkl.
+eller eks. mva?** Feltet står som `null` til det er bekreftet.
+
 ## Uferdige utkast
 
 En deleliste eller en ordreseddel tar tid å fylle ut, og selgeren blir avbrutt:
@@ -891,7 +966,9 @@ js/admin.js              Hovedkontoret: apparatet, kanaler, statistikk
 js/oppfolging.js         Kontakttemperatur, arkiv, bistand, tilbudslinjer, tips
 js/leadtekst.js          Leser et lead ut av en innlimt e-post
 js/nettverk.js           Representantkartet og «bli representant»-boksen
-js/modellar.js           Prislisten 2026 som data
+js/modellar.js           Prislisten 2026 som data, med rabattgrenser
+js/vedlegg.js            Bilder og filer på ordren
+js/provisjon.js          Provisjonsruta (satser mangler)
 js/ordre.js              Ordreskjema, statusflyt og plukklistelogikk
 js/kalender.js           Avtaler og .ics-eksport til telefonkalender
 js/nokkeltal.js          Nøkkeltall, oppfølgingsrate og produksjonskø

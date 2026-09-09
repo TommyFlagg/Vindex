@@ -740,6 +740,7 @@ function visDetalj(id) {
              </div>`
           : '<p class="hint">Ingen deleliste satt opp ennå. Sett den opp, så regner verktøyet ut tilbudet.</p>'
       }
+      ${provisjonsrute(l, rekna)}
       <div class="btn-row mt-1 no-print">
         <button class="btn btn-sm" id="opneTilbod">${rekna.gyldig ? "Rediger tilbudet" : "Sett opp deleliste"}</button>
         ${rekna.gyldig ? '<button class="btn btn-ghost btn-sm" id="visTilbod">Vis tilbudet</button>' : ""}
@@ -1266,6 +1267,45 @@ function sprosseprisHtml(rader) {
 
 const ordrekladdnokkel = (lead) => "ordre:" + lead.id;
 
+// ---------------------------------------------------------------------------
+// Vedlegg på ordreseddelen
+// ---------------------------------------------------------------------------
+// Vedlegga blir haldne her medan skjemaet står ope, og lagra saman med ordren.
+let ordrevedlegg = [];
+
+/**
+ * Send filen dit den skal.
+ *
+ * I drift går den til Firebase Storage, i ei mappe per ordre. I demo finst det
+ * ingen server, og då blir den liggande som ein data-URL i nettlesaren — nok
+ * til å prøve flyten, og den forlèt aldri maskina.
+ */
+async function lastOppVedlegg(id, blob, fil) {
+  if (VINDEX_DEMOMODUS) return vindexLesSomDataUrl(blob);
+  const endelse = (fil.name.match(/\.[a-z0-9]+$/i) || [""])[0];
+  const ref = fb.ordreVedleggRef("utkast", id + endelse);
+  await fb.uploadBytes(ref, blob, { contentType: fil.type });
+  return await fb.getDownloadURL(ref);
+}
+
+function vedleggHtml(liste) {
+  if (!liste.length)
+    return `<p class="hint mb-0">Ingen vedlegg ennå. Skisser med mål og bilder av stedet
+      gjør at produksjonen slipper å gjette.</p>`;
+  return `<ul class="vedleggsliste">${liste
+    .map(
+      (v) => `<li>
+        ${vindexErBilete(v) ? `<img src="${v.url}" alt="${v.navn}">` : `<span class="vedleggsikon">PDF</span>`}
+        <span class="vedleggsnavn">${v.navn}<br>
+          <span class="hint">${vindexFilstorleik(v.storleik)}${
+            v.original > v.storleik ? " · krympet fra " + vindexFilstorleik(v.original) : ""
+          }</span></span>
+        <button class="btn btn-ghost btn-sm" data-slettvedlegg="${v.id}" aria-label="Fjern ${v.navn}">✕</button>
+      </li>`
+    )
+    .join("")}</ul>`;
+}
+
 /**
  * Kva står att på ordreseddelen — vist medan seljaren fyller ut.
  *
@@ -1295,6 +1335,8 @@ function opneOrdreskjema(lead, eksisterande) {
   // Ordreseddelen er det lengste skjemaet i verktøyet. Blir seljaren avbroten
   // midt i, skal han ikkje måtte måle opp på nytt. `frisk` er sett når vi opnar
   // skjemaet på nytt sjølve — då er verdiane i handa ferskare enn utkastet.
+  ordrevedlegg = ((eksisterande && eksisterande.vedlegg) || []).slice();
+
   let kladdTid = null;
   if (!(eksisterande && eksisterande.frisk)) {
     const kladd = hentKladd(ordrekladdnokkel(lead));
@@ -1336,6 +1378,18 @@ function opneOrdreskjema(lead, eksisterande) {
     ${skjema.standardar ? `<div class="notice notice-warn"><strong>Standarder:</strong> ${skjema.standardar.join(" · ")}</div>` : ""}
     ${skjema.tabell ? tabellHtml(skjema.tabell, rader) : ""}
     <div id="ordreManglar">${manglarHtml(skjema, verdiar, rader, eksisterande && eksisterande.fraTilbod)}</div>
+    <div class="skjemaseksjon no-print" id="vedleggsseksjon">
+      <h3>Skisser og bilder</h3>
+      <p class="hint">Legg ved håndtegningen fra befaringen, foto av stedet eller en PDF.
+        En skisse med mål på sier mer enn tre avsnitt i kommentarfeltet — og produksjonen
+        slipper å ringe. Bilder krympes automatisk før de sendes.</p>
+      <div class="btn-row">
+        <label class="btn btn-ghost btn-sm" for="ofVedlegg">+ Legg ved bilde eller PDF</label>
+        <input id="ofVedlegg" type="file" accept="image/*,application/pdf" multiple class="hidden">
+        <span class="hint" id="ofVedleggStatus"></span>
+      </div>
+      <div id="ofVedleggListe" class="mt-1">${vedleggHtml(ordrevedlegg)}</div>
+    </div>
     ${seksjonar}
     ${skjema.vilkar ? `<p class="hint">${skjema.vilkar}</p>` : ""}
     <p class="hint">Alt du fyller ut blir husket underveis, også om du lukker vinduet.</p>
@@ -1389,6 +1443,35 @@ function opneOrdreskjema(lead, eksisterande) {
   };
   $("#ordreskjema").addEventListener("input", oppdater);
   $("#ordreskjema").addEventListener("change", oppdater);
+
+  const vedleggsliste = $("#ofVedleggListe");
+  const vedleggsstatus = $("#ofVedleggStatus");
+  const teiknVedlegg = () => {
+    vedleggsliste.innerHTML = vedleggHtml(ordrevedlegg);
+    $$("#ofVedleggListe [data-slettvedlegg]").forEach((b) =>
+      b.addEventListener("click", () => {
+        ordrevedlegg = ordrevedlegg.filter((v) => v.id !== b.dataset.slettvedlegg);
+        teiknVedlegg();
+      })
+    );
+  };
+  teiknVedlegg();
+
+  $("#ofVedlegg").addEventListener("change", async (e) => {
+    const filer = Array.from(e.target.files || []);
+    e.target.value = "";                       // same fil skal kunne veljast igjen
+    for (const fil of filer) {
+      vedleggsstatus.textContent = `Legger ved ${fil.name} …`;
+      try {
+        ordrevedlegg.push(await vindexLagVedlegg(fil, lastOppVedlegg));
+        vedleggsstatus.textContent = "";
+      } catch (err) {
+        console.error(err);
+        vedleggsstatus.textContent = `${fil.name}: ${err.message}`;
+      }
+      teiknVedlegg();
+    }
+  });
 
   const forkastOrdre = $("#ofForkast");
   if (forkastOrdre)
@@ -1446,6 +1529,7 @@ function bekreftOrdre(lead, skjema, eksisterande, produktId) {
     produktId: produktId || (lead.produkt || {}).id,
     felt: data.felt,
     rader: data.rader,
+    vedlegg: ordrevedlegg.slice(),
   };
   const { plukk, spesial } = vindexPlukkliste(utkast);
 
@@ -1487,6 +1571,11 @@ function bekreftOrdre(lead, skjema, eksisterande, produktId) {
      </dl>
      ${liste("Spesialprodusert — går til produksjon", spesial)}
      ${liste("Lagervare — går til plukk", plukk)}
+     ${
+       ordrevedlegg.length
+         ? `<h3>Vedlegg som følger ordren</h3>${vedleggHtml(ordrevedlegg).replace(/<button[^>]*>✕<\/button>/g, "")}`
+         : `<p class="hint">Ingen skisser eller bilder er lagt ved.</p>`
+     }
      <div class="field mt-2">
        <label class="avkryssrad">
          <input type="checkbox" id="bkMal">
@@ -1549,6 +1638,7 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
     distriktNavn: lead.distriktNavn || "",
     felt: utkast.felt,
     rader: utkast.rader,
+    vedlegg: utkast.vedlegg || [],
     bekrefta: { av: app.brukar.navn, tid: new Date().toISOString(), ...bekreftelse },
   };
 
@@ -1660,6 +1750,8 @@ function teiknAgenda() {
 // Ordrekonto
 // ---------------------------------------------------------------------------
 function ordreKort(o, { visPlukkBerre = false } = {}) {
+  // Vedlegga er ofte det viktigaste på ein ordre: ei skisse med mål. Difor skal
+  // dei synast der ordren blir lest, ikkje berre der den blei laga.
   const { plukk, spesial } = vindexPlukkliste(o);
   const k = o.kunde || {};
   const skjema = vindexSkjema(o.skjemaId);
@@ -1690,6 +1782,12 @@ function ordreKort(o, { visPlukkBerre = false } = {}) {
     </dl>
     ${visPlukkBerre ? "" : liste("Spesialprodusert — produksjon", spesial)}
     ${liste("Lagervare — plukk", plukk)}
+    ${
+      (o.vedlegg || []).length
+        ? `<h4 class="mt-1 mb-0">Skisser og bilder</h4>
+           ${vedleggHtml(o.vedlegg).replace(/<button[^>]*>✕<\/button>/g, "")}`
+        : ""
+    }
     <div class="btn-row mt-1 no-print">
       <select data-ordrestatus="${o.id}">
         ${VINDEX_ORDRESTATUSAR.map((s) => `<option value="${s.id}"${s.id === o.status ? " selected" : ""}>${s.navn}</option>`).join("")}
@@ -1864,6 +1962,52 @@ let tilbodsutkastFraKladd = null;
 let lagreTilbodskladd = () => {};
 
 const tilbodskladdnokkel = (lead) => "tilbod:" + lead.id;
+
+/**
+ * Provisjonsruta — bare for selgeren som eier leadet.
+ *
+ * Den vises ikke for hovedkontoret, ikke for lageret, og aldri i noe som
+ * forlater skjermen: `no-print` holder den utenfor utskrifter, og den finnes
+ * verken i tilbudet kunden får, i e-postene eller i statistikken.
+ *
+ * Provisjon er en sak mellom selskapet og den enkelte. Det er lett å lekke ved
+ * et uhell — en utskrift på pauserommet, en skjermdeling i et møte — og derfor
+ * er ruta bygd for å forsvinne i alle de tilfellene, ikke bare se diskret ut.
+ */
+function provisjonsrute(lead, rekna) {
+  if (erAdmin() || erLager()) return "";
+  // Ikke min kunde, ikke min provisjon.
+  if (lead.seljarId && lead.seljarId !== app.brukar.uid) return "";
+  if (!rekna.gyldig) return "";
+
+  const pr = vindexProvisjon(rekna);
+  if (!pr) return "";
+
+  return `<details class="provisjon no-print mt-1">
+    <summary>Din provisjon på dette salget</summary>
+    ${
+      pr.manglarSatsar
+        ? `<p class="hint mb-0">Provisjonssatsene er ikke lagt inn i verktøyet ennå, så
+             beløpet kan ikke regnes ut. Grunnlaget er klart:</p>`
+        : ""
+    }
+    <div class="tilbodsum tilbodsum-liten mt-1">
+      <div><span>Materiell</span><span>${kr(pr.grunnlag.materiell)}</span></div>
+      ${pr.grunnlag.frakt ? `<div><span>Frakt</span><span>${kr(pr.grunnlag.frakt)}</span></div>` : ""}
+      ${pr.grunnlag.montering ? `<div><span>Montering</span><span>${kr(pr.grunnlag.montering)}</span></div>` : ""}
+      ${
+        pr.manglarSatsar
+          ? `<div class="total"><span>Grunnlag</span><span>${kr(pr.grunnlag.total)}</span></div>`
+          : `${pr.delar
+               .map((d) => `<div><span>${d.navn} · ${d.prosent} %</span><span>${kr(d.sum)}</span></div>`)
+               .join("")}
+             <div class="total"><span>Provisjon</span><span>${kr(pr.sum)}</span></div>`
+      }
+    </div>
+    <p class="hint mb-0">Vises bare for deg. Den følger ikke med i tilbudet, e-poster,
+      utskrifter eller noen rapport.</p>
+  </details>`;
+}
 
 function opneTilbod(lead) {
   const t = lead.tilbud || {};

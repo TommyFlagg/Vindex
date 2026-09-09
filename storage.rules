@@ -1,0 +1,57 @@
+// ============================================================================
+// VINDEX — REGLAR FOR FILLAGER (Firebase Storage)
+// ----------------------------------------------------------------------------
+// Her ligg vedlegga til ordrane: skisser frå befaringa, foto av staden, PDF-ar
+// frå arkitekten. Dei inneheld kundeadresser og bilete av folk sine hus, og
+// skal difor aldri vere opne.
+//
+// Skru på Storage i Firebase-konsollen og publiser desse reglane saman med
+// firestore.rules. Utan dette steget vil opplasting frå ordreseddelen feile.
+// ============================================================================
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function innlogga() {
+      return request.auth != null;
+    }
+
+    function rolle() {
+      return firestore.get(/databases/(default)/documents/sellers/$(request.auth.uid)).data.rolle;
+    }
+
+    function erAdmin() {
+      return innlogga() && rolle() == 'admin';
+    }
+
+    function erLager() {
+      return innlogga() && rolle() == 'lager';
+    }
+
+    // Vedlegg til ordrar.
+    //
+    // Lesing: alle innlogga i apparatet. Lageret må sjå skissa for å plukke
+    // rett, produksjonen for å lage rett, seljaren for å kontrollere.
+    // Kunden er ikkje innlogga og kjem ikkje til.
+    //
+    // Skriving: seljarar og admin. Lageret les, men endrar ikkje.
+    //
+    // Sletting: berre admin. Ei skisse som forsvinn etter at ordren er sett i
+    // produksjon, er ei skisse ingen kan gå tilbake til.
+    match /ordrar/{ordreId}/{fil} {
+      allow read: if innlogga();
+      allow write: if innlogga() && !erLager()
+                   && request.resource.size < 15 * 1024 * 1024
+                   && (request.resource.contentType.matches('image/.*')
+                       || request.resource.contentType == 'application/pdf');
+      allow delete: if erAdmin();
+    }
+
+    // Alt anna er stengt. Nye mappar må leggast inn her med vilje.
+    match /{alle=**} {
+      allow read, write: if false;
+    }
+  }
+}

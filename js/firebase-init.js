@@ -36,6 +36,13 @@ import {
   Timestamp,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
+import {
   getAuth,
   signInWithEmailAndPassword,
   signOut,
@@ -49,6 +56,16 @@ const auth = getAuth(app);
 
 const leadsCol = () => collection(db, "leads");
 const leadDoc = (id) => doc(db, "leads", id);
+const storage = getStorage(app);
+
+/**
+ * Kvar vedlegga til ein ordre ligg.
+ *
+ * Ein mappe per ordre, slik at reglane kan seie «berre den som eig ordren, og
+ * lageret» utan å måtte lese filnamnet.
+ */
+const ordreVedleggRef = (ordreId, filnamn) => storageRef(storage, `ordrar/${ordreId}/${filnamn}`);
+
 const ordersCol = () => collection(db, "orders");
 const orderDoc = (id) => doc(db, "orders", id);
 const sellersCol = () => collection(db, "sellers");
@@ -92,4 +109,11 @@ export {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
+  // Vedlegg til ordrar — skisser og bilete produksjonen treng.
+  storage,
+  storageRef,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+  ordreVedleggRef,
 };
