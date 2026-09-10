@@ -365,7 +365,17 @@ mål.
 Hver linje tegnes opp mens selgeren skriver: rammen i valgt omramming,
 sprosseverket i riktig tykkelse, buer på toppen (E/D/T) og hengselmerker på den
 siden som er valgt. Målestokken følger falsmålene, så et bredt vindu tegnes
-bredt.
+bredt, og målene står påskrevet i mm på begge akser med rutetallet under.
+
+**Midtstolpe og losholt tegnes tyngre enn vanlig sprosseverk**, fordi det er det
+de er — bærende profiler, ikke sprosser. Uten den forskjellen så selgeren ingen
+endring i skissen av å velge dem, og da er valget like godt usynlig.
+
+To ting måtte klemmes for at skissen skulle bli lesbar. Profilbreddene skaleres
+med vinduet, men er begrenset oppad: på et lite vindu er 29 mm omramming en
+tredel av bredden, og en tegning som gjengir det bokstavelig blir en hvit klump.
+Og hengslene er faste små merker på riktig kant — de var runde punkter som
+skalerte med rammen, og på små vinduer tok de over hele bildet.
 
 Tegningen er laget av bestillingen, ikke ved siden av den. Den kan derfor ikke
 vise noe annet enn det som faktisk blir produsert — og selgeren slipper å

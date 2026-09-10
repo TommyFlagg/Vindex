@@ -39,75 +39,122 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
   const rh = Math.max(1, parseInt(rad.ruter_h, 10) || 0);
   if (!fb || !fh || !rad.ruter_b || !rad.ruter_h) return "";
 
+  // Plass til målsettinga rundt sjølve vindauget.
+  const margV = 30;   // venstre: høgdemålet står loddrett her
+  const margB = 34;   // botn: breiddemålet og rutetalet, på kvar si linje
   const maksB = val.bredde || 150;
-  const maksH = val.hogd || 130;
+  const maksH = val.hogd || 120;
+
   const skala = Math.min(maksB / fb, maksH / fh);
-  const b = Math.round(fb * skala);
-  const h = Math.round(fh * skala);
+  const b = Math.max(28, Math.round(fb * skala));
+  const h = Math.max(28, Math.round(fh * skala));
 
-  // Profilbreiddene i same målestokk, men aldri tynnare enn ein piksel —
-  // elles forsvinn sprosseverket på små vindauge.
-  const ramme = Math.max(2, (parseFloat(rad.omramming) || 29) * skala);
-  const verk = Math.max(1, (parseFloat(rad.sprosseverk) || 22) * skala);
+  // Profilbreiddene skal lesast som profilar, ikkje overta vindauget. På eit
+  // lite vindauge er 29 mm omramming ein tredel av breidda, og ei teikning som
+  // gjengir det bokstavleg blir ein kvit klump. Difor blir dei skalerte som
+  // resten, men klemte inn i eit område der dei framleis ser ut som det dei er.
+  const klem = (mm, standard, minPx, maksDel) =>
+    Math.max(minPx, Math.min((parseFloat(mm) || standard) * skala, Math.min(b, h) * maksDel));
 
-  // Buar: E = enkel, D = dobbel, T = trippel. Bua tek av høgda på toppen.
+  const ramme = klem(rad.omramming, 29, 3, 0.11);
+  const verk = Math.min(klem(rad.sprosseverk, 22, 1.5, 0.07), ramme * 0.85);
+  // Midtstolpe og losholt er berande profilar — dei skal vere tydeleg tjukkare
+  // enn sprosseverket, elles ser seljaren ingen skilnad på å velje dei.
+  const midt = rad.midtstolpe ? Math.max(verk * 1.6, klem(rad.midtstolpe, 34, 2.5, 0.09)) : 0;
+  const losholt = rad.losholt ? Math.max(verk * 1.6, klem(rad.losholt, 34, 2.5, 0.09)) : 0;
+
   const bue = String(rad.buer || "").toUpperCase();
-  const buehogd = bue === "E" ? h * 0.18 : bue === "D" ? h * 0.14 : bue === "T" ? h * 0.12 : 0;
   const buetal = bue === "D" ? 2 : bue === "T" ? 3 : bue === "E" ? 1 : 0;
 
+  const glasX = ramme;
+  const glasY = ramme;
   const glasB = b - 2 * ramme;
   const glasH = h - 2 * ramme;
 
-  // Sprossene deler glasflata i like ruter.
+  // Sprossene deler glasflata i like ruter. Den midtarste loddrette streken
+  // blir midtstolpe og den midtarste vassrette blir losholt, når dei er valde.
+  const midtKol = rb % 2 === 0 ? rb / 2 : 0;
+  const midtRad = rh % 2 === 0 ? rh / 2 : 0;
   const strekar = [];
   for (let i = 1; i < rb; i++) {
-    const x = ramme + (glasB / rb) * i;
-    strekar.push(`<rect x="${(x - verk / 2).toFixed(1)}" y="${ramme.toFixed(1)}"
-      width="${verk.toFixed(1)}" height="${glasH.toFixed(1)}" class="sp-verk"/>`);
+    const tjukk = midt && i === midtKol ? midt : verk;
+    const x = glasX + (glasB / rb) * i;
+    strekar.push(`<rect x="${(x - tjukk / 2).toFixed(1)}" y="${glasY.toFixed(1)}"
+      width="${tjukk.toFixed(1)}" height="${glasH.toFixed(1)}"
+      class="${midt && i === midtKol ? "sp-berande" : "sp-verk"}"/>`);
   }
   for (let i = 1; i < rh; i++) {
-    const y = ramme + (glasH / rh) * i;
-    strekar.push(`<rect x="${ramme.toFixed(1)}" y="${(y - verk / 2).toFixed(1)}"
-      width="${glasB.toFixed(1)}" height="${verk.toFixed(1)}" class="sp-verk"/>`);
+    const tjukk = losholt && i === midtRad ? losholt : verk;
+    const y = glasY + (glasH / rh) * i;
+    strekar.push(`<rect x="${glasX.toFixed(1)}" y="${(y - tjukk / 2).toFixed(1)}"
+      width="${glasB.toFixed(1)}" height="${tjukk.toFixed(1)}"
+      class="${losholt && i === midtRad ? "sp-berande" : "sp-verk"}"/>`);
   }
 
-  // Buane ligg oppå den øvste ruterekkja.
+  // Er talet ruter oddetal, finst det ingen midtstrek å gjere berande. Då blir
+  // midtstolpen teikna i midten likevel — det er der den står.
+  if (midt && !midtKol)
+    strekar.push(`<rect x="${(glasX + glasB / 2 - midt / 2).toFixed(1)}" y="${glasY.toFixed(1)}"
+      width="${midt.toFixed(1)}" height="${glasH.toFixed(1)}" class="sp-berande"/>`);
+  if (losholt && !midtRad)
+    strekar.push(`<rect x="${glasX.toFixed(1)}" y="${(glasY + glasH / 2 - losholt / 2).toFixed(1)}"
+      width="${glasB.toFixed(1)}" height="${losholt.toFixed(1)}" class="sp-berande"/>`);
+
   const buar = [];
   if (buetal) {
     const buB = glasB / buetal;
+    const buehogd = Math.min(glasH * 0.35, buB * 0.4);
     for (let i = 0; i < buetal; i++) {
-      const x0 = ramme + buB * i;
+      const x0 = glasX + buB * i;
       buar.push(
-        `<path d="M ${x0.toFixed(1)} ${(ramme + buehogd).toFixed(1)}
-           Q ${(x0 + buB / 2).toFixed(1)} ${ramme.toFixed(1)}
-             ${(x0 + buB).toFixed(1)} ${(ramme + buehogd).toFixed(1)}"
+        `<path d="M ${x0.toFixed(1)} ${(glasY + buehogd).toFixed(1)}
+           Q ${(x0 + buB / 2).toFixed(1)} ${glasY.toFixed(1)}
+             ${(x0 + buB).toFixed(1)} ${(glasY + buehogd).toFixed(1)}"
            class="sp-bue" style="stroke-width:${verk.toFixed(1)}"/>`
       );
     }
   }
 
-  // Hengsler: V/H = venstre/høgre side, T/B = topp/botn.
+  // Hengsler: små merke på den sida dei sit, i fast storleik. Dei skal seie
+  // «her er hengslene», ikkje ta over teikninga slik runde punkt gjorde.
   const hengsel = String(rad.hengsler || "").toUpperCase();
   const hengslar = [];
-  const merke = (x, y) =>
-    `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${Math.max(2, ramme * 0.35).toFixed(1)}" class="sp-hengsel"/>`;
-  if (hengsel === "V") hengslar.push(merke(ramme / 2, h * 0.28), merke(ramme / 2, h * 0.72));
-  if (hengsel === "H") hengslar.push(merke(b - ramme / 2, h * 0.28), merke(b - ramme / 2, h * 0.72));
-  if (hengsel === "T") hengslar.push(merke(b * 0.28, ramme / 2), merke(b * 0.72, ramme / 2));
-  if (hengsel === "B") hengslar.push(merke(b * 0.28, h - ramme / 2), merke(b * 0.72, h - ramme / 2));
+  const tapp = (x, y, vassrett) =>
+    `<rect x="${(x - (vassrett ? 5 : ramme / 2)).toFixed(1)}" y="${(y - (vassrett ? ramme / 2 : 5)).toFixed(1)}"
+      width="${(vassrett ? 10 : ramme).toFixed(1)}" height="${(vassrett ? ramme : 10).toFixed(1)}"
+      rx="1" class="sp-hengsel"/>`;
+  if (hengsel === "V") hengslar.push(tapp(ramme / 2, h * 0.3, false), tapp(ramme / 2, h * 0.7, false));
+  if (hengsel === "H") hengslar.push(tapp(b - ramme / 2, h * 0.3, false), tapp(b - ramme / 2, h * 0.7, false));
+  if (hengsel === "T") hengslar.push(tapp(b * 0.3, ramme / 2, true), tapp(b * 0.7, ramme / 2, true));
+  if (hengsel === "B") hengslar.push(tapp(b * 0.3, h - ramme / 2, true), tapp(b * 0.7, h - ramme / 2, true));
 
+  const heile = `${rb} × ${rh} ruter`;
   const tal = parseInt(rad.antall, 10) || 0;
 
-  return `<svg class="sprossefigur" viewBox="0 0 ${b} ${h}" width="${b}" height="${h}"
-    role="img" aria-label="${rb} ruter i bredden og ${rh} i høyden, falsmål ${fb} × ${fh} mm">
-    <rect x="0" y="0" width="${b}" height="${h}" class="sp-glas"/>
-    ${strekar.join("")}
-    ${buar.join("")}
-    <rect x="${(ramme / 2).toFixed(1)}" y="${(ramme / 2).toFixed(1)}"
-      width="${(b - ramme).toFixed(1)}" height="${(h - ramme).toFixed(1)}"
-      class="sp-ramme" style="stroke-width:${ramme.toFixed(1)}"/>
-    ${hengslar.join("")}
-    ${tal > 1 ? `<text x="${b - 4}" y="${h - 5}" class="sp-tal">${tal} stk</text>` : ""}
+  return `<svg class="sprossefigur" viewBox="0 0 ${b + margV} ${h + margB}"
+    width="${b + margV}" height="${h + margB}" role="img"
+    aria-label="${rb} ruter i bredden og ${rh} i høyden, falsmål ${fb} × ${fh} mm${
+      hengsel ? ", hengsler " + hengsel : ""
+    }">
+    <g transform="translate(${margV} 0)">
+      <rect x="0" y="0" width="${b}" height="${h}" class="sp-glas"/>
+      ${strekar.join("")}
+      ${buar.join("")}
+      <rect x="${(ramme / 2).toFixed(1)}" y="${(ramme / 2).toFixed(1)}"
+        width="${(b - ramme).toFixed(1)}" height="${(h - ramme).toFixed(1)}"
+        class="sp-ramme" style="stroke-width:${ramme.toFixed(1)}"/>
+      ${hengslar.join("")}
+
+      <!-- Målsetting. Utan tal er det berre eit mønster; med tal er det ei skisse. -->
+      <line x1="0" y1="${h + 7}" x2="${b}" y2="${h + 7}" class="sp-maal"/>
+      <text x="${b / 2}" y="${h + 18}" class="sp-maaltekst" text-anchor="middle">${fb} mm</text>
+    </g>
+    <line x1="${margV - 7}" y1="0" x2="${margV - 7}" y2="${h}" class="sp-maal"/>
+    <text x="${margV - 11}" y="${h / 2}" class="sp-maaltekst" text-anchor="middle"
+      transform="rotate(-90 ${margV - 11} ${h / 2})">${fh} mm</text>
+    <text x="${margV + b / 2}" y="${h + 30}" class="sp-rutetekst" text-anchor="middle">${heile}${
+      tal > 1 ? ` · ${tal} stk` : ""
+    }</text>
   </svg>`;
 }
 

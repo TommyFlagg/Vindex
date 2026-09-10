@@ -1864,7 +1864,7 @@ body.tema-mork .repskjema { background: var(--surface); border-color: var(--bord
 .sprosselinje:first-child { border-top: none; }
 .sprossefigurboks {
   display: grid; place-items: center;
-  min-height: 140px; padding: .5rem;
+  min-height: 150px; padding: .6rem;
   background: var(--primary-soft); border-radius: var(--radius-sm);
 }
 .sprossefelt {
@@ -1876,15 +1876,21 @@ body.tema-mork .repskjema { background: var(--surface); border-color: var(--bord
 .sprossepris { text-align: right; display: grid; gap: .2rem; justify-items: end; align-content: start; }
 .sprossepris strong { font-size: 1.05rem; }
 
-.sprossefigur { max-width: 100%; height: auto; }
+.sprossefigur { max-width: 100%; height: auto; overflow: visible; }
 .sprossefigur .sp-glas { fill: #cfe3ee; }
-.sprossefigur .sp-verk { fill: #fff; stroke: #9fb6c2; stroke-width: .5; }
+/* Sprosseverket er tynt og lyst; midtstolpe og losholt er berande og tjukkare,
+   og skal difor lesast som noko anna enn ei vanleg sprosse. */
+.sprossefigur .sp-verk { fill: #fff; stroke: #9fb6c2; stroke-width: .4; }
+.sprossefigur .sp-berande { fill: #fff; stroke: #6d8c9c; stroke-width: .8; }
 .sprossefigur .sp-ramme { fill: none; stroke: #fff; }
 .sprossefigur .sp-bue { fill: none; stroke: #fff; stroke-linecap: round; }
 .sprossefigur .sp-hengsel { fill: var(--accent-tekst); }
-.sprossefigur .sp-tal { font-size: 9px; fill: var(--muted); text-anchor: end; }
+.sprossefigur .sp-maal { stroke: var(--muted); stroke-width: .7; }
+.sprossefigur .sp-maaltekst { font-size: 8.5px; fill: var(--muted); }
+.sprossefigur .sp-rutetekst { font-size: 8.5px; fill: var(--muted); font-weight: 600; }
 body.tema-mork .sprossefigur .sp-glas { fill: #24485c; }
 body.tema-mork .sprossefigur .sp-verk { fill: #eef2f3; stroke: #7e97a5; }
+body.tema-mork .sprossefigur .sp-berande { fill: #fff; stroke: #b9ccd6; }
 body.tema-mork .sprossefigur .sp-ramme,
 body.tema-mork .sprossefigur .sp-bue { stroke: #eef2f3; }
 
