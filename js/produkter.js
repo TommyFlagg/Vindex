@@ -94,10 +94,11 @@ const VINDEX_PRODUKT = [
     fordeler: [
       "Ser like fint ut fra begge sider — ingen bakside",
       "Vedlikeholdsfritt: ferdig med skraping og maling en gang for alle",
-      "Skreddersydd etter dine mål og ønsker",
+      "Lagerført i faste lengder, eller skreddersydd etter dine mål",
       "Enkelt å montere selv, eller vi monterer for deg",
     ],
     modeller: [
+      { id: "standardseksjon", navn: "Ferdig standardseksjon", pris: 0, sub: "1,8 eller 2,1 m — lagerført, kortest leveringstid" },
       { id: "standard", navn: "Rekkverk etter mål", pris: 0, sub: "Skreddersys til din terrasse eller veranda" },
     ],
     valg: [],
@@ -152,7 +153,7 @@ const VINDEX_PRODUKT = [
     ],
     modeller: [
       { id: "etter-mal", navn: "Levegg etter mål", pris: 0, sub: "Ditt eget design med våre profiler" },
-      { id: "standardseksjon", navn: "Ferdig standardseksjon", pris: 0, sub: "Kortest leveringstid — omfattet av kampanjen" },
+      { id: "standardseksjon", navn: "Ferdig standardseksjon", pris: 0, sub: "1,8 m — lagerført, kortest leveringstid. Omfattet av kampanjen" },
     ],
     valg: [],
     minMengde: 1,
@@ -259,7 +260,10 @@ const VINDEX_PRODUKT = [
       "Kombineres med port, levegg og rekkverk",
       "Brannhemmende og miljøvennlig PVC",
     ],
-    modeller: [{ id: "etter-mal", navn: "Gjerde etter mål", pris: 0, sub: "Skreddersys til tomten" }],
+    modeller: [
+      { id: "standardseksjon", navn: "Ferdig standardseksjon", pris: 0, sub: "2,0 eller 2,3 m — lagerført, kortest leveringstid" },
+      { id: "etter-mal", navn: "Gjerde etter mål", pris: 0, sub: "Skreddersys til tomten" },
+    ],
     valg: [],
     minMengde: 1,
     standardMengde: 20,

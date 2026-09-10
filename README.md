@@ -190,6 +190,22 @@ representant», med de fra ledige områder øverst.
 Er ikke Firebase satt opp ennå, lagres de lokalt i nettleseren, og kvitteringen
 sier fra om at det er demomodus.
 
+## Lagerført og skreddersydd
+
+Vindex har begge deler, og det står nå slik på nettsiden. Forsiden hevdet
+tidligere at «hver ordre produseres spesielt» og at «vi gjør det motsatte» av
+dem som importerer ferdige moduler. Det var direkte feil — standardseksjoner er
+faktisk det som selges oftest — og det snakket ned en vare Vindex selv fører.
+
+Den nye teksten er også et bedre argument: konkurrentene har bare ferdige
+moduler i faste lengder, og da må terrenget rette seg etter modulen. Vindex har
+lagerførte seksjoner når målene passer, og produserer etter mål når de ikke gjør
+det. Det er fabrikken som gjør valget mulig.
+
+Rekkverk og gjerde manglet standardseksjonen i utførelsestabellen; nå står begge
+med lengdene fra prislisten — rekkverk 1,8/2,1 m, gjerde 2,0/2,3 m, levegg
+1,8 m.
+
 ## Én farge
 
 Vindex leverer bare hvit PVC. Det står nå som et faktum overalt, ikke som et
