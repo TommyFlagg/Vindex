@@ -2436,6 +2436,36 @@ function opneSprossetilbod(lead) {
 
 const SPROSSEKOLONNAR = () => vindexSkjema("sprosser").tabell.kolonner;
 
+/**
+ * Dei ni standardtypane som knappar.
+ *
+ * Kvar knapp er teikna med same motor som linja sjølv, i miniatyr og utan
+ * målsetting. Det seljaren peikar på er dermed nøyaktig det som blir teikna
+ * når han har valt — ikkje eit foto som liknar.
+ *
+ * «Egen» heilt til slutt er utvegen for alt som ikkje er ein av dei ni. Då tel
+ * ruter i bredde og høgde igjen, slik dei alltid har gjort.
+ */
+function typeveljarHtml(i, valtType) {
+  const mini = (t) =>
+    vindexSprossegrafikk(
+      { type_nr: t.nr, fals_b: 1200, fals_h: 1000 },
+      { bredde: 46, hogd: 38, visMaal: false, utanMaal: true }
+    );
+  return `<div class="typeveljar" role="group" aria-label="Standardtype for linje ${i + 1}">
+    ${VINDEX_SPROSSETYPAR.map(
+      (t) => `<button type="button" class="typeknapp${String(valtType) === String(t.nr) ? " valt" : ""}"
+        data-sptype="${t.nr}" data-sprad="${i}" title="Type ${t.nr} — ${t.navn}"
+        aria-pressed="${String(valtType) === String(t.nr)}">
+        ${mini(t)}<span>${t.nr}</span>
+      </button>`
+    ).join("")}
+    <button type="button" class="typeknapp fri${valtType ? "" : " valt"}" data-sptype=""
+      data-sprad="${i}" title="Egne mål — ruter i bredde og høyde"
+      aria-pressed="${valtType ? "false" : "true"}"><span>Egen</span></button>
+  </div>`;
+}
+
 function sprosseradHtml(rad, i) {
   const kol = SPROSSEKOLONNAR();
   const felt = (k) => {
@@ -2452,10 +2482,14 @@ function sprosseradHtml(rad, i) {
 
   const pris = vindexSprosselinjepris(rad);
   return `<div class="sprosselinje">
-    <div class="sprossefigurboks">${vindexSprossegrafikk(rad) || '<span class="hint">Fyll inn mål og ruter</span>'}</div>
+    <div class="sprossefigurboks">${vindexSprossegrafikk(rad) || '<span class="hint">Velg type, eller fyll inn mål og ruter</span>'}</div>
     <div class="sprossefelt">
+      <div class="brei">
+        <span class="typeetikett">Standardtype</span>
+        ${typeveljarHtml(i, rad.type_nr)}
+      </div>
       ${kol
-        .filter((k) => k.id !== "lnr")
+        .filter((k) => k.id !== "lnr" && k.id !== "type_nr")
         .map((k) => `<label class="field"><span>${k.navn}${k.enhet ? " (" + k.enhet + ")" : ""}</span>${felt(k)}</label>`)
         .join("")}
     </div>
@@ -2550,6 +2584,29 @@ function teiknSprossedialog(lead, fraKladd) {
     kopleSlett();
     $("#sprosseSumBoks").innerHTML = sprossesumHtml(u);
   };
+
+  const kopleType = () =>
+    $$("#sprosselinjer [data-sptype]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const i = parseInt(b.dataset.sprad, 10);
+        const nr = b.dataset.sptype;
+        const t = vindexSprossetype(nr);
+        u.rader[i] = {
+          ...u.rader[i],
+          type_nr: nr,
+          // Rutetalet følgjer typen, så prisen blir rekna av det same som blir
+          // teikna. For dei todelte typane er det summen av begge sonene.
+          ...(t
+            ? t.over
+              ? { ruter_b: t.over.rb, ruter_h: "" }
+              : { ruter_b: t.rb, ruter_h: t.rh }
+            : {}),
+        };
+        lagreKladd(sprossekladdnokkel(lead), u);
+        teiknSprossedialog(lead, null);
+      })
+    );
+  kopleType();
 
   const kopleSlett = () =>
     $$("#sprosselinjer [data-spslett]").forEach((b) =>

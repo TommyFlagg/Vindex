@@ -1877,7 +1877,12 @@ body.tema-mork .repskjema { background: var(--surface); border-color: var(--bord
 .sprossepris strong { font-size: 1.05rem; }
 
 .sprossefigur { max-width: 100%; height: auto; overflow: visible; }
-.sprossefigur .sp-glas { fill: #cfe3ee; }
+.sprossefigur .sp-himmel-topp { stop-color: #a8c9e0; }
+.sprossefigur .sp-himmel-botn { stop-color: #dbe8f0; }
+body.tema-mork .sprossefigur .sp-himmel-topp { stop-color: #1e4258; }
+body.tema-mork .sprossefigur .sp-himmel-botn { stop-color: #33607a; }
+.sprossefigur .sp-kryss { fill: none; stroke: #fff; stroke-linecap: round; }
+body.tema-mork .sprossefigur .sp-kryss { stroke: #eef2f3; }
 /* Sprosseverket er tynt og lyst; midtstolpe og losholt er berande og tjukkare,
    og skal difor lesast som noko anna enn ei vanleg sprosse. */
 .sprossefigur .sp-verk { fill: #fff; stroke: #9fb6c2; stroke-width: .4; }
@@ -1898,3 +1903,23 @@ body.tema-mork .sprossefigur .sp-bue { stroke: #eef2f3; }
   .sprosselinje { grid-template-columns: 1fr; }
   .sprossepris { justify-items: start; text-align: left; }
 }
+
+
+/* Typeveljaren: dei ni standardtypane frå måleskjemaet, teikna med same motor
+   som sjølve linja — så det seljaren peikar på er det same som blir teikna. */
+.typeveljar {
+  display: flex; flex-wrap: wrap; gap: .45rem; margin: .35rem 0 0;
+}
+.typeknapp {
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); padding: .3rem .3rem .15rem; cursor: pointer;
+  display: grid; justify-items: center; gap: .1rem; line-height: 1;
+}
+.typeknapp:hover { border-color: var(--primary); }
+.typeknapp.valt { border-color: var(--accent-tekst); border-width: 2px; padding: calc(.3rem - .5px); }
+.typeknapp svg { display: block; }
+.typeknapp span { font-size: .68rem; color: var(--muted); font-weight: 700; }
+.typeknapp.valt span { color: var(--accent-tekst); }
+.typeknapp.fri { min-width: 3.4rem; min-height: 3.4rem; align-content: center; }
+.typeetikett { display: block; font-size: .78rem; color: var(--muted); margin-bottom: .1rem; }
+.sprossefelt > .brei { grid-column: 1 / -1; }

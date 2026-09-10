@@ -381,10 +381,34 @@ Tegningen er laget av bestillingen, ikke ved siden av den. Den kan derfor ikke
 vise noe annet enn det som faktisk blir produsert — og selgeren slipper å
 beskrive «tre ruter i bredden, to i høyden, med bue» på telefonen.
 
-Papirskjemaets ni nummererte standardtyper er **ikke** lagt inn: jeg har sett
-miniatyrene, ikke hvilken rutedeling hver av dem står for, og et gjettet
-typenummer på en ordreseddel er verre enn et tomt felt. Feltet står som fritekst,
-slik det gjør på papiret. Send meg hva de ni betyr, så blir de valgbare.
+### De ni standardtypene
+
+Typene fra måleskjemaet er lest av 2026-utgaven og lagt inn som valgbare
+knapper. Hver knapp er tegnet med **samme motor som linjen selv**, i miniatyr —
+det selgeren peker på er dermed nøyaktig det som blir tegnet, ikke et foto som
+ligner.
+
+| Nr | Oppsett |
+| --- | --- |
+| 1 | 3 × 3 ruter |
+| 2 | Midtstolpe, 2 × 3 ruter i hver halvdel |
+| 3 | 2 × 2 ruter, grovt sprosseverk |
+| 4 | 2 × 3 ruter |
+| 5 | Losholt — 2 ruter over, 2 under |
+| 6 | Losholt — 4 ruter over, midtstolpe under |
+| 7 | Losholt — 6 ruter over, midtstolpe under |
+| 8 | Losholt — 4 × 2 ruter over, midtstolpe under |
+| 9 | Losholt — 2 kryss over, midtstolpe under |
+
+Fem av dem har **losholt**: et tverrgående bærende profil som deler vinduet i et
+smalt felt øverst og et høyt felt under. Det lar seg ikke uttrykke med «ruter i
+bredde × høyde» alene, så tegnemotoren har fått en egen sone-modell for det.
+
+Type 9 har **kryss**. Prislisten tar betalt for dem separat (6299) og regner hver
+X som én rute til i tabellen — begge deler er med i utregningen.
+
+«Egen» til slutt er utveien for alt som ikke er en av de ni; da teller ruter i
+bredde og høyde igjen, som før.
 
 ## Dagens salgstips
 
