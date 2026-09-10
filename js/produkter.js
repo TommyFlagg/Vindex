@@ -66,12 +66,14 @@ const VINDEX_KAMPANJE = {
   rabattProsent: 35,
 };
 
-// Vindex sin standardfarge. Andre farger blir avklart med selger, difor listar
-// vi ikkje opp eit fargekart vi ikkje har dekning for.
-const VINDEX_FARGAR = [
-  { id: "klassisk-hvit", navn: "Klassisk hvit", hex: "#f7f8f8", standard: true },
-  { id: "annen", navn: "Annen farge", hex: "#d8dee0", sub: "Avklares med selger" },
-];
+// Vindex leverer berre kvit PVC. Det er ikkje ei avgrensing å beklage — det er
+// éin ting mindre kunden må velje, og produksjonen slepp eit lager med fargar
+// som skal haldast i takt.
+//
+// Difor står fargen som eit faktum og ikkje som eit val: ei nedtrekksliste med
+// eitt alternativ er berre eit klikk utan innhald, og ein «annen farge» vi ikkje
+// leverer er eit løfte vi ikkje kan halde.
+const VINDEX_FARGE = { id: "klassisk-hvit", navn: "Klassisk hvit", hex: "#f7f8f8" };
 
 // `bilde` kan stå tomt. Vi viser heller eit reint typografisk kort enn eit
 // svakt bilete — eit uskarpt eller rotete foto skader inntrykket meir enn det

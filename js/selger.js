@@ -1219,7 +1219,7 @@ async function lagreNyttLead() {
       modellNavn: "",
       mengde: parseFloat($("#nlMengde").value) || null,
       enhet: produkt.enhet,
-      farge: (VINDEX_FARGAR.find((f) => f.standard) || VINDEX_FARGAR[0]).id,
+      farge: VINDEX_FARGE.id,
       tilvalg: {},
     },
     montering: false,

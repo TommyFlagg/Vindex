@@ -190,6 +190,20 @@ representant», med de fra ledige områder øverst.
 Er ikke Firebase satt opp ennå, lagres de lokalt i nettleseren, og kvitteringen
 sier fra om at det er demomodus.
 
+## Én farge
+
+Vindex leverer bare hvit PVC. Det står nå som et faktum overalt, ikke som et
+valg: bestillingsskjemaet har ingen fargevelger, produktsidene sier «Leveres i
+Klassisk hvit», og tekniske data på forsiden sier «eneste farge» i stedet for
+«standardfarge» — det siste antyder at det finnes andre.
+
+Den forrige versjonen tilbød «Annen farge — avklares med selger». Det er et
+løfte vi ikke kan holde, og en nedtrekksliste med ett reelt alternativ er
+uansett bare et klikk uten innhold. Fargen er én ting mindre kunden må velge.
+
+Endringen gjelder både den mørke og den lyse utgaven; `VINDEX_FARGE` er den ene
+kilden begge leser.
+
 ## Priser hører hjemme i salgsverktøyet
 
 Nettsiden viser **aldri** priser. Prisfeltene ligger på ordreskjemaet og på

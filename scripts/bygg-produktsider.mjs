@@ -19,11 +19,11 @@ const rot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const katalog = readFileSync(join(rot, "js/produkter.js"), "utf8");
 const hent = new Function(
   katalog +
-    "\nreturn { VINDEX_PRODUKT, VINDEX_FARGAR, VINDEX_FIRMA, VINDEX_VIS_PRISESTIMAT, vindexFraPris, vindexKampanjeFor, vindexBiletHtml, kr };"
+    "\nreturn { VINDEX_PRODUKT, VINDEX_FARGE, VINDEX_FIRMA, VINDEX_VIS_PRISESTIMAT, vindexFraPris, vindexKampanjeFor, vindexBiletHtml, kr };"
 );
 const {
   VINDEX_PRODUKT,
-  VINDEX_FARGAR,
+  VINDEX_FARGE,
   VINDEX_FIRMA,
   VINDEX_VIS_PRISESTIMAT,
   vindexFraPris,
@@ -150,8 +150,9 @@ ${modellRader}
 ${valgBlokker ? `    <div class="grid grid-2 mt-2">\n${valgBlokker}\n    </div>` : ""}
     <div class="card mt-2">
       <h3>Farge</h3>
-      <p class="mb-0">Standardfargen er <strong>${esc(VINDEX_FARGAR[0].navn)}</strong>.
-        Ønsker du en annen farge, avklarer vi det i tilbudet.</p>
+      <p class="mb-0">Leveres i <strong>${esc(VINDEX_FARGE.navn)}</strong>. Fargen er
+        gjennomfarget i materialet — den skal verken males eller etterbehandles,
+        og den flasser ikke.</p>
     </div>
   </div>
 </section>

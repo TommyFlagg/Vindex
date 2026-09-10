@@ -20,7 +20,6 @@ const state = {
   steg: 1,
   produktId: null,
   modellId: null,
-  farge: (VINDEX_FARGAR.find((f) => f.standard) || VINDEX_FARGAR[0]).id,
   mengde: null,
   ekstra: {},          // { valgId: alternativId }
   montering: false,
@@ -109,14 +108,6 @@ function byggSteg2(p) {
     if (input) input.checked = true;
   });
 
-  $("#fargeValg").innerHTML = VINDEX_FARGAR.map(
-    (f) => `<label class="choice">
-      <input type="radio" name="farge" value="${f.id}"${f.id === state.farge ? " checked" : ""}>
-      <span class="choice-swatch" style="background:${f.hex}"></span>
-      <span class="choice-title">${f.navn}</span>
-    </label>`
-  ).join("");
-
   const enhetTekst =
     p.enhet === "lm" ? "Antall løpemeter" : p.enhet === "m2" ? "Antall kvadratmeter" : "Antall";
   $("#mengdeLabel").textContent = enhetTekst;
@@ -131,7 +122,6 @@ function byggSteg2(p) {
 skjema.addEventListener("change", (e) => {
   const n = e.target.name;
   if (n === "modell") state.modellId = e.target.value;
-  else if (n === "farge") state.farge = e.target.value;
   else if (n && n.startsWith("valg_")) state.ekstra[n.slice(5)] = e.target.value;
   else if (n === "montering") state.montering = e.target.value === "ja";
   else if (n === "tidspunkt") state.tidspunkt = e.target.value;
@@ -220,7 +210,6 @@ function teiknOppsummering() {
 
   const rad = (dt, dd) => `<div class="summary-row"><dt>${dt}</dt><dd>${dd}</dd></div>`;
   const enhet = p.enhet === "lm" ? "lm" : p.enhet === "m2" ? "m²" : "stk";
-  const farge = VINDEX_FARGAR.find((f) => f.id === state.farge);
 
   const tilvalgRader = (p.valg || [])
     .map((v) => {
@@ -254,7 +243,7 @@ function teiknOppsummering() {
       ${rad("Produkt", p.navn)}
       ${rad("Modell", m.navn)}
       ${tilvalgRader}
-      ${rad("Farge", farge ? farge.navn : "–")}
+      ${rad("Farge", VINDEX_FARGE.navn)}
       ${rad("Omfang", `${state.mengde} ${enhet}`)}
       ${rad("Montering", state.montering ? "Vindex monterer" : "Jeg monterer selv")}
       ${prisDel}
@@ -337,7 +326,7 @@ function byggLead() {
       navn: p.navn,
       modellId: m.id,
       modellNavn: m.navn,
-      farge: state.farge,
+      farge: VINDEX_FARGE.id,
       mengde: state.mengde,
       enhet: p.enhet,
       tilvalg,
