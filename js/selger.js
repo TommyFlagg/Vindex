@@ -2437,7 +2437,7 @@ function opneSprossetilbod(lead) {
 const SPROSSEKOLONNAR = () => vindexSkjema("sprosser").tabell.kolonner;
 
 /**
- * Dei ni standardtypane som knappar.
+ * Standardtypane som knappar.
  *
  * Kvar knapp er teikna med same motor som linja sjølv, i miniatyr og utan
  * målsetting. Det seljaren peikar på er dermed nøyaktig det som blir teikna
@@ -2450,12 +2450,12 @@ function typeveljarHtml(i, valtType) {
   const mini = (t) =>
     vindexSprossegrafikk(
       { type_nr: t.nr, fals_b: 1200, fals_h: 1000 },
-      { bredde: 46, hogd: 38, visMaal: false, utanMaal: true }
+      { bredde: 52, hogd: 43, visMaal: false, utanMaal: true }
     );
   return `<div class="typeveljar" role="group" aria-label="Standardtype for linje ${i + 1}">
     ${VINDEX_SPROSSETYPAR.map(
       (t) => `<button type="button" class="typeknapp${String(valtType) === String(t.nr) ? " valt" : ""}"
-        data-sptype="${t.nr}" data-sprad="${i}" title="Type ${t.nr} — ${t.navn}"
+        data-sptype="${t.nr}" data-sprad="${i}" title="${vindexTypenamn(t)} — ${t.navn}"
         aria-pressed="${String(valtType) === String(t.nr)}">
         ${mini(t)}<span>${t.nr}</span>
       </button>`

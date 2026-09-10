@@ -10,10 +10,9 @@
 // og teikninga kan ikkje vise noko anna enn det som blir bestilt, fordi den er
 // laga av bestillinga.
 //
-// Papirskjemaet har ni nummererte standardtypar. Dei er ikkje lagde inn her:
-// eg har sett miniatyrane, ikkje kva rutedeling kvar av dei står for, og eit
-// gjetta typenummer på ein ordreseddel er verre enn eit tomt felt. Feltet
-// «Tegning eller type/nr» står difor som fritekst, akkurat som på papiret.
+// Papirskjemaet sine ni nummererte standardtypar ligg inne som oppsett, og blir
+// teikna med den same motoren som linja sjølv. Knappen seljaren peikar på er
+// dermed nøyaktig det som blir teikna og bestilt — ikkje eit foto som liknar.
 // ============================================================================
 
 // ---------------------------------------------------------------------------
@@ -47,7 +46,21 @@ const VINDEX_SPROSSETYPAR = [
   { nr: 9, kort: "X / 2", navn: "Losholt — 2 kryss over, midtstolpe under",
     over: { rb: 2, rh: 1, kryss: true }, under: { rb: 2, rh: 1 }, overDel: 0.32,
     losholt: true, midtstolpe: true },
+
+  // Kryssprossa står ikkje på papirskjemaet, men er den vanlegaste av alle og
+  // blir spurt etter heile tida. Den er ikkje ein av dei ni, og har difor ikkje
+  // eit nummer som kan forvekslast med dei — den heiter «K» på ordreseddelen.
+  //
+  // Det som skil den frå type 5 er kva den tverrgåande profilen er: her er det
+  // ei heilt vanleg sprosse, ikkje ein berande losholt, og den står ein
+  // tredel nede i staden for midt på. Den loddrette går gjennom i eitt strekk.
+  { nr: "K", kort: "Kryss", etikett: "Kryss", navn: "Kryssprosse — tverrsprossen 1/3 ned fra toppen",
+    over: { rb: 2, rh: 1 }, under: { rb: 2, rh: 1 }, overDel: 1 / 3,
+    lettTverr: true, gjennomgaande: true },
 ];
+
+/** Det typen heiter i teksten. Dei ni er nummererte; kryssprossa har namn. */
+const vindexTypenamn = (type) => (type ? type.etikett || "Type " + type.nr : "");
 
 const vindexSprossetype = (nr) =>
   VINDEX_SPROSSETYPAR.find((t) => String(t.nr) === String(nr)) || null;
@@ -77,9 +90,10 @@ function vindexSprossetypeRuter(type) {
  * teikna eit reint rutenett av «ruter i bredde × høgde», med midtstolpe og
  * losholt der dei er valde.
  *
- * Målestokken følgjer falsmåla, så eit breitt vindauge blir teikna breitt.
- * Manglar måla, teiknar vi ingenting — ein tom firkant ville sett ut som eit
- * svar.
+ * Målestokken følgjer falsmåla, så eit breitt vindauge blir teikna breitt, og
+ * profilbreiddene er dei same millimetrane seljaren vel i felta — vel han 84
+ * mm sprosseverk, blir sprossene tjukke med ein gong. Manglar måla, teiknar vi
+ * ingenting: ein tom firkant ville sett ut som eit svar.
  */
 function vindexSprossegrafikk(rad = {}, val = {}) {
   const type = vindexSprossetype(rad.type_nr);
@@ -93,71 +107,104 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
   const visMaal = val.visMaal !== false;
   const margV = visMaal ? 30 : 2;
   const margB = visMaal ? 34 : 2;
-  const maksB = val.bredde || 150;
-  const maksH = val.hogd || 120;
+  const maksB = val.bredde || 190;
+  const maksH = val.hogd || 160;
 
   const skala = Math.min(maksB / fb, maksH / fh);
   const b = Math.max(28, Math.round(fb * skala));
   const h = Math.max(28, Math.round(fh * skala));
+  const uid = "sp" + Math.random().toString(36).slice(2, 8);
 
   // Profilbreiddene skal lesast som profilar, ikkje overta vindauget. På eit
   // lite vindauge er 29 mm omramming ein tredel av breidda, og ei teikning som
-  // gjengir det bokstavleg blir ein kvit klump.
+  // gjengir det bokstavleg blir ein kvit klump. Taket er difor sett i høve til
+  // sjølve ruta — ikkje i høve til dei andre profilane, for eit 84 mm
+  // sprosseverk *skal* få lov til å vere breiare enn ei 29 mm omramming.
   const klem = (mm, standard, minPx, maksDel) =>
     Math.max(minPx, Math.min((parseFloat(mm) || standard) * skala, Math.min(b, h) * maksDel));
 
-  const ramme = klem(rad.omramming, 29, 3, 0.11);
+  const ramme = klem(rad.omramming, 29, 3.2, 0.14);
   const grovt = type && type.grovt;
-  const verk = Math.min(klem(rad.sprosseverk, grovt ? 34 : 22, 1.5, grovt ? 0.09 : 0.07), ramme * 0.85);
-  const berandeBreidd = (mm, standard) => Math.max(verk * 1.7, klem(mm, standard, 2.5, 0.09));
+  const verk = klem(rad.sprosseverk, grovt ? 34 : 22, grovt ? 2.5 : 1.6, 0.11);
+  const berandeBreidd = (mm, standard) => Math.max(verk * 1.35, klem(mm, standard, 3, 0.13));
   const midt = rad.midtstolpe || (type && type.midtstolpe) ? berandeBreidd(rad.midtstolpe, 34) : 0;
   const losholt = rad.losholt || (type && type.losholt) ? berandeBreidd(rad.losholt, 34) : 0;
 
   const gX = ramme, gY = ramme;
   const gB = b - 2 * ramme, gH = h - 2 * ramme;
   const del = [];
+  const n = (x) => x.toFixed(1);
 
-  /** Eit rutenett innanfor eit rektangel. `tung` gjer midtstreken berande. */
-  const rutenett = (x, y, w, hh, kolonnar, rader, tungKol, kryss) => {
-    for (let i = 1; i < kolonnar; i++) {
-      const berande = tungKol && kolonnar % 2 === 0 && i === kolonnar / 2;
-      const t = berande ? midt : verk;
-      del.push(`<rect x="${(x + (w / kolonnar) * i - t / 2).toFixed(1)}" y="${y.toFixed(1)}"
-        width="${t.toFixed(1)}" height="${hh.toFixed(1)}" class="${berande ? "sp-berande" : "sp-verk"}"/>`);
-    }
+  // Profilane blir teikna med ein gradient på tvers, slik ein PVC-profil ser
+  // ut i dagslys: lys på den eine kanten, litt grå på den andre. Det er
+  // skilnaden mellom ein strek og noko som ser ut som ein list.
+  const loddrett = (xMidt, y, hogd, br, klasse) =>
+    `<rect x="${n(xMidt - br / 2)}" y="${n(y)}" width="${n(br)}" height="${n(hogd)}"
+      fill="url(#${uid}v)" class="${klasse}"/>`;
+  const vassrett = (x, yMidt, breidd, tj, klasse) =>
+    `<rect x="${n(x)}" y="${n(yMidt - tj / 2)}" width="${n(breidd)}" height="${n(tj)}"
+      fill="url(#${uid}h)" class="${klasse}"/>`;
+
+  /**
+   * Eit rutenett innanfor eit rektangel.
+   *
+   * `tungKol` gjer midtstreken berande (midtstolpe). `utanLoddrett` hoppar over
+   * dei loddrette — det er for typar der den loddrette sprossa går gjennom
+   * heile vindauget og difor blir teikna i eitt strekk etterpå.
+   */
+  const rutenett = (x, y, w, hh, kolonnar, rader, tungKol, kryss, utanLoddrett) => {
+    if (hh <= 0 || w <= 0) return;
+    if (!utanLoddrett)
+      for (let i = 1; i < kolonnar; i++) {
+        const berande = tungKol && kolonnar % 2 === 0 && i === kolonnar / 2;
+        del.push(loddrett(x + (w / kolonnar) * i, y, hh,
+          berande ? midt : verk, berande ? "sp-berande" : "sp-verk"));
+      }
     for (let i = 1; i < rader; i++)
-      del.push(`<rect x="${x.toFixed(1)}" y="${(y + (hh / rader) * i - verk / 2).toFixed(1)}"
-        width="${w.toFixed(1)}" height="${verk.toFixed(1)}" class="sp-verk"/>`);
+      del.push(vassrett(x, y + (hh / rader) * i, w, verk, "sp-verk"));
     if (kryss)
       for (let i = 0; i < kolonnar; i++) {
         const x0 = x + (w / kolonnar) * i + verk / 2;
         const x1 = x + (w / kolonnar) * (i + 1) - verk / 2;
-        del.push(`<path d="M ${x0.toFixed(1)} ${y.toFixed(1)} L ${x1.toFixed(1)} ${(y + hh).toFixed(1)}
-          M ${x1.toFixed(1)} ${y.toFixed(1)} L ${x0.toFixed(1)} ${(y + hh).toFixed(1)}"
-          class="sp-kryss" style="stroke-width:${verk.toFixed(1)}"/>`);
+        const y0 = y + verk / 2, y1 = y + hh - verk / 2;
+        del.push(`<path d="M ${n(x0)} ${n(y0)} L ${n(x1)} ${n(y1)}
+          M ${n(x1)} ${n(y0)} L ${n(x0)} ${n(y1)}"
+          class="sp-kryss" style="stroke-width:${n(verk)}"/>`);
       }
   };
 
   if (type && type.over) {
-    // Todelt: smalt felt øvst, losholt, høgt felt under.
-    const overH = gH * type.overDel;
-    rutenett(gX, gY, gB, overH - losholt / 2, type.over.rb, type.over.rh, false, type.over.kryss);
-    del.push(`<rect x="${gX.toFixed(1)}" y="${(gY + overH - losholt / 2).toFixed(1)}"
-      width="${gB.toFixed(1)}" height="${losholt.toFixed(1)}" class="sp-berande"/>`);
-    rutenett(gX, gY + overH + losholt / 2, gB, gH - overH - losholt / 2,
-             type.under.rb, type.under.rh, true, false);
+    // Todelt: eit felt øvst, ein tverrgåande profil, eit felt under.
+    //
+    // Kva den tverrgåande profilen *er*, skil typane frå kvarandre. På dei
+    // fem losholt-typane er det ein berande losholt. På kryssprossa er det ei
+    // heilt vanleg sprosse — same tjukkleik som resten av verket — og då står
+    // den 1/3 nede, ikkje midt på.
+    const lett = !!type.lettTverr;
+    const tverr = lett ? verk : losholt;
+    const yTverr = gY + gH * type.overDel;
+    const overH = yTverr - tverr / 2 - gY;
+    const underY = yTverr + tverr / 2;
+    const underH = gY + gH - underY;
+
+    rutenett(gX, gY, gB, overH, type.over.rb, type.over.rh, false, type.over.kryss, type.gjennomgaande);
+    rutenett(gX, underY, gB, underH, type.under.rb, type.under.rh,
+             !type.gjennomgaande, false, type.gjennomgaande);
+    del.push(vassrett(gX, yTverr, gB, tverr, lett ? "sp-verk" : "sp-berande"));
+    // Gjennomgåande loddrett sprosse teiknast til slutt og i eitt strekk, så
+    // krysset les seg som eit kryss og ikkje som to avkorta stubbar.
+    if (type.gjennomgaande)
+      for (let i = 1; i < type.over.rb; i++)
+        del.push(loddrett(gX + (gB / type.over.rb) * i, gY, gH, verk, "sp-verk"));
   } else {
     const kolonnar = type ? type.rb : rb;
     const rader = type ? type.rh : rh;
-    rutenett(gX, gY, gB, gH, kolonnar, rader, !!midt, false);
+    rutenett(gX, gY, gB, gH, kolonnar, rader, !!midt, false, false);
     // Oddetal ruter gir ingen midtstrek å gjere berande. Då blir midtstolpen
     // teikna i midten likevel — det er der den står.
     if (midt && kolonnar % 2 !== 0)
-      del.push(`<rect x="${(gX + gB / 2 - midt / 2).toFixed(1)}" y="${gY.toFixed(1)}"
-        width="${midt.toFixed(1)}" height="${gH.toFixed(1)}" class="sp-berande"/>`);
-    if (losholt)
-      del.push(`<rect x="${gX.toFixed(1)}" y="${(gY + gH / 2 - losholt / 2).toFixed(1)}"
-        width="${gB.toFixed(1)}" height="${losholt.toFixed(1)}" class="sp-berande"/>`);
+      del.push(loddrett(gX + gB / 2, gY, gH, midt, "sp-berande"));
+    if (losholt) del.push(vassrett(gX, gY + gH / 2, gB, losholt, "sp-berande"));
   }
 
   // Buar ligg oppå den øvste ruterekkja.
@@ -168,47 +215,76 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
     const buehogd = Math.min(gH * 0.35, buB * 0.4);
     for (let i = 0; i < buetal; i++) {
       const x0 = gX + buB * i;
-      del.push(`<path d="M ${x0.toFixed(1)} ${(gY + buehogd).toFixed(1)}
-        Q ${(x0 + buB / 2).toFixed(1)} ${gY.toFixed(1)} ${(x0 + buB).toFixed(1)} ${(gY + buehogd).toFixed(1)}"
-        class="sp-bue" style="stroke-width:${verk.toFixed(1)}"/>`);
+      del.push(`<path d="M ${n(x0)} ${n(gY + buehogd)}
+        Q ${n(x0 + buB / 2)} ${n(gY)} ${n(x0 + buB)} ${n(gY + buehogd)}"
+        class="sp-bue" style="stroke-width:${n(verk)}"/>`);
     }
   }
 
-  // Hengsler: små faste merke på den sida dei sit.
+  // Hengsler: to knokar på den sida dei sit.
   const hengsel = String(rad.hengsler || "").toUpperCase();
-  const tapp = (x, y, vassrett) =>
-    `<rect x="${(x - (vassrett ? 5 : ramme / 2)).toFixed(1)}" y="${(y - (vassrett ? ramme / 2 : 5)).toFixed(1)}"
-      width="${(vassrett ? 10 : ramme).toFixed(1)}" height="${(vassrett ? ramme : 10).toFixed(1)}"
-      rx="1" class="sp-hengsel"/>`;
+  const knoke = (x, y, langsTopp) => {
+    const lang = Math.max(6, Math.min(b, h) * 0.09);
+    const tjukk = Math.max(2.6, ramme * 0.6);
+    return langsTopp
+      ? `<rect x="${n(x - lang / 2)}" y="${n(y - tjukk / 2)}" width="${n(lang)}"
+          height="${n(tjukk)}" rx="${n(tjukk / 2)}" class="sp-hengsel"/>`
+      : `<rect x="${n(x - tjukk / 2)}" y="${n(y - lang / 2)}" width="${n(tjukk)}"
+          height="${n(lang)}" rx="${n(tjukk / 2)}" class="sp-hengsel"/>`;
+  };
   const hengslar = [];
-  if (hengsel === "V") hengslar.push(tapp(ramme / 2, h * 0.3, false), tapp(ramme / 2, h * 0.7, false));
-  if (hengsel === "H") hengslar.push(tapp(b - ramme / 2, h * 0.3, false), tapp(b - ramme / 2, h * 0.7, false));
-  if (hengsel === "T") hengslar.push(tapp(b * 0.3, ramme / 2, true), tapp(b * 0.7, ramme / 2, true));
-  if (hengsel === "B") hengslar.push(tapp(b * 0.3, h - ramme / 2, true), tapp(b * 0.7, h - ramme / 2, true));
+  if (hengsel === "V") hengslar.push(knoke(ramme / 2, h * 0.3, false), knoke(ramme / 2, h * 0.7, false));
+  if (hengsel === "H") hengslar.push(knoke(b - ramme / 2, h * 0.3, false), knoke(b - ramme / 2, h * 0.7, false));
+  if (hengsel === "T") hengslar.push(knoke(b * 0.3, ramme / 2, true), knoke(b * 0.7, ramme / 2, true));
+  if (hengsel === "B") hengslar.push(knoke(b * 0.3, h - ramme / 2, true), knoke(b * 0.7, h - ramme / 2, true));
 
   const tal = parseInt(rad.antall, 10) || 0;
-  const undertekst = type
-    ? `Type ${type.nr}${tal > 1 ? ` · ${tal} stk` : ""}`
-    : `${rb} × ${rh} ruter${tal > 1 ? ` · ${tal} stk` : ""}`;
-  const glasId = "glas" + Math.random().toString(36).slice(2, 8);
+  const stk = tal > 1 ? ` · ${tal} stk` : "";
+  const undertekst = type ? vindexTypenamn(type) + stk : `${rb} × ${rh} ruter${stk}`;
+  const spor = ramme * 0.42;
 
   return `<svg class="sprossefigur" viewBox="0 0 ${b + margV} ${h + margB}"
     width="${b + margV}" height="${h + margB}" role="img"
-    aria-label="${type ? "Type " + type.nr + ", " + type.navn : rb + " ruter i bredden og " + rh + " i høyden"}${
+    aria-label="${type ? vindexTypenamn(type) + ", " + type.navn : rb + " ruter i bredden og " + rh + " i høyden"}${
       visMaal ? `, falsmål ${fb} × ${fh} mm` : ""
     }${hengsel ? ", hengsler " + hengsel : ""}">
     <defs>
-      <linearGradient id="${glasId}" x1="0" y1="0" x2="0.35" y2="1">
+      <linearGradient id="${uid}glas" x1="0" y1="0" x2="0.35" y2="1">
         <stop offset="0" class="sp-himmel-topp"/>
         <stop offset="1" class="sp-himmel-botn"/>
       </linearGradient>
+      <linearGradient id="${uid}v" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" class="sp-pr-lys"/>
+        <stop offset="0.45" class="sp-pr-flate"/>
+        <stop offset="1" class="sp-pr-mork"/>
+      </linearGradient>
+      <linearGradient id="${uid}h" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" class="sp-pr-lys"/>
+        <stop offset="0.45" class="sp-pr-flate"/>
+        <stop offset="1" class="sp-pr-mork"/>
+      </linearGradient>
+      <linearGradient id="${uid}karm" x1="0" y1="0" x2="0.4" y2="1">
+        <stop offset="0" class="sp-pr-lys"/>
+        <stop offset="1" class="sp-pr-mork"/>
+      </linearGradient>
+      <clipPath id="${uid}c"><rect x="${n(gX)}" y="${n(gY)}" width="${n(gB)}" height="${n(gH)}"/></clipPath>
     </defs>
     <g transform="translate(${margV} 0)">
-      <rect x="0" y="0" width="${b}" height="${h}" fill="url(#${glasId})"/>
+      <rect x="0" y="0" width="${b}" height="${h}" rx="1.5" fill="url(#${uid}karm)"/>
+      <rect x="${n(spor)}" y="${n(spor)}" width="${n(b - 2 * spor)}" height="${n(h - 2 * spor)}"
+        fill="none" class="sp-spor"/>
+      <rect x="${n(gX)}" y="${n(gY)}" width="${n(gB)}" height="${n(gH)}" fill="url(#${uid}glas)"/>
+      <g clip-path="url(#${uid}c)">
+        <polygon class="sp-glans" points="${n(gX)},${n(gY + gH * 0.78)} ${n(gX + gB * 0.36)},${n(gY)}
+          ${n(gX + gB * 0.58)},${n(gY)} ${n(gX)},${n(gY + gH * 1.08)}"/>
+        <polygon class="sp-glans sp-glans-svak" points="${n(gX + gB * 0.7)},${n(gY)}
+          ${n(gX + gB * 0.84)},${n(gY)} ${n(gX + gB * 0.16)},${n(gY + gH)} ${n(gX + gB * 0.02)},${n(gY + gH)}"/>
+      </g>
+      <path d="M ${n(gX)} ${n(gY + gH)} L ${n(gX)} ${n(gY)} L ${n(gX + gB)} ${n(gY)}"
+        fill="none" class="sp-glaskant"/>
       ${del.join("")}
-      <rect x="${(ramme / 2).toFixed(1)}" y="${(ramme / 2).toFixed(1)}"
-        width="${(b - ramme).toFixed(1)}" height="${(h - ramme).toFixed(1)}"
-        class="sp-ramme" style="stroke-width:${ramme.toFixed(1)}"/>
+      <rect x="0.4" y="0.4" width="${n(b - 0.8)}" height="${n(h - 0.8)}" rx="1.5"
+        fill="none" class="sp-karmkant"/>
       ${hengslar.join("")}
       ${
         visMaal

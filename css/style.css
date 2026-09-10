@@ -1855,7 +1855,7 @@ body.tema-mork .repskjema { background: var(--surface); border-color: var(--bord
    vise noko anna enn det som blir bestilt. */
 .sprosselinje {
   display: grid;
-  grid-template-columns: 170px 1fr 8.5rem;
+  grid-template-columns: 215px 1fr 8.5rem;
   gap: 1rem;
   align-items: start;
   padding: .8rem 0;
@@ -1864,7 +1864,7 @@ body.tema-mork .repskjema { background: var(--surface); border-color: var(--bord
 .sprosselinje:first-child { border-top: none; }
 .sprossefigurboks {
   display: grid; place-items: center;
-  min-height: 150px; padding: .6rem;
+  min-height: 190px; padding: .6rem;
   background: var(--primary-soft); border-radius: var(--radius-sm);
 }
 .sprossefelt {
@@ -1877,27 +1877,43 @@ body.tema-mork .repskjema { background: var(--surface); border-color: var(--bord
 .sprossepris strong { font-size: 1.05rem; }
 
 .sprossefigur { max-width: 100%; height: auto; overflow: visible; }
-.sprossefigur .sp-himmel-topp { stop-color: #a8c9e0; }
-.sprossefigur .sp-himmel-botn { stop-color: #dbe8f0; }
-body.tema-mork .sprossefigur .sp-himmel-topp { stop-color: #1e4258; }
-body.tema-mork .sprossefigur .sp-himmel-botn { stop-color: #33607a; }
-.sprossefigur .sp-kryss { fill: none; stroke: #fff; stroke-linecap: round; }
-body.tema-mork .sprossefigur .sp-kryss { stroke: #eef2f3; }
+
+/* Glaset. Himmelen bak gjer at figuren les seg som eit vindauge og ikkje som
+   eit rutenett, og glansstripene er det som skil glas frå tomrom. */
+.sprossefigur .sp-himmel-topp { stop-color: #9ec3dd; }
+.sprossefigur .sp-himmel-botn { stop-color: #dcebf3; }
+.sprossefigur .sp-glans { fill: #fff; opacity: .3; }
+.sprossefigur .sp-glans-svak { opacity: .15; }
+.sprossefigur .sp-glaskant { stroke: rgba(12, 38, 56, .28); stroke-width: 1.1; }
+
+/* Profilane. Kvar list får ein gradient på tvers — lys kant, flate, skuggekant
+   — så ein 84 mm sprosse ser ut som ein brei list og ikkje som ein feit strek. */
+.sprossefigur .sp-pr-lys { stop-color: #fff; }
+.sprossefigur .sp-pr-flate { stop-color: #f6f9fa; }
+.sprossefigur .sp-pr-mork { stop-color: #c8dae3; }
+.sprossefigur .sp-spor { stroke: rgba(12, 38, 56, .13); stroke-width: .8; }
+.sprossefigur .sp-karmkant { stroke: rgba(12, 38, 56, .3); stroke-width: .9; }
+
 /* Sprosseverket er tynt og lyst; midtstolpe og losholt er berande og tjukkare,
    og skal difor lesast som noko anna enn ei vanleg sprosse. */
-.sprossefigur .sp-verk { fill: #fff; stroke: #9fb6c2; stroke-width: .4; }
-.sprossefigur .sp-berande { fill: #fff; stroke: #6d8c9c; stroke-width: .8; }
-.sprossefigur .sp-ramme { fill: none; stroke: #fff; }
-.sprossefigur .sp-bue { fill: none; stroke: #fff; stroke-linecap: round; }
+.sprossefigur .sp-verk { stroke: rgba(12, 38, 56, .3); stroke-width: .4; }
+.sprossefigur .sp-berande { stroke: rgba(12, 38, 56, .45); stroke-width: .7; }
+.sprossefigur .sp-kryss { fill: none; stroke: #f2f7f9; stroke-linecap: round; }
+.sprossefigur .sp-bue { fill: none; stroke: #f2f7f9; stroke-linecap: round; }
 .sprossefigur .sp-hengsel { fill: var(--accent-tekst); }
 .sprossefigur .sp-maal { stroke: var(--muted); stroke-width: .7; }
 .sprossefigur .sp-maaltekst { font-size: 8.5px; fill: var(--muted); }
 .sprossefigur .sp-rutetekst { font-size: 8.5px; fill: var(--muted); font-weight: 600; }
-body.tema-mork .sprossefigur .sp-glas { fill: #24485c; }
-body.tema-mork .sprossefigur .sp-verk { fill: #eef2f3; stroke: #7e97a5; }
-body.tema-mork .sprossefigur .sp-berande { fill: #fff; stroke: #b9ccd6; }
-body.tema-mork .sprossefigur .sp-ramme,
-body.tema-mork .sprossefigur .sp-bue { stroke: #eef2f3; }
+
+body.tema-mork .sprossefigur .sp-himmel-topp { stop-color: #163a4f; }
+body.tema-mork .sprossefigur .sp-himmel-botn { stop-color: #2f5c76; }
+body.tema-mork .sprossefigur .sp-glans { opacity: .16; }
+body.tema-mork .sprossefigur .sp-glans-svak { opacity: .08; }
+body.tema-mork .sprossefigur .sp-glaskant { stroke: rgba(0, 0, 0, .38); }
+body.tema-mork .sprossefigur .sp-pr-flate { stop-color: #eef3f5; }
+body.tema-mork .sprossefigur .sp-pr-mork { stop-color: #b6cad4; }
+body.tema-mork .sprossefigur .sp-spor { stroke: rgba(12, 38, 56, .2); }
+body.tema-mork .sprossefigur .sp-karmkant { stroke: rgba(0, 0, 0, .4); }
 
 @media (max-width: 720px) {
   .sprosselinje { grid-template-columns: 1fr; }
