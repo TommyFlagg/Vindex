@@ -19,7 +19,7 @@ import {
   lastData, startDemo, tid, datoTekst, nesteAvtale,
   lagreLead, melding, opneModal, lukkModal, demoLagreOrdre, demoNullstill,
   lagreKladd, hentKladd, slettKladd, kladdlagrar, sidanTekst,
-} from "./verktoy-felles.js";
+} from "./verktoy-felles.js?v=fe9ae9b3";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visVerktoy());

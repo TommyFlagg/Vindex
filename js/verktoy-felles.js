@@ -15,7 +15,7 @@
 // ============================================================================
 
 export let fb = null;
-if (!VINDEX_DEMOMODUS) fb = await import("./firebase-init.js");
+if (!VINDEX_DEMOMODUS) fb = await import("./firebase-init.js?v=2a70b741");
 
 export const $ = (s) => document.querySelector(s);
 export const $$ = (s) => Array.from(document.querySelectorAll(s));

@@ -12,7 +12,7 @@
 
 let fb = null;
 if (!VINDEX_DEMOMODUS) {
-  fb = await import("./firebase-init.js");
+  fb = await import("./firebase-init.js?v=2a70b741");
 }
 
 const SISTE_STEG = 4;

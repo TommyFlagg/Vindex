@@ -1089,6 +1089,24 @@ node scripts/bygg-produktsider.mjs
 
 Skriptet rydder også bort sider for produkter du har fjernet fra katalogen.
 
+### Kjør stempelet før hver publisering
+
+```bash
+node scripts/stempel.mjs
+```
+
+Nettleseren har ingen måte å vite at `css/style.css` er ny. Den ser den samme
+adressen som i går, og bruker filen den allerede har. Uten stempel kan en
+retting ligge publisert i timevis uten at selgeren ser noe — og han melder fra
+om en feil som alt er rettet.
+
+Stempelet legger `?v=<innholdssum>` etter hver lokale CSS- og JS-adresse, både
+i HTML-en og i modulenes egne `import`-linjer. Endres innholdet, endres
+adressen, og filen hentes på nytt. Er innholdet likt, står stempelet stille og
+filen brukes fortsatt fra hurtiglageret. Skriptet er idempotent — kjør det så
+ofte du vil. Har du generert produktsidene på nytt, kjør `bygg-produktsider.mjs`
+først.
+
 ### Prisestimat er slått av
 
 Vindex selger ikke på listepris — kunden får «gratis forslag med tegning og
@@ -1197,5 +1215,5 @@ js/effekter.js           Avsløring, vipping og parallakse
 js/team.js               Selgere, forhandlere og 2024-tall
 js/tilbakemeldingar.js   Kundesitater (tom — fylles med ekte sitater)
 firestore.rules          Tilgangsregler
-scripts/                 Generering av produktsider
+scripts/                 Generering av produktsider og versjonsstempling
 ```

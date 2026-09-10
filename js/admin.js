@@ -12,7 +12,7 @@
 import {
   $, $$, app, settTeiknar, settOppstart, visDemohint,
   datoTekst, lagreLead, melding, opneModal, lukkModal,
-} from "./verktoy-felles.js";
+} from "./verktoy-felles.js?v=fe9ae9b3";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visPanel(), { berreAdmin: true });
@@ -88,7 +88,7 @@ async function hentRepresentantar() {
     return;
   }
   try {
-    const { fb } = await import("./verktoy-felles.js");
+    const { fb } = await import("./verktoy-felles.js?v=fe9ae9b3");
     const q = fb.query(fb.representantarCol(), fb.orderBy("opprettet", "desc"), fb.limit(200));
     representantar = (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (err) {
@@ -496,7 +496,7 @@ async function lagreDistrikt(seljarId) {
   seljar.distrikt = valde;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js");
+      const { fb } = await import("./verktoy-felles.js?v=fe9ae9b3");
       await fb.updateDoc(fb.sellerDoc(seljarId), { distrikt: valde });
       await byggRuting();
     }
@@ -516,7 +516,7 @@ async function lagreDistrikt(seljarId) {
  * innlogga. Difor ligg berre ID-ane der — ingen namn, ingen kontaktinfo.
  */
 async function byggRuting() {
-  const { fb } = await import("./verktoy-felles.js");
+  const { fb } = await import("./verktoy-felles.js?v=fe9ae9b3");
   // Formen må vere den bestillingsskjemaet les: distrikt-id -> liste med
   // selger-id-ar. Er det fleire i same distrikt, roterer skjemaet mellom dei.
   // Dokumentet ligg flatt, uten «distrikt»-nivå, og heiter settings/ruting.
