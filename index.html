@@ -12,9 +12,18 @@
 <meta property="og:image" content="https://vindex.no/assets/bilder/hero-fasade.jpg">
 <meta name="theme-color" content="#0a1621">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="stylesheet" href="css/style.css?v=9c92da46">
+<link rel="stylesheet" href="css/style.css?v=ee656a27">
+<script>
+  // Nettstaden er mørk som standard. Set temaet før sida teiknar, så den ikkje
+  // blinkar i feil farge først.
+  try {
+    if (localStorage.getItem("vindex_tema") !== "lys") {
+      document.documentElement.classList.add("tema-mork-tidleg");
+    }
+  } catch (e) { /* privat vindauge: berre hopp over */ }
+</script>
 </head>
-<body class="tema-mork" data-rot="" data-side="hjem">
+<body class="nettside" data-rot="" data-side="hjem">
 
 <noscript>
   <nav class="wrap"><a href="produkter.html">Produkter</a> · <a href="bestilling.html">Be om tilbud</a> · <a href="kontakt.html">Kontakt</a></nav>
@@ -284,7 +293,7 @@
 <script src="js/fylkeskart.js?v=9fc252ac"></script>
 <script src="js/firebase-config.js?v=719e37e1"></script>
 <script src="js/nettverk.js?v=ace18722"></script>
-<script src="js/app.js?v=f9edf47d"></script>
+<script src="js/app.js?v=9fbd8b5a"></script>
 <script src="js/effekter.js?v=84d5e123"></script>
 <script>
   vindexTeiknNettverk(document.getElementById("nettverk"), { rot: "" });

@@ -40,12 +40,51 @@
       ${minimal ? "" : '<button class="nav-toggle" type="button" aria-expanded="false" aria-label="Vis meny">☰</button>'}
       <nav class="nav" id="hovudmeny">
         ${menyHtml}
+        ${
+          minimal
+            ? ""
+            : `<button class="temaknapp" type="button" id="temaknapp" aria-pressed="false"
+                 title="Bytt mellom lyst og mørkt"><span aria-hidden="true"></span>
+                 <span class="temaknapp-tekst"></span></button>`
+        }
         ${minimal ? "" : `<a class="btn btn-accent btn-sm" href="${rot}bestilling.html">Be om tilbud</a>`}
       </nav>
     </div>`;
   body.prepend(header);
 
   const f = VINDEX_FIRMA;
+
+  // ---- Lyst eller mørkt --------------------------------------------------
+  // Nettstaden er mørk som standard; verktøyet er lyst. Valet blir hugsa under
+  // same nøkkel begge stader, så eit uttrykt val gjeld heile Vindex — men
+  // standarden er framleis den kvar flate er laga for.
+  const temaknapp = header.querySelector("#temaknapp");
+  if (temaknapp) {
+    const settTema = (mork, lagre) => {
+      body.classList.toggle("tema-mork", mork);
+      document.documentElement.classList.remove("tema-mork-tidleg");
+      temaknapp.setAttribute("aria-pressed", String(mork));
+      temaknapp.setAttribute("aria-label", mork ? "Bytt til lyst tema" : "Bytt til mørkt tema");
+      temaknapp.firstElementChild.textContent = mork ? "☀" : "☾";
+      temaknapp.querySelector(".temaknapp-tekst").textContent = mork ? "Lyst" : "Mørkt";
+      const farge = document.querySelector('meta[name="theme-color"]');
+      if (farge) farge.setAttribute("content", mork ? "#0a1621" : "#f4f6f6");
+      if (lagre) {
+        try {
+          localStorage.setItem("vindex_tema", mork ? "mork" : "lys");
+        } catch (e) { /* privat vindauge */ }
+      }
+    };
+
+    let lagra = null;
+    try {
+      lagra = localStorage.getItem("vindex_tema");
+    } catch (e) { /* privat vindauge */ }
+    settTema(lagra !== "lys", false);
+    temaknapp.addEventListener("click", () =>
+      settTema(!body.classList.contains("tema-mork"), true)
+    );
+  }
 
   const toggle = header.querySelector(".nav-toggle");
   const nav = header.querySelector("#hovudmeny");

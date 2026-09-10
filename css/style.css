@@ -43,6 +43,10 @@
   --shadow-sm: 0 2px 10px rgba(20, 38, 46, 0.07);
   --shadow-md: 0 14px 34px rgba(20, 38, 46, 0.16);
   --maxw: 1120px;
+  /* Overskriftsfargen. I mørkt tema er den kremkvit; i lyst er den den same
+     skifera som brødteksten. Same variabel, så display-typografien treng ikkje
+     vite kva tema den står i. */
+  --krem: #14262e;
   font-size: 16px;
 }
 
@@ -887,7 +891,13 @@ body.tema-mork {
   color: var(--ink);
 }
 
-/* --- display-typografi --- */
+/* --- display-typografi ---
+   Store versalar i Oswald er nettstaden sin identitet, ikkje det mørke temaet
+   sin. Difor gjeld den for .nettside i begge tema. Verktøyet har .verktoyside
+   og held fram med den kompakte skrifta. */
+body.nettside h1,
+body.nettside h2,
+body.nettside .display,
 body.tema-mork h1,
 body.tema-mork h2,
 body.tema-mork .display {
@@ -938,7 +948,15 @@ body.tema-mork .nav-toggle { border-color: var(--border); color: var(--krem); }
 }
 
 /* --- helt med fullt bilete bak --- */
-.helt-fullbleed { position: relative; overflow: hidden; background: #06101a; }
+.helt-fullbleed {
+  position: relative; overflow: hidden; background: #06101a;
+  /* Bandet er mørkt i begge tema — det ligg eit foto bak. Fargane blir difor
+     sette lokalt, så teksten held seg lesbar òg når resten av sida er lys. */
+  --krem: #f2ece0;
+  --ink: #f2ece0;
+  --muted: #b6c6d0;
+  color: var(--ink);
+}
 .helt-fullbleed > .helt-bilete {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
   opacity: 0.42;
@@ -2006,3 +2024,18 @@ body.tema-mork .sprossefigur .sp-karmkant { stroke: rgba(0, 0, 0, .4); }
 .aarsfakta dd strong { font-size: 1.05rem; }
 .aarsfakta dd .hint { font-size: .72rem; }
 .aarsfakta > .btn { margin-left: auto; }
+
+/* Lyst/mørkt på nettstaden. Ligg i menyen, ikkje som eit flytande ikon:
+   det er ei innstilling, ikkje ei handling sida vil at du skal gjere. */
+.temaknapp {
+  display: inline-flex; align-items: center; gap: .35rem;
+  background: transparent; border: 1px solid var(--border); border-radius: 999px;
+  color: var(--muted); cursor: pointer;
+  padding: .3rem .7rem; font-size: .8rem; font-weight: 600; line-height: 1;
+}
+.temaknapp:hover { color: var(--ink); border-color: var(--primary); }
+body.tema-mork .temaknapp { border-color: var(--border); color: var(--muted); }
+body.tema-mork .temaknapp:hover { color: var(--krem); border-color: var(--accent); }
+@media (max-width: 860px) {
+  .temaknapp-tekst { display: none; }
+}

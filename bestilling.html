@@ -7,9 +7,18 @@
 <meta name="description" content="Legg inn mål og ønsker, få et uforpliktende prisestimat med én gang, og bli satt i kontakt med selgeren i ditt distrikt.">
 <meta name="robots" content="index,follow">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="stylesheet" href="css/style.css?v=9c92da46">
+<link rel="stylesheet" href="css/style.css?v=ee656a27">
+<script>
+  // Nettstaden er mørk som standard. Set temaet før sida teiknar, så den ikkje
+  // blinkar i feil farge først.
+  try {
+    if (localStorage.getItem("vindex_tema") !== "lys") {
+      document.documentElement.classList.add("tema-mork-tidleg");
+    }
+  } catch (e) { /* privat vindauge: berre hopp over */ }
+</script>
 </head>
-<body class="tema-mork" data-rot="" data-side="bestilling">
+<body class="nettside" data-rot="" data-side="bestilling">
 
 <section class="hero" style="padding:2.5rem 0 2.75rem">
   <div class="wrap">
@@ -148,7 +157,7 @@
 <script src="js/produkter.js?v=e3314b0d"></script>
 <script src="js/distrikt.js?v=577fba13"></script>
 <script src="js/firebase-config.js?v=719e37e1"></script>
-<script src="js/app.js?v=f9edf47d"></script>
+<script src="js/app.js?v=9fbd8b5a"></script>
 <script src="js/effekter.js?v=84d5e123"></script>
 <script type="module" src="js/bestilling.js?v=18636b25"></script>
 </body>
