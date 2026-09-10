@@ -899,6 +899,55 @@ sammenligning vet ingen om egne tall er gode.
 Alt regnes i `js/nokkeltal.js`, atskilt fra det som tegner panelene, slik at
 admin og selger aldri kan få to ulike svar på det samme spørsmålet.
 
+### Selgerkortet
+
+Under **Salgsapparatet** har hver selger og forhandler et kort som skal svare på
+mer enn «hvor mye solgte han». Et lite Norgeskart farger distriktet personen
+dekker — en liste med fylkesnavn må leses, et kart kjennes igjen — og ved siden
+av står nøkkeltallene for det året du har valgt øverst.
+
+| Tall på kortet | Slik regnes det |
+|---|---|
+| Ansatt | Datoen admin har lagt inn, med ansiennitet regnet ut. Tom til noen fyller den inn — den finnes ingen andre steder i verktøyet. |
+| Salg *år* | Har verktøyet ordrer fra året, summeres de (eks. mva). Er året eldre enn verktøyet, vises tallet noen har lagt inn fra regnskapet, og kortet sier hvilken av delene det er. |
+| Egengenerert | Ordreverdi på saker selgeren selv har registrert, delt på selgerens samlede ordreverdi i året. Leads fra bestillingsskjemaet er skaffet av selskapet. |
+| Mersalg | Ordre nummer to og senere på samme sak. Det er definisjonen kundekortet allerede bruker: mersalg blir en ny ordre, ikke en endring av den forrige. |
+| Selger på | Årsakene selgeren selv oppgir når en sak lukkes som solgt. Under tre avgjorte saker sier kortet fra at grunnlaget er for tynt. |
+
+**2025 finnes ikke.** Verktøyet har ordrer fra 2026 og et regnskapstall for
+2024 — mellomåret er hverken registrert eller lagt inn, og årsvelgeren viser
+derfor bare de årene det finnes et tall for. Legger du inn 2025 fra regnskapet
+på hvert kort, dukker knappen opp av seg selv.
+
+Regnestykkene ligger i `js/apparat.js`, atskilt fra tegningen på samme måte som
+resten.
+
+### Arkivering i stedet for sletting
+
+Admin kan legge til, redigere og arkivere folk direkte på siden. **Sletting
+finnes ikke, og det er med vilje:** en selger som slutter har fortsatt solgt det
+han solgte. Tar vi ham bort, endrer fjoråret seg bakover og selskapstallene
+slutter å stemme med regnskapet.
+
+Arkivering tar bort tre ting og beholder én:
+
+- Personen faller ut av `settings/ruting`, så nye forespørsler går til noen andre.
+- Personen forsvinner fra tabellen over hvordan apparatet ligger an — en som har
+  sluttet har ingen oppfølgingsrate å måle.
+- Tilgangen til verktøyet faller bort. Det skjer i `firestore.rules`, ikke bare i
+  grensesnittet: `erSeljar()` krever at `arkivert` ikke er `true`.
+- Salget står igjen i statistikken, og personen kan hentes tilbake når som helst.
+
+Åpne saker som allerede er tildelt følger ikke med — de må fordeles på nytt
+manuelt. Dialogen sier fra om det.
+
+Én ting er sperret: den siste aktive administratoren kan ikke arkiveres. Da
+ville det ikke stått noen igjen som kunne angre.
+
+**Nye personer får rad med én gang, men ikke innlogging.** Brukeren må opprettes
+i Firebase Authentication, og raden flyttes til den `uid`-en — se «Steg 2 —
+Selgere» lenger nede.
+
 ### Litt spill, ikke mye
 
 Rangering blant selgerne, en streak-teller, tall som teller opp, en

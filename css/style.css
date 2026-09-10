@@ -1939,3 +1939,55 @@ body.tema-mork .sprossefigur .sp-karmkant { stroke: rgba(0, 0, 0, .4); }
 .typeknapp.fri { min-width: 3.4rem; min-height: 3.4rem; align-content: center; }
 .typeetikett { display: block; font-size: .78rem; color: var(--muted); margin-bottom: .1rem; }
 .sprossefelt > .brei { grid-column: 1 / -1; }
+
+/* Seljarkorta på hovudkontorsida.
+   Kartet til venstre og tala til høgre: kartet svarer på «kvar», tala på
+   «kor mykje og korleis». Saman er det eit portrett av ein seljar. */
+.apparatstyring { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.aarsveljar { display: inline-flex; gap: .25rem; }
+.aarknapp {
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--muted);
+  padding: .3rem .7rem; cursor: pointer; font-weight: 700; font-size: .85rem;
+}
+.aarknapp:hover { border-color: var(--primary); }
+.aarknapp.valt { border-color: var(--accent-tekst); color: var(--accent-tekst); border-width: 2px; padding: calc(.3rem - .5px) calc(.7rem - .5px); }
+
+.seljarkort .kortkropp { display: grid; grid-template-columns: 116px 1fr; gap: .9rem; margin-top: .7rem; }
+.kortkart { display: grid; place-items: start center; }
+.kortkart .kartboks { width: 100%; }
+.korttal { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem .9rem; margin: 0; }
+.korttal > div { margin: 0; min-width: 0; }
+.korttal > .brei { grid-column: 1 / -1; }
+.korttal dt { font-size: .74rem; color: var(--muted); font-weight: 600; margin: 0; }
+.korttal dt .hint { font-size: .7rem; font-weight: 400; }
+/* Atterhaldet om tynt grunnlag høyrer til under merka, ikkje ved sida av dei —
+   inline blir det ei setning som slyngjer seg mellom pillene. */
+.korttal .grunnatterhald { display: block; font-size: .72rem; margin-top: .2rem; }
+.korttal dd { margin: 0; font-size: .9rem; }
+.korttal dd.tal { display: grid; line-height: 1.25; }
+.korttal dd.tal strong { font-size: 1.02rem; }
+.korttal dd .hint { font-size: .72rem; }
+.korttal .tomtal { color: var(--muted); font-weight: 400; }
+.grunnmerke {
+  display: inline-block; background: var(--primary-soft); border-radius: 999px;
+  padding: .1rem .55rem; font-size: .76rem; margin: .12rem .25rem .12rem 0;
+}
+.grunnmerke b { font-weight: 800; }
+
+.distriktval { margin-top: .8rem; border-top: 1px solid var(--border); padding-top: .5rem; }
+.distriktval summary { cursor: pointer; font-size: .82rem; color: var(--muted); font-weight: 600; }
+.hakelinje {
+  display: flex; gap: .5rem; align-items: center;
+  font-weight: 500; font-size: .9rem; padding: .12rem 0;
+}
+.hakelinje input { width: auto; }
+
+/* Arkiverte er ikkje borte, berre ute av drift. Dempa, ikkje gøymt. */
+.arkivkort { opacity: .72; }
+.arkivkort:hover, .arkivkort:focus-within { opacity: 1; }
+
+@media (max-width: 620px) {
+  .seljarkort .kortkropp { grid-template-columns: 1fr; }
+  .kortkart { max-width: 150px; }
+}

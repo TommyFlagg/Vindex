@@ -430,7 +430,7 @@ function teiknPaaminningar() {
 function teiknPall() {
   // vindexPerSeljar gir { seljar, tal } — pakk ut til noko pallen kan lese.
   const rader = vindexPerSeljar(
-    app.seljarar.filter((s) => s.rolle !== "lager"),
+    app.seljarar.filter((s) => s.rolle !== "lager" && !vindexErArkivert(s)),
     app.leads.filter((l) => !l.arkivert),
     app.ordrar
   )
@@ -725,7 +725,10 @@ function visDetalj(id) {
          <label for="byttSeljar">Ansvarlig selger</label>
          <select id="byttSeljar">
            <option value="">— felles innboks —</option>
-           ${app.seljarar.map((s) => `<option value="${s.id}"${s.id === l.seljarId ? " selected" : ""}>${s.navn}</option>`).join("")}
+           ${app.seljarar
+             .filter((s) => !vindexErArkivert(s) || s.id === l.seljarId)
+             .map((s) => `<option value="${s.id}"${s.id === l.seljarId ? " selected" : ""}>${s.navn}</option>`)
+             .join("")}
          </select>
        </div>`
     : "";
@@ -1104,7 +1107,10 @@ function opneNyttLead() {
       <div class="field brei"><label for="nlSeljar">Ansvarlig selger</label>
         <select id="nlSeljar">
           <option value="auto">Fordel automatisk ut fra postnummer</option>
-          ${app.seljarar.filter((s) => s.rolle !== "lager").map((s) => `<option value="${s.id}"${s.id === app.brukar.uid ? " selected" : ""}>${s.navn}</option>`).join("")}
+          ${app.seljarar
+            .filter((s) => s.rolle !== "lager" && !vindexErArkivert(s))
+            .map((s) => `<option value="${s.id}"${s.id === app.brukar.uid ? " selected" : ""}>${s.navn}</option>`)
+            .join("")}
         </select>
         <p class="hint">Standard er automatisk fordeling. Velg en selger for å overstyre.</p></div>
     </div>
@@ -1228,6 +1234,11 @@ async function lagreNyttLead() {
     distriktNavn: distrikt.navn,
     seljarId,
     tildeltAutomatisk: valtSeljar === "auto",
+    // Kven som skaffa saka. Ein lead seljaren registrerer sjølv, har han banka
+    // opp — ein som kjem gjennom bestillingsskjemaet, har selskapet skaffa.
+    // Skiljet er det «egengenerert» på seljarkortet er rekna av.
+    opphav: "selger",
+    registrertAv: app.brukar.uid,
     status: "ny",
     samtykke: true,
     avtaler: [],
@@ -2113,7 +2124,13 @@ async function byggRuting() {
   const ruting = {};
   VINDEX_DISTRIKT.forEach((d) => {
     const eigarar = app.seljarar
-      .filter((s) => s.aktiv !== false && s.rolle !== "lager" && (s.distrikt || []).includes(d.id))
+      .filter(
+        (s) =>
+          s.aktiv !== false &&
+          !vindexErArkivert(s) &&
+          s.rolle !== "lager" &&
+          (s.distrikt || []).includes(d.id)
+      )
       .map((s) => s.id);
     if (eigarar.length) ruting[d.id] = eigarar;
   });

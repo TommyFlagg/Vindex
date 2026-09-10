@@ -67,7 +67,12 @@ function vindexDistriktNavn(distriktId) {
  */
 function vindexVelgSeljar(seljarar, distriktId) {
   const kandidatar = (seljarar || []).filter(
-    (s) => s.aktiv !== false && !s.ferie && Array.isArray(s.distrikt) && s.distrikt.includes(distriktId)
+    (s) =>
+      s.aktiv !== false &&
+      !s.arkivert &&
+      !s.ferie &&
+      Array.isArray(s.distrikt) &&
+      s.distrikt.includes(distriktId)
   );
   if (!kandidatar.length) return null;
   return kandidatar.slice().sort((a, b) => {

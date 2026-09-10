@@ -26,8 +26,15 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/sellers/$(request.auth.uid)).data;
     }
 
+    // Ein arkivert person har slutta. Raden hans blir ståande — statistikken
+    // for selskapet skal ikkje endre seg bakover fordi nokon sluttar — men
+    // tilgangen til verktøyet fell bort her, i reglane, og ikkje berre i
+    // grensesnittet. Rekkjefølgja er med vilje: exists() må vere sann før
+    // get() blir kalla, elles feiler oppslaget for ein som ikkje finst.
     function erSeljar() {
-      return innlogga() && exists(/databases/$(database)/documents/sellers/$(request.auth.uid));
+      return innlogga()
+             && exists(/databases/$(database)/documents/sellers/$(request.auth.uid))
+             && seljarDok().get('arkivert', false) != true;
     }
 
     function rolle() {
