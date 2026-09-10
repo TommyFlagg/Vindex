@@ -19,7 +19,7 @@ import {
   lastData, startDemo, tid, datoTekst, nesteAvtale,
   lagreLead, melding, opneModal, lukkModal, demoLagreOrdre, demoNullstill,
   lagreKladd, hentKladd, slettKladd, kladdlagrar, sidanTekst,
-} from "./verktoy-felles.js?v=a5aa1477";
+} from "./verktoy-felles.js?v=7d4d5904";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visVerktoy());
@@ -153,6 +153,7 @@ function teiknAlt() {
     teiknArbeidsliste(liste);
     teiknMinetal();
     teiknKampanjepanel();
+    teiknAnmeldingar();
     teiknPaaminningar();
     vindexTeiknDashKart($("#dashKart"), panelKontekst());
     teiknPall();
@@ -581,6 +582,58 @@ function teiknKampanjepanel() {
       })
       .join("")}
     <p class="hint mb-0">Selve teksten står på kundekortet til de kundene den gjelder.</p>`;
+}
+
+/**
+ * Mine kundeanmeldingar.
+ *
+ * Seljaren ser sine eigne — det er hans arbeid kunden uttaler seg om — og
+ * snittet for heile huset ved sida av, slik at talet har noko å målast mot.
+ * Utan samanlikninga veit ingen om 4,3 er bra.
+ */
+function teiknAnmeldingar() {
+  const boks = $("#anmeldingar");
+  if (!boks) return;
+  const mine = vindexAnmeldingarSortert(vindexAnmeldingarFor(app.anmeldingar, app.brukar.uid));
+  const mitt = vindexAnmeldingssnitt(mine);
+  const alle = vindexAnmeldingssnitt(app.anmeldingar);
+  const demo = (app.anmeldingar || []).some((a) => a.demo);
+
+  boks.innerHTML = `
+    <div class="panel-topp"><h3>Mine kundeanmeldelser</h3><span class="spacer"></span>
+      <span class="hint">${
+        mitt.snitt === null ? "ingen ennå" : `${mitt.snitt} av 5 · ${mitt.tal}`
+      }</span></div>
+    ${
+      demo
+        ? `<p class="hint"><strong>Oppdiktede eksempler.</strong> Innsamlingen er ikke bygd ennå.</p>`
+        : ""
+    }
+    ${
+      mine.length
+        ? mine
+            .slice(0, 4)
+            .map(
+              (a) => `<div class="anmelding">
+                <div class="anmelding-topp">
+                  ${vindexStjerner(a.stjerner)}
+                  <strong>${a.navn || "Anonym"}</strong>
+                  <span class="hint">${a.dato || ""}</span>
+                </div>
+                <p class="mb-0">${a.tekst || ""}</p>
+              </div>`
+            )
+            .join("")
+        : `<p class="hint">Ingen anmeldelser knyttet til deg ennå. Hovedkontoret kobler dem
+             til saken når de kommer inn.</p>`
+    }
+    ${
+      alle.snitt === null
+        ? ""
+        : `<p class="hint mb-0">Hele huset: ${alle.snitt} av 5 på ${alle.tal} ${
+            alle.tal === 1 ? "vurdering" : "vurderinger"
+          }.</p>`
+    }`;
 }
 
 function teiknTips() {

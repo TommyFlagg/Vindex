@@ -77,6 +77,9 @@ const sellerDoc = (uid) => doc(db, "sellers", uid);
 // Kampanjar: hovudkontoret skriv, alle innlogga les.
 const campaignsCol = () => collection(db, "campaigns");
 const campaignDoc = (id) => doc(db, "campaigns", id);
+// Kundeanmeldingar: alle innlogga les, admin knyter dei til ein seljar.
+const reviewsCol = () => collection(db, "reviews");
+const reviewDoc = (id) => doc(db, "reviews", id);
 // Søknader frå «bli representant»-skjemaet. Kven som helst kan sende inn,
 // berre hovudkontoret kan lese — sjå firestore.rules.
 const representantarCol = () => collection(db, "representanter");
@@ -95,6 +98,8 @@ export {
   sellerDoc,
   campaignsCol,
   campaignDoc,
+  reviewsCol,
+  reviewDoc,
   representantarCol,
   settingsDoc,
   doc,

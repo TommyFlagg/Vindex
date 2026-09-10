@@ -389,7 +389,7 @@ async function sendRepresentantskjema(rot, nett) {
       liste.unshift({ ...soknad, id: "demo-" + Date.now(), opprettet: new Date().toISOString() });
       localStorage.setItem(nokkel, JSON.stringify(liste.slice(0, 50)));
     } else {
-      const fb = await import("./firebase-init.js?v=59969fd5");
+      const fb = await import("./firebase-init.js?v=bc4ef637");
       await fb.addDoc(fb.representantarCol(), { ...soknad, opprettet: fb.serverTimestamp() });
     }
 

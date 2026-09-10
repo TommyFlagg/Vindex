@@ -139,6 +139,15 @@ service cloud.firestore {
       allow create, update, delete: if erAdmin();
     }
 
+    // -- Kundeanmeldingar ----------------------------------------------------
+    // Alle innlogga les — seljaren skal sjå si eiga vurdering utan å be om det.
+    // Berre admin skriv: kva ei anmelding seier, og kven ho høyrer til, skal
+    // ikkje kunne endrast av den som blir vurdert.
+    match /reviews/{anmeldingId} {
+      allow read: if erSeljar();
+      allow create, update, delete: if erAdmin();
+    }
+
     // -- Søknader om å bli representant --------------------------------------
     // Skjemaet på nettsida er ope for alle, men søknadene er personopplysningar
     // og skal berre lesast av hovudkontoret. Ingen kan lese sin eigen igjen —

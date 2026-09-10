@@ -2070,3 +2070,17 @@ body.tema-mork .kampanjetreff { color: var(--accent); }
 .kampanjekort.gaar { border-left: 3px solid var(--good); }
 .seljarhaker { columns: 2; column-gap: 1.2rem; }
 @media (max-width: 620px) { .seljarhaker { columns: 1; } }
+
+/* Kundeanmeldingar. Stjernene skal lesast som ei vurdering og ikkje som pynt:
+   dei fylte er messing, dei tomme er berre eit omriss i same form, så
+   forskjellen mellom fire og fem er tydeleg utan å telje. */
+.stjerner { color: var(--accent-tekst); letter-spacing: .06em; font-size: .95rem; }
+body.tema-mork .stjerner { color: var(--accent); }
+.stjerner .tom { opacity: .22; }
+.anmelding { padding: .6rem 0; border-top: 1px solid var(--border); }
+.anmelding:first-of-type { border-top: none; }
+.anmelding p { font-size: .88rem; }
+.anmelding-topp { display: flex; gap: .45rem; align-items: baseline; flex-wrap: wrap; }
+.anmelding-topp .hint { font-size: .72rem; }
+.anmelding-botn { display: flex; gap: .45rem; align-items: center; flex-wrap: wrap; }
+.anmelding-botn select { max-width: 12rem; }

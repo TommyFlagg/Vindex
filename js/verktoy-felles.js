@@ -15,7 +15,7 @@
 // ============================================================================
 
 export let fb = null;
-if (!VINDEX_DEMOMODUS) fb = await import("./firebase-init.js?v=59969fd5");
+if (!VINDEX_DEMOMODUS) fb = await import("./firebase-init.js?v=bc4ef637");
 
 export const $ = (s) => document.querySelector(s);
 export const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -26,6 +26,7 @@ export const app = {
   leads: [],
   ordrar: [],
   kampanjar: [],
+  anmeldingar: [],
   valtLead: null,
   tempfilter: "opne",  // opne | gron | oransje | raud | gjenoppretting | null (alle)
   fylkefilter: null,  // fylke-id frå kartet i sidekolonna
@@ -199,6 +200,7 @@ export async function lastData() {
   // samlinga henta, og filtreringa på rekkevidd skjer i klienten der den
   // uansett må skje per kunde.
   app.kampanjar = (await fb.getDocs(fb.campaignsCol())).docs.map((d) => ({ id: d.id, ...d.data() }));
+  app.anmeldingar = (await fb.getDocs(fb.reviewsCol())).docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 export function startDemo(rolle) {
@@ -240,6 +242,7 @@ export function startDemo(rolle) {
   app.leads = demoLeads();
   app.ordrar = demoOrdrar();
   app.kampanjar = demoKampanjar();
+  app.anmeldingar = demoAnmeldingar();
   etterInnlogging();
 }
 
@@ -476,6 +479,38 @@ export function demoKampanjar() {
       fra: dag(-3), til: dag(45), aktiv: true,
       opprettaAv: "Hovedkontoret", opprettet: dag(-3),
     },
+  ];
+}
+
+/**
+ * Oppdikta kundeanmeldingar, berre til demoen.
+ *
+ * Dei er dikta opp av meg for å vise korleis panelet ser ut med innhald i, og
+ * ingen av dei er sagt av eit menneske. Difor lever dei her, i demodataene,
+ * saman med dei oppdikta leadsa — og aldri i js/tilbakemeldingar.js, som
+ * forsida les og som skal stå tom til det finst verkelege kundeord med
+ * samtykke bak.
+ *
+ * Namna er henta frå dei same demokundane som ligg i lista, slik at
+ * koplinga til seljar kan prøvast ut slik den faktisk vil fungere.
+ */
+export function demoAnmeldingar() {
+  const dag = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  return [
+    { id: "a1", navn: "Bjørn Hatlem", poststed: "Elnesvågen", stjerner: 5, kjelde: "google", dato: dag(4),
+      tekst: "Rekkverket kom på målet og montøren var ferdig på en dag. Slipper å tenke på maling igjen.",
+      seljarId: null, demo: true },
+    { id: "a2", navn: "Ingrid Sætre", poststed: "Førde", stjerner: 4, kjelde: "epost", dato: dag(11),
+      tekst: "Veldig fornøyd med terrassegulvet. Trakk én stjerne fordi leveringen ble en uke forsinket.",
+      seljarId: "demo-1", demo: true },
+    { id: "a3", navn: "Per Kvalvik", poststed: "Frei", stjerner: 5, kjelde: "google", dato: dag(19),
+      tekst: "Fikk god hjelp til å måle opp selv. Gjerdet står som støpt etter første vinter.",
+      seljarId: "demo-2", demo: true },
+    { id: "a4", navn: "Marit Lund", poststed: "Volda", stjerner: 3, kjelde: "skjema", dato: dag(26),
+      tekst: "Sprossene ble fine, men det tok tre telefoner før jeg fikk svar på hva de kostet.",
+      seljarId: "demo-1", demo: true },
+    { id: "a5", navn: "Terje Aas", poststed: "Oslo", stjerner: 5, kjelde: "telefon", dato: dag(38),
+      tekst: "Andre gang jeg kjøper. Det sier vel det meste.", seljarId: null, demo: true },
   ];
 }
 

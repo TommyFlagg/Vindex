@@ -954,6 +954,29 @@ leser — en kampanje er ingen personopplysning, men den forteller hva vi gir
 rabatt på, og det skal ikke ligge åpent på nettet. Logikken er i
 `js/kampanje.js`.
 
+### Kundeanmeldelser
+
+Stjernevurderingene står i sidelinjen på begge verktøyene. Selgeren ser sine
+egne, med snittet for hele huset ved siden av — uten sammenligningen vet ingen
+om 4,3 er bra. Hovedkontoret ser alle, og knytter hver anmeldelse til selgeren
+som hadde kunden.
+
+**Navnet er ikke en nøkkel.** Det finnes flere Hansen, så verktøyet foreslår og
+mennesket avgjør: det leter etter en sak med samme kundenavn, og markerer
+forslaget som sikkert bare når poststedet stemmer også. Nedtrekket lar deg
+overstyre.
+
+Anmeldelser ligger i `reviews`. Alle innloggede leser — selgeren skal se sin
+egen vurdering uten å be om det — men bare admin skriver: hva en anmeldelse
+sier, og hvem den hører til, skal ikke kunne endres av den som blir vurdert.
+
+**Dette er foreløpig bare visningen.** Innsamlingen — hvordan kunden faktisk
+blir spurt, og hvordan svaret finner veien hit — er ikke bygd. De fem
+anmeldelsene i demoen er diktet opp for å vise panelet, og panelet sier fra om
+det selv. De ligger i demodataene sammen med de oppdiktede leadene, og
+**aldri** i `js/tilbakemeldingar.js` — den forsiden leser, og den står tom til
+det finnes ekte kundeord med samtykke bak.
+
 ### Arkivering i stedet for sletting
 
 Admin kan legge til, redigere og arkivere folk direkte på siden. **Sletting
