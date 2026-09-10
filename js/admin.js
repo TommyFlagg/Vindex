@@ -18,7 +18,8 @@ settTeiknar(() => teiknAlt());
 settOppstart(() => visPanel(), { berreAdmin: true });
 visDemohint(
   "<strong>Demomodus.</strong> Firebase er ikke satt opp ennå, så siden kjører med " +
-  "eksempeldata. Logg inn med hva som helst."
+  "eksempeldata. Logg inn med <code>admin@vindex.no</code> og hvilket som helst passord — " +
+  "e-postfeltet krever en hel adresse, så bare <code>admin</code> blir avvist av nettleseren."
 );
 
 const SNARVEGAR = [

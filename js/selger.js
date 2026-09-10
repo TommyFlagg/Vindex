@@ -25,8 +25,9 @@ settTeiknar(() => teiknAlt());
 settOppstart(() => visVerktoy());
 visDemohint(
   "<strong>Demomodus.</strong> Firebase er ikke satt opp ennå, så verktøyet kjører med " +
-  "eksempeldata. Logg inn med hva som helst — skriv <code>admin</code> i e-postfeltet for " +
-  "administratorvisningen, eller <code>lager</code> for lagervisningen.<br>" +
+  "eksempeldata. Logg inn med hvilken som helst e-postadresse og passord — bruk " +
+  "<code>admin@vindex.no</code> for administratorvisningen, eller " +
+  "<code>lager@vindex.no</code> for lagervisningen.<br>" +
   "Endringene dine huskes i denne nettleseren, så du kan følge en sak fra selger til " +
   "hovedkontor. <button class=\"btn btn-ghost btn-sm mt-1\" id=\"demoNullstill\">Nullstill eksempeldataene</button>"
 );
