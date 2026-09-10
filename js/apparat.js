@@ -183,3 +183,62 @@ function vindexKanArkivere(seljar, alle) {
     };
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// Kven som var her når
+// ---------------------------------------------------------------------------
+// Ein seljar kan slutte og kome tilbake. Det skjer oftare enn ein skulle tru:
+// nokon prøver noko anna eit år, nokon er borte ein sesong. Held vi berre éin
+// «ansatt»-dato, blir den overskriven ved gjeninntaking, og då ser det ut som
+// vedkomande er heilt fersk — samstundes som salet frå første runde står i
+// statistikken. To tal som motseier kvarandre på same kort.
+//
+// Difor blir kvar periode teken vare på. Den første startar på ansatt-datoen;
+// arkivering lukkar den som går; gjeninntaking opnar ein ny.
+
+/** Alle periodane, eldste først. Den siste står open om personen er i drift. */
+function vindexArbeidsperiodar(s) {
+  const lukka = (s.perioder || []).filter((p) => p && p.fra);
+  const start = s.gjeninntatt || s.ansatt;
+  if (vindexErArkivert(s)) return lukka;
+  return start ? [...lukka, { fra: start, til: null }] : lukka;
+}
+
+/** Månader i teneste, summert over alle periodane. */
+function vindexTenestemaanader(s, naa = new Date()) {
+  return vindexArbeidsperiodar(s).reduce((n, p) => {
+    const fra = new Date(p.fra);
+    const til = p.til ? new Date(p.til) : naa;
+    if (isNaN(fra) || isNaN(til) || til < fra) return n;
+    return n + (til - fra) / (30.44 * 86400000);
+  }, 0);
+}
+
+/** «8 år» / «7 måneder» / "" når vi ikkje veit. */
+function vindexTenestetekst(s, naa = new Date()) {
+  const m = Math.floor(vindexTenestemaanader(s, naa));
+  if (!m) return "";
+  return m >= 12 ? `${Math.floor(m / 12)} år` : `${m} måneder`;
+}
+
+/** Endringane som skal lagrast når nokon blir arkivert. */
+function vindexArkiverData(s, dato) {
+  const start = s.gjeninntatt || s.ansatt;
+  const lukka = (s.perioder || []).filter((p) => p && p.fra);
+  return {
+    arkivert: true,
+    sluttet: dato,
+    perioder: start ? [...lukka, { fra: start, til: dato }] : lukka,
+  };
+}
+
+/**
+ * Endringane som skal lagrast når nokon blir henta tilbake.
+ *
+ * Oppstartsdatoen blir ståande som eit eige felt og ikkje skrive over
+ * ansatt-datoen. Begge er sanne, og kortet har bruk for begge: den eine seier
+ * kor lenge personen har kjent huset, den andre kva vi måler denne runden mot.
+ */
+function vindexGjeninntaData(dato) {
+  return { arkivert: false, sluttet: "", gjeninntatt: dato };
+}

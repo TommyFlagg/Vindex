@@ -973,6 +973,23 @@ Arkivering tar bort tre ting og beholder én:
 Åpne saker som allerede er tildelt følger ikke med — de må fordeles på nytt
 manuelt. Dialogen sier fra om det.
 
+**Arkivet er en egen seksjon**, ikke en bolk nederst i apparatet. Der står hver
+person med periodene sine, samlet ansiennitet og sitt beste år — og en knapp for
+å hente vedkommende tilbake.
+
+**Reaktivering spør om dato for ny oppstart.** Det er ikke det samme som å angre
+på en arkivering: det er en ny periode som starter, og den gamle blir stående
+som den var. Datoen kan ikke ligge før forrige periode ble avsluttet.
+
+Derfor holder vi ikke bare én `ansatt`-dato. En selger kan slutte og komme
+tilbake — noen prøver noe annet et år, noen er borte en sesong. Med bare ett
+felt ville datoen bli overskrevet ved gjeninntaking, og da ser vedkommende helt
+fersk ut samtidig som salget fra første runde står i statistikken: to tall som
+motsier hverandre på samme kort. I stedet tas hver periode vare på i
+`perioder`, `gjeninntatt` holder siste oppstart, og ansienniteten summeres over
+alle periodene. Kortet viser «Tilbake siden august 2026 · først ansatt mars
+2018».
+
 Én ting er sperret: den siste aktive administratoren kan ikke arkiveres. Da
 ville det ikke stått noen igjen som kunne angre.
 

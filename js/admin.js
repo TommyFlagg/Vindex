@@ -25,6 +25,7 @@ visDemohint(
 const SNARVEGAR = [
   { id: "seksjonNokkeltal", navn: "Nøkkeltall" },
   { id: "seksjonApparat", navn: "Apparatet" },
+  { id: "seksjonArkiv", navn: "Arkivet" },
   { id: "seksjonKampanjar", navn: "Kampanjer" },
   { id: "seksjonRepresentantar", navn: "Nye representanter" },
   { id: "seksjonTilbakemelding", navn: "Vinn og tap" },
@@ -68,6 +69,7 @@ function teiknAlt() {
   teiknOppfolging();
   teiknProduksjon();
   teiknApparat();
+  teiknArkiv();
   teiknKampanjar();
   teiknRepresentantar();
   teiknGrunnar();
@@ -566,12 +568,21 @@ function kortKart(s) {
  * året alltid er dette. Her er året heile poenget, og ansienniteten er det
  * dagleg leiar eigentleg vil vite.
  */
-function ansattTekst(iso) {
+function maanadAar(iso) {
   const d = vindexTid(iso);
-  if (!d || isNaN(d)) return "";
-  const maanad = d.toLocaleDateString("nb-NO", { month: "long", year: "numeric" });
-  const aar = Math.floor((Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000));
-  return maanad + (aar >= 1 ? ` · ${aar} år` : "");
+  return d && !isNaN(d) ? d.toLocaleDateString("nb-NO", { month: "long", year: "numeric" }) : "";
+}
+
+function ansattTekst(s) {
+  const start = maanadAar(s.gjeninntatt || s.ansatt);
+  if (!start) return "";
+  const teneste = vindexTenestetekst(s);
+  const tilbake = s.gjeninntatt
+    ? `<span class="hint">Tilbake siden ${start}${
+        maanadAar(s.ansatt) ? ` · først ansatt ${maanadAar(s.ansatt)}` : ""
+      }</span>`
+    : "";
+  return (s.gjeninntatt ? "" : start) + (teneste ? `${s.gjeninntatt ? "" : " · "}${teneste}` : "") + tilbake;
 }
 
 /** «3,3 mill» med kjelda under, eller ei ærleg tomheit. */
@@ -608,9 +619,7 @@ function apparatKort(s) {
     : "";
   const knappar = `<div class="btn-row mt-1 kortknappar">
     <button class="btn btn-ghost btn-sm" data-rediger="${s.id}">Rediger</button>
-    <button class="btn btn-ghost btn-sm" data-arkiver="${s.id}">${
-      arkivert ? "Hent tilbake" : "Arkiver"
-    }</button>
+    <button class="btn btn-ghost btn-sm" data-arkiver="${s.id}">Arkiver</button>
   </div>`;
 
   // Berre seljarar og forhandlarar eig distrikt. Hovudkontor og lager har
@@ -649,7 +658,7 @@ function apparatKort(s) {
       <div class="kortkart">${kortKart(s)}</div>
       <dl class="korttal">
         <div><dt>Ansatt</dt><dd>${
-          ansattTekst(s.ansatt) || '<span class="hint">Ikke lagt inn</span>'
+          ansattTekst(s) || '<span class="hint">Ikke lagt inn</span>'
         }</dd></div>
         <div><dt>Salg ${apparatAar} <span class="hint">eks. mva</span></dt>
           <dd class="tal">${salgstal(t.salg)}</dd></div>
@@ -731,7 +740,11 @@ function teiknApparat() {
     bolk("Selgere", seljarar, "Egne selgere") +
     bolk("Forhandlere", forhandlarar, "Eksterne, selger på egne vegne") +
     bolk("Andre brukere", andre, "Lager og intern") +
-    bolk("Arkivert", arkiverte, "Uten tilgang til verktøyet, men med i statistikken");
+    (arkiverte.length
+      ? `<p class="hint mt-2">${arkiverte.length} ${
+          arkiverte.length === 1 ? "person står" : "personer står"
+        } i <a href="#seksjonArkiv">arkivet</a>.</p>`
+      : "");
 
   $$("[data-lagre]").forEach((knapp) =>
     knapp.addEventListener("click", () => lagreDistrikt(knapp.dataset.lagre))
@@ -913,23 +926,27 @@ async function lagrePerson(p, ny) {
 }
 
 async function vekslArkiv(p) {
-  const tilbake = vindexErArkivert(p);
-  if (!tilbake) {
-    const kan = vindexKanArkivere(p, app.seljarar);
-    if (!kan.ok) return melding(kan.grunn);
-    const ja = confirm(
-      `Arkivere ${p.navn}?\n\n` +
-        "Personen mister tilgangen til salgsverktøyet og går ut av fordelingen av nye " +
-        "forespørsler. Salget står igjen i statistikken, og du kan hente personen tilbake " +
-        "når som helst.\n\n" +
-        "Åpne saker som allerede er tildelt må fordeles på nytt manuelt."
-    );
-    if (!ja) return;
-  }
+  const kan = vindexKanArkivere(p, app.seljarar);
+  if (!kan.ok) return melding(kan.grunn);
 
-  const data = tilbake
-    ? { arkivert: false, sluttet: "" }
-    : { arkivert: true, sluttet: new Date().toISOString().slice(0, 10) };
+  // Siste dag blir spurt om, ikkje sett til i dag. Arkivering skjer ofte ei
+  // veke etter at nokon faktisk slutta, og då er «i dag» feil dato å skrive
+  // inn i ei historie som skal stå.
+  const idag = new Date().toISOString().slice(0, 10);
+  const svar = prompt(
+    `Arkivere ${p.navn}?\n\n` +
+      "Personen mister tilgangen til salgsverktøyet og går ut av fordelingen av nye " +
+      "forespørsler. Salget står igjen i statistikken, og du kan hente personen tilbake " +
+      "fra arkivet når som helst.\n\n" +
+      "Åpne saker som allerede er tildelt må fordeles på nytt manuelt.\n\n" +
+      "Siste dag (åååå-mm-dd):",
+    idag
+  );
+  if (svar === null) return;
+  const dato = (svar || "").trim() || idag;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dato)) return melding("Datoen må skrives som 2026-09-30.");
+
+  const data = vindexArkiverData(p, dato);
   try {
     if (!VINDEX_DEMOMODUS) {
       const { fb } = await import("./verktoy-felles.js?v=a5aa1477");
@@ -938,7 +955,7 @@ async function vekslArkiv(p) {
     Object.assign(p, data);
     if (!VINDEX_DEMOMODUS) await byggRuting();
     teiknAlt();
-    melding(tilbake ? `${p.navn} er tilbake i apparatet.` : `${p.navn} er arkivert.`);
+    melding(`${p.navn} er arkivert og står i arkivet.`);
   } catch (err) {
     console.error(err);
     melding("Kunne ikke lagre: " + err.message);
@@ -991,6 +1008,145 @@ async function byggRuting() {
     if (eigarar.length) kart[d.id] = eigarar;
   });
   await fb.setDoc(fb.settingsDoc("ruting"), { ...kart, oppdatert: fb.serverTimestamp() });
+}
+
+// ---------------------------------------------------------------------------
+// Arkivet
+// ---------------------------------------------------------------------------
+// Dei som har slutta. Salet deira står igjen i statistikken, og difor blir dei
+// aldri sletta — men dei har ingen tilgang, ingen plass i fordelinga, og ingen
+// oppfølgingsrate å måle.
+//
+// Kjem nokon tilbake, er det ikkje same sak som å angre på ei arkivering.
+// Difor spør vi om datoen: det er den nye perioden som startar, og den gamle
+// blir ståande som ho var.
+
+function arkivkort(s) {
+  const periodar = vindexArbeidsperiodar(s);
+  const teneste = vindexTenestetekst(s);
+  const aarListe = vindexSalgsaarListe(app.seljarar, app.ordrar);
+  const beste = aarListe
+    .map((a) => ({ a, sum: vindexSalgsaar(s, app.ordrar, a).sum }))
+    .filter((r) => r.sum)
+    .sort((a, b) => b.sum - a.sum)[0];
+
+  return `<div class="card arkivkort">
+    <div class="detail-head">
+      <div>
+        <h3 class="mt-0 mb-0">${s.navn}</h3>
+        <p class="hint mb-0">${s.sted || "Sted ikke oppgitt"} ·
+          ${s.type === "forhandler" ? "Forhandler" : s.rolle === "lager" ? "Lager" : "Selger"}</p>
+      </div>
+      <span class="tag tag-muted">Sluttet${s.sluttet ? " " + s.sluttet : ""}</span>
+    </div>
+    <dl class="korttal">
+      <div><dt>Var her</dt><dd class="tal">${
+        periodar.length
+          ? `<span>${periodar.map((p) => `${p.fra} → ${p.til || "nå"}`).join("<br>")}</span>`
+          : '<span class="hint">Ikke lagt inn</span>'
+      }${teneste ? `<span class="hint">${teneste} til sammen</span>` : ""}</dd></div>
+      <div><dt>Beste år</dt><dd class="tal">${
+        beste
+          ? `<strong>${kr(beste.sum)}</strong><span class="hint">${beste.a}</span>`
+          : '<span class="hint">Ingen tall</span>'
+      }</dd></div>
+    </dl>
+    <div class="btn-row mt-1">
+      <button class="btn btn-sm" data-hent="${s.id}">Hent tilbake</button>
+      <button class="btn btn-ghost btn-sm" data-rediger="${s.id}">Rediger</button>
+    </div>
+  </div>`;
+}
+
+function teiknArkiv() {
+  const arkiverte = app.seljarar.filter(vindexErArkivert);
+  $("#arkivListe").innerHTML = arkiverte.length
+    ? `<div class="grid grid-2">${arkiverte.map(arkivkort).join("")}</div>`
+    : `<p class="hint">Ingen i arkivet. Arkiverer du noen under Salgsapparatet, havner de her —
+         og kan hentes tilbake herfra.</p>`;
+
+  $$("#arkivListe [data-hent]").forEach((b) =>
+    b.addEventListener("click", () =>
+      opneGjeninntaking(app.seljarar.find((s) => s.id === b.dataset.hent))
+    )
+  );
+  $$("#arkivListe [data-rediger]").forEach((b) =>
+    b.addEventListener("click", () =>
+      opnePersonskjema(app.seljarar.find((s) => s.id === b.dataset.rediger))
+    )
+  );
+}
+
+function opneGjeninntaking(s) {
+  const idag = new Date().toISOString().slice(0, 10);
+  const periodar = vindexArbeidsperiodar(s);
+
+  opneModal(
+    "Hent tilbake " + s.navn,
+    `<div id="hentskjema">
+      <p>${s.navn} får tilgangen til salgsverktøyet tilbake og går inn i fordelingen av nye
+        forespørsler igjen${(s.distrikt || []).length ? ` — på distriktene som står lagret` : ""}.</p>
+      <div class="field">
+        <label for="hentDato">Ny oppstart</label>
+        <input id="hentDato" type="date" value="${idag}" max="${idag}">
+        <span class="hint">Datoen den nye perioden starter. Den forrige blir stående som den var.</span>
+      </div>
+      ${
+        periodar.length
+          ? `<p class="hint mt-1"><strong>Tidligere:</strong>
+               ${periodar.map((p) => `${p.fra} → ${p.til || "nå"}`).join(" · ")}</p>`
+          : ""
+      }
+      ${
+        (s.distrikt || []).length
+          ? ""
+          : `<div class="notice notice-warn mt-1"><strong>Ingen distrikt lagret.</strong>
+               Personen kommer inn i verktøyet, men får ingen forespørsler før du haker av
+               distrikt under Salgsapparatet.</div>`
+      }
+      <p class="field-error hidden mt-1" id="hentFeil"></p>
+    </div>`,
+    `<button class="btn btn-ghost" id="hentAvbryt">Avbryt</button>
+     <button class="btn btn-accent" id="hentLagre">Hent tilbake</button>`
+  );
+
+  $("#hentAvbryt").addEventListener("click", lukkModal);
+  $("#hentLagre").addEventListener("click", async () => {
+    const dato = $("#hentDato").value;
+    const feil = $("#hentFeil");
+    if (!dato) {
+      feil.textContent = "Sett en dato for ny oppstart.";
+      feil.classList.remove("hidden");
+      return;
+    }
+    const siste = (s.perioder || []).filter((p) => p && p.til).map((p) => p.til).sort().pop();
+    if (siste && dato < siste) {
+      feil.textContent = `Datoen er før forrige periode ble avsluttet (${siste}).`;
+      feil.classList.remove("hidden");
+      return;
+    }
+    await lagreGjeninntaking(s, dato);
+  });
+}
+
+async function lagreGjeninntaking(s, dato) {
+  const data = vindexGjeninntaData(dato);
+  try {
+    if (!VINDEX_DEMOMODUS) {
+      const { fb } = await import("./verktoy-felles.js?v=a5aa1477");
+      await fb.updateDoc(fb.sellerDoc(s.id), data);
+    }
+    Object.assign(s, data);
+    if (!VINDEX_DEMOMODUS) await byggRuting();
+    lukkModal();
+    teiknAlt();
+    melding(`${s.navn} er tilbake fra ${dato}.`);
+  } catch (err) {
+    console.error(err);
+    const feil = $("#hentFeil");
+    feil.textContent = "Kunne ikke lagre: " + err.message;
+    feil.classList.remove("hidden");
+  }
 }
 
 // ---------------------------------------------------------------------------
