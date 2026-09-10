@@ -105,7 +105,11 @@ function kapasitetsmalar(ko) {
  * Berre den høgaste månaden får tal skrive på seg; resten les ein av
  * verktøylinja. Aksen er med vilje sval, den skal ikkje konkurrere med tala.
  */
-function manadsdiagram(iAar, iFjor, aar) {
+function manadsdiagram(iAar, iFjor, aar, fjorAar) {
+  // Referanseåret er ikkje alltid VINDEX_FJOR: på hovudkontorsida kan ein bla
+  // mellom åra, og då er referansen året før det valde.
+  const fjorMerke = fjorAar === undefined ? VINDEX_FJOR.aar : fjorAar;
+  const fjorTekst = fjorMerke === VINDEX_FJOR.aar ? ` (${VINDEX_FJOR.periode})` : "";
   const B = 720, H = 260, venstre = 8, botn = 34, topp = 18;
   const felt = B - venstre * 2;
   const breidd = felt / iAar.length;
@@ -131,16 +135,22 @@ function manadsdiagram(iAar, iFjor, aar) {
     })
     .join("");
 
-  return `<div class="diagramboks">
+  return `<div class="diagramboks" data-fjoraar="${fjorMerke || ""}">
     <svg viewBox="0 0 ${B} ${H}" class="manadsdiagram" role="img"
-      aria-label="Ordreinngang per måned i ${aar}, med ${VINDEX_FJOR.aar} som referanse">
+      aria-label="Ordreinngang per måned i ${aar}${
+        fjorMerke ? `, med ${fjorMerke} som referanse` : ""
+      }">
       <line class="akse" x1="${venstre}" y1="${H - botn}" x2="${B - venstre}" y2="${H - botn}"/>
       ${stolpar}
     </svg>
     <div class="kart-tooltip hidden" role="status"></div>
     <div class="diagram-tegn">
       <span class="tegn-rad"><i class="tegn-aar"></i> ${aar}</span>
-      <span class="tegn-rad"><i class="tegn-fjor"></i> ${VINDEX_FJOR.aar} (${VINDEX_FJOR.periode})</span>
+      ${
+        fjorMerke && iFjor.length
+          ? `<span class="tegn-rad"><i class="tegn-fjor"></i> ${fjorMerke}${fjorTekst}</span>`
+          : ""
+      }
     </div>
   </div>`;
 }
@@ -152,8 +162,9 @@ function koplaDiagram(rot) {
     const vis = (e) => {
       const sum = Number(g.dataset.sum), fjor = Number(g.dataset.fjor);
       const diff = fjor ? Math.round(((sum - fjor) / fjor) * 100) : null;
+      const fjorAar = rot.querySelector(".diagramboks").dataset.fjoraar || VINDEX_FJOR.aar;
       tooltip.innerHTML = `<strong>${g.dataset.manad}</strong><br>
-        ${kr(sum)}${fjor ? `<br><span style="opacity:.75">${VINDEX_FJOR.aar}: ${kr(fjor)}${
+        ${kr(sum)}${fjor ? `<br><span style="opacity:.75">${fjorAar}: ${kr(fjor)}${
           diff === null ? "" : ` (${diff >= 0 ? "+" : ""}${diff} %)`}</span>` : ""}`;
       tooltip.classList.remove("hidden");
       const boks = rot.querySelector(".diagramboks").getBoundingClientRect();

@@ -249,20 +249,151 @@ function opneBistandssvar(lead) {
 }
 
 // ---------------------------------------------------------------------------
-// Ordreinngang: i år mot i fjor
+// Ordreinngang: eit år om gongen, med året før som referanse
 // ---------------------------------------------------------------------------
+// Åra står stigande frå venstre, slik ein les ei tidsline. Det er ikkje alle
+// åra som har månadstal — verktøyet er nytt, og rapporten frå 2024 dekkjer
+// berre januar–september — og då seier panelet det i staden for å teikne ein
+// tom akse som ser ut som ein nedgang.
+let ordreAar = new Date().getFullYear();
+
+function ordreinngangAar() {
+  const naa = new Date().getFullYear();
+  const ut = [];
+  for (let a = 2023; a <= naa; a++) ut.push(a);
+  return ut;
+}
+
 function teiknOrdreinngang() {
-  const aar = new Date().getFullYear();
-  const iAar = vindexOrdreinngang(app.ordrar, aar);
-  const iFjor = VINDEX_FJOR.manad || [];
+  const aarListe = ordreinngangAar();
+  if (!aarListe.includes(ordreAar)) ordreAar = aarListe[aarListe.length - 1];
+
+  const data = vindexAarsdata(ordreAar, app.ordrar);
+  const forrige = vindexAarsdata(ordreAar - 1, app.ordrar);
+  const sum = data.manad.reduce((n, m) => n + (m.sum || 0), 0);
+  const rekneskap = (VINDEX_AARSTAL.aar[ordreAar] || {}).driftsinntekter;
+
   $("#ordreinngang").innerHTML = `
     <div class="panel-topp">
-      <h2>Ordreinngang ${aar}</h2>
+      <h2>Ordreinngang</h2>
       <span class="spacer"></span>
       <span class="hint">Eks. mva, uten frakt — samme grunnlag som årsrapporten.</span>
     </div>
-    ${manadsdiagram(iAar, iFjor, aar)}`;
+    <div class="aarsveljar mt-1" role="group" aria-label="Velg år">
+      ${aarListe
+        .map(
+          (a) => `<button type="button" class="aarknapp${a === ordreAar ? " valt" : ""}"
+            data-oaar="${a}" aria-pressed="${a === ordreAar}">${a}</button>`
+        )
+        .join("")}
+    </div>
+    ${
+      data.manad.length
+        ? manadsdiagram(data.manad, forrige.manad, ordreAar, forrige.manad.length ? ordreAar - 1 : null)
+        : `<p class="notice notice-info mt-1"><strong>Ingen månedstall for ${ordreAar}.</strong>
+             Verktøyet har ingen ordrer fra året, og det finnes ingen rapport lagt inn.
+             ${
+               rekneskap
+                 ? "Årstallet fra regnskapet står under."
+                 : "Legg inn driftsinntektene fra regnskapet under, så har du i det minste årssummen."
+             }</p>`
+    }
+    <div class="aarsfakta">
+      <div>
+        <dt>Ordreinngang ${ordreAar}${data.periode && data.periode !== "hele året" ? ` (${data.periode})` : ""}</dt>
+        <dd>${
+          data.manad.length
+            ? `<strong>${kr(sum)}</strong><span class="hint">${
+                data.kjelde === "ordrar" ? "Regnet av ordrene i verktøyet" : VINDEX_FJOR.merknad
+              }</span>`
+            : '<span class="hint">Ikke registrert</span>'
+        }</dd>
+      </div>
+      <div>
+        <dt>Driftsinntekter ${ordreAar} <span class="hint">hele selskapet</span></dt>
+        <dd>${
+          rekneskap
+            ? `<strong>${kr(rekneskap)}</strong><span class="hint">${VINDEX_AARSTAL.kjelde}${
+                (VINDEX_AARSTAL.aar[ordreAar] || {}).stadfesta ? "" : " — ikke bekreftet"
+              }</span>`
+            : '<span class="hint">Ikke lagt inn</span>'
+        }</dd>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="redigerAarstal">Rediger regnskapstall</button>
+    </div>
+    <p class="hint mt-1">Driftsinntekter er ikke ordreinngang: regnskapet tar med frakt og alt
+      annet som faktureres, og periodiserer etter når inntekten er opptjent. Derfor står de to
+      hver for seg — lagt i samme søylerekke ville de gitt en vekstkurve som ikke måler noe.</p>`;
+
   koplaDiagram($("#ordreinngang"));
+  $$("[data-oaar]").forEach((k) =>
+    k.addEventListener("click", () => {
+      ordreAar = parseInt(k.dataset.oaar, 10);
+      teiknOrdreinngang();
+    })
+  );
+  $("#redigerAarstal").addEventListener("click", opneAarstal);
+}
+
+/**
+ * Regnskapstala per år.
+ *
+ * Eg kan ikkje hente dei sjølv — proff.no og data.brreg.no er begge sperra frå
+ * miljøet verktøyet blir bygd i — så dette er staden der nokon med tilgang
+ * skriv dei inn. Feltet for eit år som alt er fylt ut, viser kva som står der.
+ */
+function opneAarstal() {
+  opneModal(
+    "Driftsinntekter fra regnskapet",
+    `<div id="aarstalskjema">
+      <p class="hint">Sum driftsinntekter for hele selskapet, slik det står i
+        Regnskapsregisteret. Organisasjonsnummer ${VINDEX_AARSTAL.orgnr}. Dette er
+        <strong>ikke</strong> ordreinngang, og blir vist for seg selv.</p>
+      <div class="feltrutenett">
+        ${ordreinngangAar()
+          .map((a) => {
+            const v = (VINDEX_AARSTAL.aar[a] || {}).driftsinntekter;
+            return `<div class="field"><label for="at_${a}">${a}</label>
+              <input id="at_${a}" type="number" min="0" step="1000" data-ataar="${a}"
+                value="${v === null || v === undefined ? "" : v}"></div>`;
+          })
+          .join("")}
+      </div>
+      <p class="hint mt-1">Tomt felt betyr «ikke lagt inn», og det er et bedre svar enn et
+        omtrentlig tall.</p>
+    </div>`,
+    `<button class="btn btn-ghost" id="atAvbryt">Avbryt</button>
+     <button class="btn btn-accent" id="atLagre">Lagre</button>`
+  );
+  $("#atAvbryt").addEventListener("click", lukkModal);
+  $("#atLagre").addEventListener("click", lagreAarstal);
+}
+
+async function lagreAarstal() {
+  const tal = {};
+  $$("#aarstalskjema [data-ataar]").forEach((f) => {
+    const a = f.dataset.ataar;
+    const n = parseInt(f.value, 10);
+    tal[a] = Number.isNaN(n) ? null : n;
+  });
+
+  try {
+    if (!VINDEX_DEMOMODUS) {
+      const { fb } = await import("./verktoy-felles.js?v=fe9ae9b3");
+      await fb.setDoc(fb.settingsDoc("aarstal"), { driftsinntekter: tal });
+    }
+    // Eit tal nokon har skrive inn sjølv er stadfesta — til skilnad frå det eg
+    // sette inn på førehand, som eg ikkje har fått lese kjelda til.
+    Object.keys(tal).forEach((a) => {
+      VINDEX_AARSTAL.aar[a] = { driftsinntekter: tal[a], stadfesta: tal[a] !== null };
+    });
+    lukkModal();
+    teiknOrdreinngang();
+    melding(VINDEX_DEMOMODUS ? "Lagret (demo)." : "Lagret.");
+  } catch (err) {
+    console.error(err);
+    melding("Kunne ikke lagre: " + err.message);
+  }
 }
 
 // ---------------------------------------------------------------------------

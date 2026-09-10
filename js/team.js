@@ -36,6 +36,10 @@ const VINDEX_TEAM = [
   { navn: "Jo Farstad",       sted: "Farstad",      type: "selger",     distrikt: ["more-romsdal"],              y2024: 0 },
 
   // --- Forhandlarar -------------------------------------------------------
+  // Tommy Amundsen stod ikkje i rapporten frå 2024 og har difor ikkje tal
+  // derifrå. Stad, distrikt og omsetning står tomme heller enn gjetta — dei
+  // fyllest inn under «Rediger» på hovudkontorsida.
+  { navn: "Tommy Amundsen", sted: "",                type: "forhandler", distrikt: [],                            y2024: null },
   { navn: "Multiservice",              sted: "Fauske",       type: "forhandler", distrikt: ["nordland"],                  y2024: 456095 },
   { navn: "Roy Gåseland AS",           sted: "Farsund",      type: "forhandler", distrikt: ["agder"],                     y2024: 420375 },
   { navn: "Ken Mora",                  sted: "Bjørkelangen", type: "forhandler", distrikt: ["oslo-akershus"],             y2024: 184852 },
@@ -105,3 +109,45 @@ const VINDEX_KONTAKTAR = [
     bilete: "assets/bilder/randi-farstad.jpg",
   },
 ];
+
+/**
+ * Selskapstal frå det offentlege rekneskapet.
+ *
+ * Dette er IKKJE ordreinngang. Driftsinntekter er det selskapet har inntektsført
+ * i rekneskapen — med frakt, med alt anna som blir fakturert, og periodisert
+ * etter når inntekta er opptent. Ordreinngang er kva som vart bestilt, når det
+ * vart bestilt. For 2024 skil dei seg med fire og ein halv million: rapporten
+ * viser 9,9 mill i ordreinngang januar–september, rekneskapet 14,4 mill i
+ * driftsinntekter for heile året.
+ *
+ * Difor står dei to kvar for seg i diagrammet. Å legge dei i same søylerekkje
+ * ville laga ein vekstkurve som ikkje måler nokon ting.
+ *
+ *  ⚠️  2024-talet er henta frå eit søkjesamandrag av Proff, ikkje frå sida
+ *     sjølv — proff.no og data.brreg.no er begge sperra frå dette miljøet.
+ *     Det må stadfestast. Dei andre åra står som null til nokon legg dei inn;
+ *     ein gjetta omsetning er verre enn eit tomt felt.
+ */
+const VINDEX_AARSTAL = {
+  kjelde: "Regnskapsregisteret (Brønnøysund), gjengitt på proff.no",
+  orgnr: "943 398 569",
+  aar: {
+    2023: { driftsinntekter: null, stadfesta: false },
+    2024: { driftsinntekter: 14406000, stadfesta: false },
+    2025: { driftsinntekter: null, stadfesta: false },
+    2026: { driftsinntekter: null, stadfesta: false },
+  },
+};
+
+/** Månadstala vi har for eit år, og kvar dei kjem frå. */
+function vindexAarsdata(aar, ordrar) {
+  const harOrdrar = (ordrar || []).some((o) => {
+    const d = vindexTid(o.opprettet);
+    return d && d.getFullYear() === aar;
+  });
+  if (harOrdrar)
+    return { manad: vindexOrdreinngang(ordrar, aar), kjelde: "ordrar", periode: "hele året" };
+  if (aar === VINDEX_FJOR.aar)
+    return { manad: VINDEX_FJOR.manad, kjelde: "rapport", periode: VINDEX_FJOR.periode };
+  return { manad: [], kjelde: null, periode: null };
+}

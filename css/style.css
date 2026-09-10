@@ -1991,3 +1991,18 @@ body.tema-mork .sprossefigur .sp-karmkant { stroke: rgba(0, 0, 0, .4); }
   .seljarkort .kortkropp { grid-template-columns: 1fr; }
   .kortkart { max-width: 150px; }
 }
+
+/* Ordreinngang: årssummen og regnskapstalet under diagrammet.
+   Dei står side om side, men aldri i same søylerekkje — det eine er kva som
+   vart bestilt, det andre kva som vart inntektsført. */
+.aarsfakta {
+  display: flex; flex-wrap: wrap; gap: .6rem 1.6rem; align-items: end;
+  margin-top: .9rem; padding-top: .8rem; border-top: 1px solid var(--border);
+}
+.aarsfakta > div { display: grid; }
+.aarsfakta dt { font-size: .74rem; color: var(--muted); font-weight: 600; margin: 0; }
+.aarsfakta dt .hint { font-size: .7rem; font-weight: 400; }
+.aarsfakta dd { margin: 0; display: grid; line-height: 1.25; }
+.aarsfakta dd strong { font-size: 1.05rem; }
+.aarsfakta dd .hint { font-size: .72rem; }
+.aarsfakta > .btn { margin-left: auto; }
