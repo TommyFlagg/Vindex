@@ -12,7 +12,7 @@
 import {
   $, $$, app, settTeiknar, settOppstart, visDemohint,
   datoTekst, lagreLead, melding, opneModal, lukkModal,
-} from "./verktoy-felles.js?v=fe9ae9b3";
+} from "./verktoy-felles.js?v=a5aa1477";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visPanel(), { berreAdmin: true });
@@ -25,6 +25,7 @@ visDemohint(
 const SNARVEGAR = [
   { id: "seksjonNokkeltal", navn: "Nøkkeltall" },
   { id: "seksjonApparat", navn: "Apparatet" },
+  { id: "seksjonKampanjar", navn: "Kampanjer" },
   { id: "seksjonRepresentantar", navn: "Nye representanter" },
   { id: "seksjonTilbakemelding", navn: "Vinn og tap" },
 ];
@@ -67,6 +68,7 @@ function teiknAlt() {
   teiknOppfolging();
   teiknProduksjon();
   teiknApparat();
+  teiknKampanjar();
   teiknRepresentantar();
   teiknGrunnar();
 }
@@ -89,7 +91,7 @@ async function hentRepresentantar() {
     return;
   }
   try {
-    const { fb } = await import("./verktoy-felles.js?v=fe9ae9b3");
+    const { fb } = await import("./verktoy-felles.js?v=a5aa1477");
     const q = fb.query(fb.representantarCol(), fb.orderBy("opprettet", "desc"), fb.limit(200));
     representantar = (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (err) {
@@ -379,7 +381,7 @@ async function lagreAarstal() {
 
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=fe9ae9b3");
+      const { fb } = await import("./verktoy-felles.js?v=a5aa1477");
       await fb.setDoc(fb.settingsDoc("aarstal"), { driftsinntekter: tal });
     }
     // Eit tal nokon har skrive inn sjølv er stadfesta — til skilnad frå det eg
@@ -880,7 +882,7 @@ async function lagrePerson(p, ny) {
       if (ny) app.seljarar.push({ ...data, id: "ny-" + Date.now(), arkivert: false });
       else Object.assign(p, data);
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=fe9ae9b3");
+      const { fb } = await import("./verktoy-felles.js?v=a5aa1477");
       if (ny) {
         // Personen får rad i apparatet med ein gong, men kan ikkje logge inn
         // før nokon opprettar brukaren i Firebase Authentication og flyttar
@@ -930,7 +932,7 @@ async function vekslArkiv(p) {
     : { arkivert: true, sluttet: new Date().toISOString().slice(0, 10) };
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=fe9ae9b3");
+      const { fb } = await import("./verktoy-felles.js?v=a5aa1477");
       await fb.updateDoc(fb.sellerDoc(p.id), data);
     }
     Object.assign(p, data);
@@ -951,7 +953,7 @@ async function lagreDistrikt(seljarId) {
   seljar.distrikt = valde;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=fe9ae9b3");
+      const { fb } = await import("./verktoy-felles.js?v=a5aa1477");
       await fb.updateDoc(fb.sellerDoc(seljarId), { distrikt: valde });
       await byggRuting();
     }
@@ -971,7 +973,7 @@ async function lagreDistrikt(seljarId) {
  * innlogga. Difor ligg berre ID-ane der — ingen namn, ingen kontaktinfo.
  */
 async function byggRuting() {
-  const { fb } = await import("./verktoy-felles.js?v=fe9ae9b3");
+  const { fb } = await import("./verktoy-felles.js?v=a5aa1477");
   // Formen må vere den bestillingsskjemaet les: distrikt-id -> liste med
   // selger-id-ar. Er det fleire i same distrikt, roterer skjemaet mellom dei.
   // Dokumentet ligg flatt, uten «distrikt»-nivå, og heiter settings/ruting.
@@ -989,6 +991,236 @@ async function byggRuting() {
     if (eigarar.length) kart[d.id] = eigarar;
   });
   await fb.setDoc(fb.settingsDoc("ruting"), { ...kart, oppdatert: fb.serverTimestamp() });
+}
+
+// ---------------------------------------------------------------------------
+// Kampanjar
+// ---------------------------------------------------------------------------
+// Hovudkontoret lagar dei her; seljarane får dei på kundekortet der dei skal
+// brukast. Rekkevidda er to spørsmål: kvar gjeld kampanjen, og kven får selje
+// han. Ei tom seljarliste tyder «alle», ikkje «ingen».
+
+function kampanjekort(k) {
+  const st = vindexKampanjestatus(k);
+  const r = vindexKampanjeRekkevidd(k);
+  const treff = app.leads.filter(
+    (l) => !l.arkivert && vindexKampanjeGjeld(k, {
+      postnr: (l.kunde || {}).postnr,
+      seljarId: l.seljarId,
+    })
+  ).length;
+
+  return `<div class="card kampanjekort${vindexKampanjeGaar(k) ? " gaar" : ""}">
+    <div class="detail-head">
+      <h3 class="mt-0 mb-0">${k.tittel}</h3>
+      <span class="tag ${st.tone === "god" ? "tag-god" : st.tone === "warn" ? "tag-warn" : "tag-muted"}">${st.merke}</span>
+    </div>
+    <p class="mb-1">${k.tekst || '<span class="hint">Ingen tekst</span>'}</p>
+    <dl class="korttal">
+      <div><dt>Hvor</dt><dd>${r.stad}</dd></div>
+      <div><dt>Hvem</dt><dd>${r.kven}</dd></div>
+      <div><dt>Periode</dt><dd>${k.fra || "—"} → ${k.til || "uten sluttdato"}</dd></div>
+      <div><dt>Treffer nå</dt><dd>${treff} ${treff === 1 ? "åpen sak" : "åpne saker"}</dd></div>
+    </dl>
+    <div class="btn-row mt-1">
+      <button class="btn btn-ghost btn-sm" data-kredig="${k.id}">Rediger</button>
+      <button class="btn btn-ghost btn-sm" data-kav="${k.id}">${k.aktiv === false ? "Slå på" : "Slå av"}</button>
+    </div>
+  </div>`;
+}
+
+function teiknKampanjar() {
+  // filter() sender indeksen som andre argument, og den ville hamna i
+  // datoparameteren. Difor pilfunksjon i begge, ikkje berre den eine.
+  const gaar = app.kampanjar.filter((k) => vindexKampanjeGaar(k));
+  const kvile = app.kampanjar.filter((k) => !vindexKampanjeGaar(k));
+
+  $("#kampanjar").innerHTML =
+    `<div class="apparatstyring">
+      <span class="hint">${gaar.length ? `${gaar.length} går nå` : "Ingen kampanjer går nå"}</span>
+      <span class="spacer"></span>
+      <button class="btn btn-sm" id="nyKampanje">+ Ny kampanje</button>
+    </div>` +
+    (app.kampanjar.length
+      ? `<div class="grid grid-2">${gaar.map(kampanjekort).join("")}${kvile.map(kampanjekort).join("")}</div>`
+      : `<p class="hint">Ingen kampanjer laget ennå. En kampanje dukker opp på kundekortet
+           hos selgeren når kunden ligger innenfor rekkevidden — ikke i en boks han slutter
+           å se etter to dager.</p>`);
+
+  $("#nyKampanje").addEventListener("click", () => opneKampanje(null));
+  $$("[data-kredig]").forEach((b) =>
+    b.addEventListener("click", () => opneKampanje(app.kampanjar.find((k) => k.id === b.dataset.kredig)))
+  );
+  $$("[data-kav]").forEach((b) =>
+    b.addEventListener("click", () => vekslKampanje(app.kampanjar.find((k) => k.id === b.dataset.kav)))
+  );
+}
+
+function opneKampanje(k) {
+  const ny = !k;
+  const kam = k || { omraade: "land", fylke: [], postnr: [], seljarar: [], aktiv: true };
+  const seljarar = app.seljarar.filter((s) => s.rolle !== "lager" && !vindexErArkivert(s));
+
+  opneModal(
+    ny ? "Ny kampanje" : "Rediger kampanje",
+    `<div id="kampanjeskjema">
+      <div class="feltrutenett">
+        <div class="field brei"><label for="kf_tittel">Tittel</label>
+          <input id="kf_tittel" value="${String(kam.tittel || "").replace(/"/g, "&quot;")}"
+            placeholder="Høstkampanje levegg"></div>
+        <div class="field brei"><label for="kf_tekst">Det selgeren skal si</label>
+          <textarea id="kf_tekst" style="min-height:80px"
+            placeholder="Hva kampanjen er, hva den ikke gjelder, og hva selgeren skal gjøre med den.">${kam.tekst || ""}</textarea></div>
+        <div class="field"><label for="kf_fra">Fra</label>
+          <input id="kf_fra" type="date" value="${kam.fra || ""}"></div>
+        <div class="field"><label for="kf_til">Til</label>
+          <input id="kf_til" type="date" value="${kam.til || ""}"></div>
+      </div>
+
+      <h3 class="mt-2">Hvor gjelder den?</h3>
+      <div class="feltrutenett">
+        <div class="field brei"><label for="kf_omraade">Rekkevidde</label>
+          <select id="kf_omraade">
+            ${VINDEX_KAMPANJEOMRAADE.map(
+              (o) => `<option value="${o.id}"${kam.omraade === o.id ? " selected" : ""}>${o.navn} — ${o.hjelp}</option>`
+            ).join("")}
+          </select></div>
+      </div>
+      <div id="kfFylke" class="${kam.omraade === "fylke" ? "" : "hidden"}">
+        ${VINDEX_FYLKE.map(
+          (f) => `<label class="hakelinje"><input type="checkbox" data-kfylke value="${f.id}"
+            ${(kam.fylke || []).includes(f.id) ? "checked" : ""}> ${f.navn}</label>`
+        ).join("")}
+      </div>
+      <div id="kfPostnr" class="field ${kam.omraade === "postnr" ? "" : "hidden"}">
+        <label for="kf_postnr">Postnummer</label>
+        <input id="kf_postnr" value="${vindexSeriarTekst(kam.postnr)}"
+          placeholder="6440, 6000–6699, 8000–8099">
+        <span class="hint">Enkeltnummer eller serier, skilt med komma.</span>
+      </div>
+
+      <h3 class="mt-2">Hvem får selge den?</h3>
+      <p class="hint">Ingen haket av betyr alle. Hak av for å kjøre kampanjen bare hos noen —
+        for eksempel når den skal prøves ut før den slippes videre.</p>
+      <div class="seljarhaker">
+        ${seljarar
+          .map(
+            (s) => `<label class="hakelinje"><input type="checkbox" data-kseljar value="${s.id}"
+              ${(kam.seljarar || []).includes(s.id) ? "checked" : ""}> ${s.navn}
+              <span class="hint">${s.sted || ""}</span></label>`
+          )
+          .join("")}
+      </div>
+      <p class="field-error hidden mt-1" id="kfFeil"></p>
+      <p class="hint mt-1" id="kfTreff"></p>
+    </div>`,
+    `<button class="btn btn-ghost" id="kfAvbryt">Avbryt</button>
+     <button class="btn btn-accent" id="kfLagre">${ny ? "Opprett" : "Lagre"}</button>`
+  );
+
+  const veksl = () => {
+    const v = $("#kf_omraade").value;
+    $("#kfFylke").classList.toggle("hidden", v !== "fylke");
+    $("#kfPostnr").classList.toggle("hidden", v !== "postnr");
+    visTreff();
+  };
+
+  // Kor mange saker kampanjen faktisk treffer, medan du set han opp. Utan det
+  // er rekkevidda ein påstand; med det er den eit tal.
+  const visTreff = () => {
+    const utkast = lesKampanje();
+    if (!utkast) return;
+    const treff = app.leads.filter(
+      (l) => !l.arkivert && vindexKampanjeGjeld({ ...utkast, aktiv: true, fra: "", til: "" },
+        { postnr: (l.kunde || {}).postnr, seljarId: l.seljarId })
+    ).length;
+    $("#kfTreff").textContent = `Treffer ${treff} av ${app.leads.filter((l) => !l.arkivert).length} åpne saker akkurat nå.`;
+  };
+
+  const lesKampanje = () => {
+    const omraade = $("#kf_omraade").value;
+    const post = vindexPostnrSeriar($("#kf_postnr").value);
+    return {
+      tittel: $("#kf_tittel").value.trim(),
+      tekst: $("#kf_tekst").value.trim(),
+      fra: $("#kf_fra").value,
+      til: $("#kf_til").value,
+      omraade,
+      fylke: $$("#kampanjeskjema [data-kfylke]:checked").map((i) => i.value),
+      postnr: post.seriar,
+      postfeil: post.feil,
+      seljarar: $$("#kampanjeskjema [data-kseljar]:checked").map((i) => i.value),
+    };
+  };
+
+  $("#kf_omraade").addEventListener("change", veksl);
+  $("#kampanjeskjema").addEventListener("input", visTreff);
+  $("#kampanjeskjema").addEventListener("change", visTreff);
+  visTreff();
+
+  $("#kfAvbryt").addEventListener("click", lukkModal);
+  $("#kfLagre").addEventListener("click", () => lagreKampanje(kam, ny, lesKampanje()));
+}
+
+async function lagreKampanje(kam, ny, data) {
+  const feil = $("#kfFeil");
+  const stopp = (tekst) => {
+    feil.textContent = tekst;
+    feil.classList.remove("hidden");
+  };
+  if (!data.tittel) return stopp("Kampanjen må ha en tittel.");
+  if (data.fra && data.til && data.til < data.fra) return stopp("Sluttdatoen er før startdatoen.");
+  if (data.postfeil.length)
+    return stopp("Skjønner ikke disse postnumrene: " + data.postfeil.join(", "));
+  if (data.omraade === "fylke" && !data.fylke.length)
+    return stopp("Velg minst ett fylke, ellers gjelder kampanjen ingen.");
+  if (data.omraade === "postnr" && !data.postnr.length)
+    return stopp("Skriv inn minst ett postnummer, ellers gjelder kampanjen ingen.");
+
+  delete data.postfeil;
+  const full = { ...data, aktiv: kam.aktiv !== false };
+
+  try {
+    if (VINDEX_DEMOMODUS) {
+      if (ny) app.kampanjar.push({ ...full, id: "k-" + Date.now(), opprettaAv: app.brukar.navn });
+      else Object.assign(kam, full);
+    } else {
+      const { fb } = await import("./verktoy-felles.js?v=a5aa1477");
+      if (ny) {
+        const ref = await fb.addDoc(fb.campaignsCol(), {
+          ...full,
+          opprettaAv: app.brukar.navn,
+          opprettet: new Date().toISOString().slice(0, 10),
+        });
+        app.kampanjar.push({ ...full, id: ref.id, opprettaAv: app.brukar.navn });
+      } else {
+        await fb.updateDoc(fb.campaignDoc(kam.id), full);
+        Object.assign(kam, full);
+      }
+    }
+    lukkModal();
+    teiknKampanjar();
+    melding(ny ? "Kampanjen er opprettet." : "Lagret.");
+  } catch (err) {
+    console.error(err);
+    stopp("Kunne ikke lagre: " + err.message);
+  }
+}
+
+async function vekslKampanje(k) {
+  const paa = k.aktiv === false;
+  try {
+    if (!VINDEX_DEMOMODUS) {
+      const { fb } = await import("./verktoy-felles.js?v=a5aa1477");
+      await fb.updateDoc(fb.campaignDoc(k.id), { aktiv: paa });
+    }
+    k.aktiv = paa;
+    teiknKampanjar();
+    melding(paa ? `«${k.tittel}» er på.` : `«${k.tittel}» er av.`);
+  } catch (err) {
+    console.error(err);
+    melding("Kunne ikke lagre: " + err.message);
+  }
 }
 
 // ---------------------------------------------------------------------------

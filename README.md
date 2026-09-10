@@ -922,6 +922,38 @@ på hvert kort, dukker knappen opp av seg selv.
 Regnestykkene ligger i `js/apparat.js`, atskilt fra tegningen på samme måte som
 resten.
 
+### Kampanjer
+
+Admin lager kampanjer under **Kampanjer** på hovedkontorsiden. En kampanje har
+en tittel, teksten selgeren skal si, en periode, og en rekkevidde.
+
+**Rekkevidden er to spørsmål, ikke ett.** *Hvor* gjelder kampanjen — hele
+landet, bestemte fylker, eller bestemte postnummer — og *hvem* får selge den.
+Ingen selgere haket av betyr alle; haker du av noen, kjører kampanjen bare hos
+dem. Det gjør det mulig å prøve en kampanje på tre selgere før den slippes
+videre, og det gjør «aktiver på enkeltselgere» til en avkrysning i stedet for
+en egen kampanjetype.
+
+Postnummerfeltet leses som en selger skriver det: `6440, 6000–6699, 8000-8099`.
+Både bindestrek og tankestrek godtas. Alt som ikke er et gyldig firesifret
+nummer blir avvist med beskjed, slik at en skrivefeil ikke ender som en
+kampanje som stille gjelder ingen.
+
+Mens du setter opp rekkevidden, står det hvor mange åpne saker den treffer
+akkurat nå. Uten det tallet er rekkevidden en påstand.
+
+**Der kampanjen faktisk gjør jobben er på kundekortet.** En kampanje i en boks
+på forsiden leses én gang og blir deretter usynlig. Derfor dukker den opp som
+en lapp rett under temperaturlinjen hos selgeren, på de kundene den gjelder —
+mens han har kunden på tråden, og før han begynner å skrive tilbudet. Panelet
+på dashbordet er bare påminnelsen, og der er tallet det viktigste: «4 av sakene
+dine» er en oppgave, «vi har en høstkampanje» er en plakat.
+
+Kampanjer ligger i `campaigns` i Firestore. Admin skriver, alle innloggede
+leser — en kampanje er ingen personopplysning, men den forteller hva vi gir
+rabatt på, og det skal ikke ligge åpent på nettet. Logikken er i
+`js/kampanje.js`.
+
 ### Arkivering i stedet for sletting
 
 Admin kan legge til, redigere og arkivere folk direkte på siden. **Sletting

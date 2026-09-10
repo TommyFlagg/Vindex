@@ -19,7 +19,7 @@ import {
   lastData, startDemo, tid, datoTekst, nesteAvtale,
   lagreLead, melding, opneModal, lukkModal, demoLagreOrdre, demoNullstill,
   lagreKladd, hentKladd, slettKladd, kladdlagrar, sidanTekst,
-} from "./verktoy-felles.js?v=fe9ae9b3";
+} from "./verktoy-felles.js?v=a5aa1477";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visVerktoy());
@@ -152,6 +152,7 @@ function teiknAlt() {
     teiknTempFilter();
     teiknArbeidsliste(liste);
     teiknMinetal();
+    teiknKampanjepanel();
     teiknPaaminningar();
     vindexTeiknDashKart($("#dashKart"), panelKontekst());
     teiknPall();
@@ -536,6 +537,52 @@ async function vekslTipslike(tipsId, uid, likarNo) {
   return await lastTipslikar(tipsId);
 }
 
+/**
+ * Kampanjane som gjeld meg, med kor mange av sakene mine dei treffer.
+ *
+ * Panelet er ei påminning om at kampanjen finst; det er kundekortet som gjer
+ * jobben. Difor er talet det viktigaste her — «treffer 4 av sakene dine» er ei
+ * oppgåve, «vi har en høstkampanje» er ein plakat.
+ */
+function teiknKampanjepanel() {
+  const mine = mineLeads();
+  const rader = (app.kampanjar || [])
+    .filter((k) => vindexKampanjeGjeld(k, { seljarId: app.brukar.uid, postnr: null }) ||
+                   mine.some((l) => vindexKampanjeGjeld(k, {
+                     postnr: (l.kunde || {}).postnr, seljarId: l.seljarId })))
+    .map((k) => ({
+      k,
+      treff: mine.filter((l) =>
+        vindexKampanjeGjeld(k, { postnr: (l.kunde || {}).postnr, seljarId: l.seljarId })
+      ).length,
+    }));
+
+  const boks = $("#kampanjepanel");
+  if (!rader.length) {
+    boks.classList.add("hidden");
+    return;
+  }
+  boks.classList.remove("hidden");
+  boks.innerHTML = `
+    <div class="panel-topp"><h3>Kampanjer</h3><span class="spacer"></span>
+      <span class="hint">${rader.length} som gjelder deg</span></div>
+    ${rader
+      .map(({ k, treff }) => {
+        const st = vindexKampanjestatus(k);
+        return `<div class="kampanjerad">
+          <div>
+            <strong>${k.tittel}</strong>
+            <span class="hint">${st.merke}</span>
+          </div>
+          <span class="kampanjetreff${treff ? "" : " tom"}">${
+            treff ? `${treff} av sakene dine` : "ingen av sakene dine"
+          }</span>
+        </div>`;
+      })
+      .join("")}
+    <p class="hint mb-0">Selve teksten står på kundekortet til de kundene den gjelder.</p>`;
+}
+
 function teiknTips() {
   const t = vindexDagensTips();
   const uid = app.brukar.uid;
@@ -736,6 +783,14 @@ function visDetalj(id) {
   const t = l.tilbud || {};
   const temp = vindexTemperatur(l);
   const rekna = vindexRegnTilbod(t);
+
+  // Kampanjane som gjeld akkurat denne kunden. Ein kampanje seljaren må hugse
+  // å slå opp, er ein kampanje som ikkje blir seld — difor står den her, på
+  // kortet, medan han har kunden på tråden.
+  const kampanjar = vindexKampanjarFor(app.kampanjar, {
+    postnr: k.postnr,
+    seljarId: l.seljarId,
+  });
   const avtaleListe = (l.avtaler || [])
     .slice()
     .sort((a, b) => new Date(a.start) - new Date(b.start))
@@ -788,6 +843,25 @@ function visDetalj(id) {
           ${l.arkivert ? "" : '<button class="btn btn-ghost btn-sm" id="arkiverLead">Arkiver</button>'}
         </span>
       </div>
+
+      ${
+        kampanjar.length
+          ? `<div class="kampanjeband">
+              ${kampanjar
+                .map((kam) => {
+                  const st = vindexKampanjestatus(kam);
+                  return `<div class="kampanjelapp">
+                    <div class="kampanjelapp-topp">
+                      <strong>${kam.tittel}</strong>
+                      <span class="hint">${st.merke}</span>
+                    </div>
+                    ${kam.tekst ? `<p class="mb-0">${kam.tekst}</p>` : ""}
+                  </div>`;
+                })
+                .join("")}
+            </div>`
+          : ""
+      }
       ${
         l.bistand
           ? `<div class="notice notice-info mt-1">

@@ -2039,3 +2039,34 @@ body.tema-mork .temaknapp:hover { color: var(--krem); border-color: var(--accent
 @media (max-width: 860px) {
   .temaknapp-tekst { display: none; }
 }
+
+/* Kampanjar.
+   På kundekortet står dei som lappar rett under temperaturlinja: der seljaren
+   alt ser etter «kva gjeld denne saka», og før han byrjar å skrive tilbod. */
+.kampanjeband { display: grid; gap: .5rem; margin: .8rem 0; }
+.kampanjelapp {
+  border-left: 3px solid var(--accent); background: var(--accent-soft);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: .6rem .8rem;
+}
+.kampanjelapp-topp { display: flex; gap: .6rem; align-items: baseline; flex-wrap: wrap; }
+.kampanjelapp p { font-size: .9rem; }
+
+/* Panelet på dashbordet er ei påminning, ikkje sjølve kampanjen. Difor er
+   talet det største der: «4 av sakene dine» er ei oppgåve. */
+.kampanjerad {
+  display: flex; gap: .6rem; align-items: center; justify-content: space-between;
+  padding: .45rem 0; border-top: 1px solid var(--border);
+}
+.kampanjerad:first-of-type { border-top: none; }
+.kampanjerad .hint { display: block; font-size: .74rem; }
+.kampanjetreff {
+  font-size: .78rem; font-weight: 700; white-space: nowrap;
+  background: var(--accent-soft); color: var(--accent-tekst);
+  border-radius: 999px; padding: .18rem .6rem;
+}
+.kampanjetreff.tom { background: var(--surface-alt); color: var(--muted); font-weight: 500; }
+body.tema-mork .kampanjetreff { color: var(--accent); }
+
+.kampanjekort.gaar { border-left: 3px solid var(--good); }
+.seljarhaker { columns: 2; column-gap: 1.2rem; }
+@media (max-width: 620px) { .seljarhaker { columns: 1; } }

@@ -130,6 +130,15 @@ service cloud.firestore {
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ferie']));
     }
 
+    // -- Kampanjar -----------------------------------------------------------
+    // Hovudkontoret lagar dei, alle innlogga les dei. Ein kampanje er ikkje ei
+    // personopplysning, men den fortel kva vi gir rabatt på — og det er ikkje
+    // noko som skal liggje ope på nettet.
+    match /campaigns/{kampanjeId} {
+      allow read: if erSeljar();
+      allow create, update, delete: if erAdmin();
+    }
+
     // -- Søknader om å bli representant --------------------------------------
     // Skjemaet på nettsida er ope for alle, men søknadene er personopplysningar
     // og skal berre lesast av hovudkontoret. Ingen kan lese sin eigen igjen —

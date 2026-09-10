@@ -15,7 +15,7 @@
 // ============================================================================
 
 export let fb = null;
-if (!VINDEX_DEMOMODUS) fb = await import("./firebase-init.js?v=2a70b741");
+if (!VINDEX_DEMOMODUS) fb = await import("./firebase-init.js?v=59969fd5");
 
 export const $ = (s) => document.querySelector(s);
 export const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -25,6 +25,7 @@ export const app = {
   seljarar: [],
   leads: [],
   ordrar: [],
+  kampanjar: [],
   valtLead: null,
   tempfilter: "opne",  // opne | gron | oransje | raud | gjenoppretting | null (alle)
   fylkefilter: null,  // fylke-id frå kartet i sidekolonna
@@ -193,6 +194,11 @@ export async function lastData() {
     ? fb.query(fb.ordersCol(), fb.orderBy("opprettet", "desc"), fb.limit(500))
     : fb.query(fb.ordersCol(), fb.where("seljarId", "==", app.brukar.uid), fb.orderBy("opprettet", "desc"), fb.limit(300));
   app.ordrar = (await fb.getDocs(oq)).docs.map((d) => ({ id: d.id, ...d.data() }));
+
+  // Kampanjane er små og få, og alle skal sjå dei same. Difor blir heile
+  // samlinga henta, og filtreringa på rekkevidd skjer i klienten der den
+  // uansett må skje per kunde.
+  app.kampanjar = (await fb.getDocs(fb.campaignsCol())).docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 export function startDemo(rolle) {
@@ -233,6 +239,7 @@ export function startDemo(rolle) {
   }
   app.leads = demoLeads();
   app.ordrar = demoOrdrar();
+  app.kampanjar = demoKampanjar();
   etterInnlogging();
 }
 
@@ -436,6 +443,40 @@ export function demoLeads() {
     })
   );
   return alle.map(medEndringar);
+}
+
+/**
+ * Eit par kampanjar i demoen, så rekkevidda kan sjåast i praksis.
+ *
+ * Datoane er rekna ut frå i dag og ikkje skrivne fast, slik at demoen ikkje
+ * står med utgåtte kampanjar om eit halvt år.
+ */
+export function demoKampanjar() {
+  const dag = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  return [
+    {
+      id: "demo-k1",
+      tittel: "Høstkampanje levegg",
+      tekst:
+        "20 % på leveggseksjoner i standard lengder ut oktober. Gjelder ikke stålfot " +
+        "og stolpefester. Nevn kampanjen i tilbudet.",
+      omraade: "land",
+      fylke: [], postnr: [], seljarar: [],
+      fra: dag(-14), til: dag(21), aktiv: true,
+      opprettaAv: "Hovedkontoret", opprettet: dag(-14),
+    },
+    {
+      id: "demo-k2",
+      tittel: "Kystveggen i Nordland",
+      tekst:
+        "Fri frakt på Kystveggen til Nordland i høst. Bruk den mot kunder som " +
+        "ligger værhardt til.",
+      omraade: "fylke",
+      fylke: ["18"], postnr: [], seljarar: [],
+      fra: dag(-3), til: dag(45), aktiv: true,
+      opprettaAv: "Hovedkontoret", opprettet: dag(-3),
+    },
+  ];
 }
 
 export function demoOrdrar() {
