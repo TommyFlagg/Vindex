@@ -142,3 +142,63 @@ function vindexAvtaleTid(dato) {
     minute: "2-digit",
   });
 }
+
+// ---------------------------------------------------------------------------
+// Kollisjonar
+// ---------------------------------------------------------------------------
+// Ein befaring som krasjar med ein annan blir oppdaga i bilen, ikkje i
+// verktøyet — med mindre verktøyet seier frå medan seljaren set den opp. Det er
+// heile jobben til desse funksjonane: ikkje å hindre, men å vise.
+//
+// Reisetid er ikkje med. To befaringar rett etter kvarandre i same by er
+// greitt; to i kvar sin ende av fylket er det ikkje, og det veit seljaren
+// betre enn vi gjer. Difor varslar vi berre på faktisk overlapp, og viser resten
+// av dagen ved sida av så han kan sjå sjølv.
+
+/** Alle avtalar frå ei liste leads, som flate rader med start og slutt. */
+function vindexAlleAvtalar(leads, { utanLead = null, utanAvtale = null } = {}) {
+  const ut = [];
+  (leads || []).forEach((l) => {
+    if (l.arkivert) return;
+    (l.avtaler || []).forEach((a) => {
+      if (utanLead && l.id === utanLead && utanAvtale && a.id === utanAvtale) return;
+      const start = new Date(a.start);
+      if (isNaN(start)) return;
+      ut.push({
+        ...a,
+        lead: l,
+        start,
+        slutt: vindexLeggTilMinutt(start, a.varighetMin || 60),
+      });
+    });
+  });
+  return ut.sort((a, b) => a.start - b.start);
+}
+
+/**
+ * Krasjar denne tida med noko?
+ *
+ * Overlapp er strengt: to avtalar som grensar mot kvarandre — den eine sluttar
+ * 12:00, den andre startar 12:00 — er ikkje ein kollisjon. Det er ein stram
+ * dag, og seljaren har valt den sjølv.
+ */
+function vindexKollisjonar(avtalar, start, varighetMin = 60) {
+  const s = new Date(start);
+  if (isNaN(s)) return [];
+  const e = vindexLeggTilMinutt(s, varighetMin || 60);
+  return (avtalar || []).filter((a) => a.start < e && a.slutt > s);
+}
+
+/** Resten av det som står den dagen, kollisjon eller ikkje. */
+function vindexSameDag(avtalar, start) {
+  const s = new Date(start);
+  if (isNaN(s)) return [];
+  const dag = s.toISOString().slice(0, 10);
+  return (avtalar || []).filter((a) => a.start.toISOString().slice(0, 10) === dag);
+}
+
+/** «12:30–13:30» */
+function vindexTidsrom(a) {
+  const t = (d) => d.toLocaleTimeString("nb-NO", { hour: "2-digit", minute: "2-digit" });
+  return t(a.start) + "–" + t(a.slutt);
+}

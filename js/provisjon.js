@@ -116,13 +116,26 @@ const VINDEX_UTAN_PROVISJON = [
 /**
  * Kva provisjonsgruppe ein artikkel høyrer til.
  *
- *  ⚠️  Skiljet mellom «Gjerde» og «Seksjoner» i arket er ikkje avklart, og
- *     difor er ingen av seksjonsgruppene kopla til «seksjonar» enno. Alt som
- *     er rekkverk, gjerde, levegg og stakitt går til «gjerde», som er den
- *     kolonnen som er fullt utfylt. Blir skiljet avklart, er det denne
- *     funksjonen som skal endrast — ingen annan stad.
+ * «Gjerde» og «Seksjoner» i arket er ikkje to varegrupper — det er to måtar å
+ * levere den same varen på, og dei har same listepris:
+ *
+ *   Seksjoner  Standard mål, ferdig kappa, på lager. Kunden tilpassar sjølv,
+ *              og vi berre plukkar og sender. Difor betre rabatt — og difor
+ *              står 30 % og 35 % utfylt i den kolonnen.
+ *   Gjerde     Spesial, produsert etter mål. Kø og tid i produksjonen gjer
+ *              dei dyrare å klargjere, og rabatten stoppar på 25 %. Difor er
+ *              den kolonnen utfylt til og med 25 % og tom over.
+ *
+ * Skiljet ligg altså i utføringa på linja, ikkje i varegruppa — den same
+ * plassen som alt avgjer rabattgrensa. `utforing` er "maal" for produsert og
+ * ein standardlengd ("std-1800") for lagervare.
+ *
+ *  ⚠️  Éin rute manglar framleis: ein standardseksjon selt med mindre enn
+ *     30 % rabatt. Arket har ingen sats der, og gjerde-kolonnen gjeld ei anna
+ *     kostnadsbase. Slike linjer blir difor merkte «mangler sats» i staden for
+ *     å bli rekna etter feil kolonne.
  */
-function vindexProvisjonsgruppe(kode, gruppe) {
+function vindexProvisjonsgruppe(kode, gruppe, utforing) {
   if (VINDEX_UTAN_PROVISJON.includes(String(kode))) return "utan";
 
   // Varegruppa står i prislista, ikkje på tilbodslinja — linja ber berre
@@ -136,8 +149,13 @@ function vindexProvisjonsgruppe(kode, gruppe) {
   if (/terrassegulv|terrasse/i.test(g)) return "terrassegulv";
   if (/lys|strøm|strom/i.test(g)) return "ledlys";
   if (/varmepumpe/i.test(g)) return "varmepumpehus";
-  if (/rekkverk|gjerde|levegg|stakitt|kystvegg|port|stolpe|glass|tillegg|veggfeste/i.test(g))
+  if (/rekkverk|gjerde|levegg|stakitt|kystvegg|port|stolpe|glass|tillegg|veggfeste/i.test(g)) {
+    // Standardseksjon frå hylla, eller produsert etter mål?
+    const produsert =
+      typeof VINDEX_PRODUSERTE_GRUPPER !== "undefined" && VINDEX_PRODUSERTE_GRUPPER.includes(g);
+    if (produsert && utforing && utforing !== "maal") return "seksjonar";
     return "gjerde";
+  }
   return null;
 }
 
@@ -170,7 +188,7 @@ function vindexProvisjon(rekna, seljar) {
   const sjolvstendig = vindexErSjolvstendig(seljar);
 
   const linjer = (rekna.linjer || []).map((l) => {
-    const gruppeId = vindexProvisjonsgruppe(l.kode, l.gruppe);
+    const gruppeId = vindexProvisjonsgruppe(l.kode, l.gruppe, l.utforing);
     const netto = Math.round((l.sum || 0) - (l.rabattKr || 0));
 
     // Tre utfall, og skilnaden mellom dei er heile poenget:

@@ -2122,3 +2122,7 @@ tr.klikkbar:hover td { background: var(--primary-soft); }
   .sakslinje { grid-template-columns: 3rem 1fr; }
   .sakseigar, .sakstid { grid-column: 2; text-align: left; }
 }
+
+/* Kollisjonsvarselet under avtaleskjemaet. Det hindrar ikkje — det viser. */
+.krasjliste { list-style: none; margin: .4rem 0; padding: 0; display: grid; gap: .25rem; }
+.krasjliste li { font-size: .88rem; }

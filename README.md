@@ -1007,11 +1007,41 @@ vilje), **ukjent** (en fritt skrevet linje uten artikkelnummer — vises som
 «mangler sats», ikke som 0 kr), og **regnet**. En linje vi ikke klarer å
 plassere skal aldri se ut som en linje uten verdi.
 
-**Åpent spørsmål: kolonnen «Seksjoner».** I arket har den bare 30 % og 35 %
-utfylt; rutene fra listepris til 25 % står tomme. «Gjerde» er motsatt — utfylt
-til og med 25 %, tom på 30 og 35. Inntil det er avklart går alt som er rekkverk,
-gjerde, levegg og stakitt til **Gjerde**, som er den fullt utfylte kolonnen.
-Endres det, er `vindexProvisjonsgruppe()` det eneste stedet som skal røres.
+**«Gjerde» og «Seksjoner» er ikke to varegrupper** — det er to måter å levere
+den samme varen på, og de har samme listepris:
+
+| | Hva det er | Rabatt | Hvorfor |
+|---|---|---|---|
+| **Seksjoner** | Standard mål, ferdig kappet, på lager | 30–35 % | Kunden tilpasser selv; vi plukker og sender |
+| **Gjerde** | Spesial, produsert etter mål | opptil 25 % | Kø og tid i produksjonen gjør dem dyrere å klargjøre |
+
+Skillet ligger derfor i **utførelsen på linjen**, ikke i varegruppen — samme sted
+som allerede avgjør rabattgrensen. Det forklarer også hvorfor arket er utfylt
+som det er: Gjerde til og med 25 %, Seksjoner fra 30 %.
+
+**Én rute mangler fortsatt:** en standardseksjon solgt med mindre enn 30 %
+rabatt. Arket har ingen sats der, og Gjerde-kolonnen gjelder en annen
+kostnadsbase. Slike linjer merkes «mangler sats» i stedet for å regnes etter
+feil kolonne.
+
+### Kalenderen sier fra om krasj
+
+Avtaler er gruppert per dag under **Kalender**, og «Legg i telefonkalender»
+laster ned en `.ics` som iPhone, Android og Outlook åpner direkte.
+
+Det som manglet var å oppdage kollisjoner **mens** avtalen settes opp. En
+befaring som krasjer blir ellers oppdaget i bilen. Nå står det under
+avtaleskjemaet, og oppdateres mens du skriver: enten «Ledig» med resten av dagen
+listet, eller hvilke avtaler den overlapper — med tid, kunde og sted.
+
+**Det hindrer ingenting.** Noen dager er stramme med vilje, og selgeren kan
+lagre likevel. To avtaler som grenser mot hverandre — den ene slutter 12:00, den
+andre starter 12:00 — regnes ikke som krasj.
+
+**Reisetid er ikke med.** To befaringer rett etter hverandre i samme by går fint;
+to i hver sin ende av fylket gjør det ikke, og det vet selgeren bedre enn
+verktøyet. Derfor varsles bare faktisk overlapp, og resten av dagen vises ved
+siden av.
 
 ### Kundeanmeldelser
 

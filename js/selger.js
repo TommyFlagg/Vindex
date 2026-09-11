@@ -1002,6 +1002,7 @@ function visDetalj(id) {
         <div class="field brei"><label for="avtaleNotat">Notat</label>
           <input id="avtaleNotat" placeholder="Hva skal avklares?"></div>
       </div>
+      <div id="avtaleKrasj" class="no-print"></div>
       <div class="btn-row no-print"><button class="btn btn-sm" id="lagreAvtale">Lagre avtale</button></div>
 
       <h3 class="mt-2">Ordre</h3>
@@ -1117,6 +1118,54 @@ function koplaDetalj(l) {
   knapp("svarBistand", () => opneBistandssvar(l));
   knapp("arkiverLead", () => opneArkiver(l));
 
+
+  // ---- Krasjar den nye avtalen med noko? --------------------------------
+  // Ein befaring som kolliderer blir elles oppdaga i bilen. Vi hindrar ikkje —
+  // ein stram dag kan vere med vilje — men seljaren skal sjå det medan han
+  // vel tida, ikkje etterpå.
+  const krasjboks = $("#avtaleKrasj");
+  if (krasjboks) {
+    const mineAvtalar = () =>
+      vindexAlleAvtalar(
+        erAdmin() || erLager() ? app.leads : app.leads.filter((x) => x.seljarId === app.brukar.uid)
+      );
+
+    const visKrasj = () => {
+      const naar = ($("#avtaleDato") || {}).value;
+      const varighet = parseInt(($("#avtaleVarighet") || {}).value, 10) || 60;
+      if (!naar) return (krasjboks.innerHTML = "");
+      const alle = mineAvtalar();
+      const krasj = vindexKollisjonar(alle, naar, varighet);
+      const dagen = vindexSameDag(alle, naar).filter((a) => !krasj.includes(a));
+
+      const rad = (a) =>
+        `<li><strong>${vindexTidsrom(a)}</strong> ${a.typeNavn || a.type} —
+          ${(a.lead.kunde || {}).navn || "kunde"}${a.stad ? ` <span class="hint">${a.stad}</span>` : ""}</li>`;
+
+      krasjboks.innerHTML = krasj.length
+        ? `<div class="notice notice-warn mt-1"><strong>Krasjer med ${
+            krasj.length === 1 ? "en avtale" : krasj.length + " avtaler"
+          }:</strong>
+            <ul class="krasjliste">${krasj.map(rad).join("")}</ul>
+            ${
+              dagen.length
+                ? `<p class="hint mb-0">Ellers samme dag: ${dagen.map(vindexTidsrom).join(", ")}.</p>`
+                : ""
+            }
+            <p class="hint mb-0">Du kan lagre likevel — noen dager er stramme med vilje.</p></div>`
+        : dagen.length
+        ? `<p class="hint mt-1">Ledig. Ellers denne dagen: ${dagen
+            .map((a) => `${vindexTidsrom(a)} ${(a.lead.kunde || {}).navn || ""}`)
+            .join(" · ")}</p>`
+        : `<p class="hint mt-1">Ledig. Ingen andre avtaler denne dagen.</p>`;
+    };
+
+    ["#avtaleDato", "#avtaleVarighet"].forEach((sel) => {
+      const el = $(sel);
+      if (el) el.addEventListener("input", visKrasj);
+    });
+    visKrasj();
+  }
 
   const lagreAvtale = $("#lagreAvtale");
   if (lagreAvtale)
