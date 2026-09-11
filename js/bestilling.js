@@ -11,8 +11,30 @@
 // ============================================================================
 
 let fb = null;
+// Lastar ikkje Firebase-biblioteket — sperra nett, ein CDN som er nede, ein
+// nettlesar med blokkering — så skal kunden få vite det og eit nummer å ringe.
+// Utan dette kastar modulen på toppnivå, og kunden står att med eit skjema som
+// ser ut til å virke heilt til han trykkjer send.
+let fbFeil = null;
 if (!VINDEX_DEMOMODUS) {
-  fb = await import("./firebase-init.js?v=bc4ef637");
+  try {
+    fb = await import("./firebase-init.js?v=bc4ef637");
+  } catch (err) {
+    console.error("Fekk ikkje lasta Firebase:", err);
+    fbFeil = err;
+  }
+}
+
+if (fbFeil) {
+  const boks = document.querySelector("#skjema") || document.body;
+  const varsel = document.createElement("div");
+  varsel.className = "notice notice-warn";
+  varsel.innerHTML =
+    "<strong>Skjemaet er midlertidig utilgjengelig.</strong> Vi får ikke kontakt med " +
+    "serveren akkurat nå. Ring oss på <a href=\"tel:" +
+    VINDEX_FIRMA.telefon.replace(/\s/g, "") +
+    "\">" + VINDEX_FIRMA.telefon + "</a>, så tar vi bestillingen over telefon.";
+  boks.prepend(varsel);
 }
 
 const SISTE_STEG = 4;

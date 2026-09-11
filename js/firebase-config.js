@@ -14,12 +14,16 @@
 // ============================================================================
 
 const FIREBASE_CONFIG = {
-  apiKey: "FYLL_INN",
-  authDomain: "vindex-xxxxx.firebaseapp.com",
-  projectId: "vindex-xxxxx",
-  storageBucket: "vindex-xxxxx.firebasestorage.app",
-  messagingSenderId: "FYLL_INN",
-  appId: "FYLL_INN",
+  apiKey: "AIzaSyBqmOiQNsH-dN8ntTSHxieLkWEsFTHnT1o",
+  authDomain: "vindex-d2de6.firebaseapp.com",
+  projectId: "vindex-d2de6",
+  storageBucket: "vindex-d2de6.firebasestorage.app",
+  messagingSenderId: "760516442605",
+  appId: "1:760516442605:web:c36f6a553ed266f7484fe4",
+  // measurementId høyrer til Google Analytics. Vi lastar ikkje
+  // analytics-biblioteket, så feltet gjer ingenting — det står her berre slik
+  // at configen er identisk med den konsollet gav oss.
+  measurementId: "G-DKW991120D",
 };
 
 // Så lenge configen ikkje er fylt ut, køyrer seljarverktøyet i demomodus med

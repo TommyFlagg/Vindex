@@ -15,7 +15,30 @@
 // ============================================================================
 
 export let fb = null;
-if (!VINDEX_DEMOMODUS) fb = await import("./firebase-init.js?v=bc4ef637");
+// Lastar ikkje Firebase-biblioteket, skal brukaren få vite kvifor. Utan denne
+// feilar modulen på toppnivå, og då blir heile sida daud: ingen knappar, inga
+// melding, berre eit innloggingsskjema som ikkje gjer noko når du trykkjer.
+if (!VINDEX_DEMOMODUS) {
+  try {
+    fb = await import("./firebase-init.js?v=bc4ef637");
+  } catch (err) {
+    console.error("Fekk ikkje lasta Firebase:", err);
+    // Modulen er defer, så DOMContentLoaded kan alt ha gått. Då skal varselet
+    // opp med ein gong i staden for å vente på ei hending som ikkje kjem.
+    const visVarsel = () => {
+      const boks = document.querySelector("#login .card") || document.querySelector("#login") || document.body;
+      const varsel = document.createElement("div");
+      varsel.className = "notice notice-warn mt-1";
+      varsel.innerHTML =
+        "<strong>Får ikke kontakt med serveren.</strong> Firebase-biblioteket lastet ikke. " +
+        "Sjekk nettforbindelsen, og prøv igjen om et øyeblikk.";
+      boks.append(varsel);
+    };
+    if (document.readyState === "loading")
+      document.addEventListener("DOMContentLoaded", visVarsel);
+    else visVarsel();
+  }
+}
 
 export const $ = (s) => document.querySelector(s);
 export const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -147,11 +170,11 @@ if (glemt) glemt.addEventListener("click", async (e) => {
 });
 
 $("#loggUt").addEventListener("click", async () => {
-  if (!VINDEX_DEMOMODUS) await fb.signOut(fb.auth);
+  if (!VINDEX_DEMOMODUS && fb) await fb.signOut(fb.auth);
   location.reload();
 });
 
-if (!VINDEX_DEMOMODUS) {
+if (!VINDEX_DEMOMODUS && fb) {
   fb.onAuthStateChanged(fb.auth, async (bruker) => {
     if (!bruker) return;
     const snap = await fb.getDoc(fb.sellerDoc(bruker.uid));
