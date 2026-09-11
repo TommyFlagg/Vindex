@@ -1063,6 +1063,38 @@ med begrunnelsen ved siden av — ikke som «mangler sats», for selgeren skal s
 det er avgjort og ikke uavklart. Forskjellen mellom «vi vet ikke» og «du får
 ingenting» er verdt å holde på.
 
+### Terrassetilbud
+
+Terrassegulv selges i pakker, ikke i kvadratmeter. Én pakke er to planker à
+5,45 m, og 6,55 lm dekker én kvadratmeter — altså **1,664 m² per pakke**. En
+kunde som ber om 20 m² får 13 pakker og 21,63 m². Du kan ikke kjøpe en halv
+plank.
+
+Det er hele grunnen til at dette har sitt eget tilbud og ikke bare er en linje i
+delelisten: **tallet kunden sier og tallet han betaler for er ikke det samme**,
+og differansen skal han se før han sier ja — ikke når lasset kommer.
+
+Knappen står ved siden av «Sprossetilbud» på kundekortet. Lengde × bredde gir
+arealet, og målene foreslår resten:
+
+- **Bjelker** — én rad per 600 mm pluss den siste, hver like bred som gulvet.
+  Arket sier maks 600 mm; hvor mange rader som faktisk trengs vet selgeren.
+- **Kantlist langsider** — 3314, eller 3315 der underliggere skal skjules
+- **Kantlist ender** — 3316 ved vanlig montering, 3317 med underliggere
+- **Skruer** — 36,325 per pakke, solgt i pakninger à 250
+
+Alle forslagene står i feltene og kan overstyres. Står de bare i summen, vet
+ikke selgeren hva han har lovet.
+
+Regnestykket er kontrollert mot Vindex' egen beregningstabell: pakker, planker,
+meter, m² og skruer stemmer på alle de førti radene.
+
+Frakten har seks bånd opp til 25 pakker. **Over 25 pakker sier arket ingenting**,
+og da vises det som et tall noen må hente inn — ikke som null kroner.
+
+Logikken ligger i `js/terrasse.js`. Priser fra «Terrassegulv 2026», gjeldende fra
+01.03.2026, inkl. 25 % mva.
+
 ### Kalenderen sier fra om krasj
 
 Avtaler er gruppert per dag under **Kalender**, og «Legg i telefonkalender»

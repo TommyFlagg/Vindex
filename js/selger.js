@@ -972,6 +972,9 @@ function visDetalj(id) {
       ${provisjonsrute(l, rekna)}
       <div class="btn-row mt-1 no-print">
         <button class="btn btn-sm" id="opneTilbod">${rekna.gyldig ? "Rediger tilbudet" : "Sett opp deleliste"}</button>
+        <button class="btn btn-sm btn-ghost" id="opneTerrasse">${
+          (l.terrassetilbod || {}).pakker ? "Rediger terrassetilbudet" : "Terrassetilbud"
+        }</button>
         <button class="btn btn-sm btn-ghost" id="opneSprosser">${
           (l.sprossetilbod || {}).rader ? "Rediger sprossetilbudet" : "Sprossetilbud"
         }</button>
@@ -1223,6 +1226,9 @@ function koplaDetalj(l) {
 
   const sprosseknapp = $("#opneSprosser");
   if (sprosseknapp) sprosseknapp.addEventListener("click", () => opneSprossetilbod(l));
+
+  const terrasseknapp = $("#opneTerrasse");
+  if (terrasseknapp) terrasseknapp.addEventListener("click", () => opneTerrassetilbod(l));
 
   const apneSkjema = $("#apneSkjema");
   if (apneSkjema) apneSkjema.addEventListener("click", () => opneOrdreskjema(l));
@@ -2647,6 +2653,283 @@ function listeprisHtml(r) {
   if (r.utanforLista)
     bit.push(`${r.utanforLista} linje${r.utanforLista > 1 ? "r" : ""} står ikke i prislisten`);
   return bit.join(" · ");
+}
+
+// ---------------------------------------------------------------------------
+// Terrassetilbod
+// ---------------------------------------------------------------------------
+// Terrassegulv blir selt i pakker og ikkje i kvadratmeter. Kunden seier 20 m²
+// og får 21,63 — og den differansen skal han sjå før han seier ja, ikkje når
+// lasset kjem. Difor eit eige tilbod, som sprossene.
+
+let terrasseutkast = null;
+const terrassekladdnokkel = (lead) => "terrasse:" + lead.id;
+
+function opneTerrassetilbod(lead) {
+  const lagra = lead.terrassetilbod || {};
+  terrasseutkast = {
+    lengd: lagra.lengd || "",
+    breidd: lagra.breidd || "",
+    m2: lagra.m2 || "",
+    friForm: !!lagra.friForm,
+    fyllprofil: lagra.fyllprofil || "3311",
+    bjelkar: lagra.bjelkar !== false,
+    bjelkeMeter: lagra.bjelkeMeter || "",
+    langsideList: lagra.langsideList || "3314",
+    langsideMeter: lagra.langsideMeter || "",
+    endeList: lagra.endeList || "3316",
+    endeMeter: lagra.endeMeter || "",
+    dekklist: lagra.dekklist || "",
+    oringar: lagra.oringar || "",
+    skruerManuell: lagra.skruerManuell || "",
+    merknader: lagra.merknader || "",
+  };
+  const kladd = hentKladd(terrassekladdnokkel(lead));
+  let fraKladd = null;
+  if (kladd && kladd.data) {
+    terrasseutkast = { ...terrasseutkast, ...kladd.data };
+    fraKladd = kladd.lagra;
+  }
+  teiknTerrassedialog(lead, fraKladd);
+}
+
+/**
+ * Måla foreslår mengdene, men overstyrer dei ikkje.
+ *
+ * Bjelkemeterne og kantlistene kjem av lengd og breidd, og dei er framlegg:
+ * arket seier maks 600 mm mellom bjelkane, men kor gulvet ligg veit seljaren
+ * betre enn vi gjer. Har han skrive eit tal sjølv, står det.
+ */
+function terrasseframlegg(u) {
+  const L = parseFloat(u.lengd) || 0;
+  const B = parseFloat(u.breidd) || 0;
+  return {
+    m2: u.friForm ? parseFloat(u.m2) || 0 : Math.round(L * B * 100) / 100,
+    // Ei rad per 600 mm, pluss den siste. Kvar rad er like brei som gulvet.
+    bjelkeMeter: L && B ? Math.round((Math.ceil(L / 0.6) + 1) * B * 10) / 10 : 0,
+    langsideMeter: L ? Math.round(L * 2 * 10) / 10 : 0,
+    endeMeter: B ? Math.round(B * 2 * 10) / 10 : 0,
+  };
+}
+
+function terrassesumHtml(r) {
+  if (!r)
+    return `<div class="tilbodsum mt-1" id="terrSum">
+      <div><span class="hint">Skriv inn mål, så regner verktøyet ut pakker og pris.</span><span></span></div>
+    </div>`;
+  const b = r.beregning;
+  return `<div class="tilbodsum mt-1" id="terrSum">
+    <div><span>Ønsket areal</span><span>${b.onska} m²</span></div>
+    <div><span><strong>Leveres</strong> — hele pakker
+      <span class="hint">${b.pakker} pakker · ${b.planker} planker · ${b.meter} lm</span></span>
+      <span><strong>${b.m2} m²</strong></span></div>
+    ${
+      b.overskot
+        ? `<div><span class="hint">Kunden får ${b.overskot} m² mer enn han ba om — gulvet selges i hele pakker</span><span class="hint">+ ${b.overskot} m²</span></div>`
+        : ""
+    }
+    ${r.linjer
+      .map(
+        (l) => `<div><span>${l.navn} <span class="hint">${l.antall} ${l.enhet}${
+          l.merknad ? " · " + l.merknad : ""
+        }</span></span><span class="linjesum">${kr(l.sum)}</span></div>`
+      )
+      .join("")}
+    <div><span>Materiell</span><span class="linjesum">${kr(r.sum)}</span></div>
+    ${
+      r.frakt && r.frakt.pris !== null
+        ? `<div><span>Frakt (${r.frakt.pakker} pakker)</span><span class="linjesum">${kr(r.frakt.pris)}</span></div>`
+        : `<div><span class="tekst-warn">Frakt over 25 pakker står ikke i fraktlisten</span><span>må hentes inn</span></div>`
+    }
+    <div class="total"><span>Sum</span><span class="linjesum">${kr(r.total)}</span></div>
+    <div><span class="hint">Herav uten mva</span><span class="hint">${kr(vindexEksMva(r.total))}</span></div>
+  </div>`;
+}
+
+function teiknTerrassedialog(lead, fraKladd) {
+  const u = terrasseutkast;
+  const f = terrasseframlegg(u);
+  const val = {
+    ...u,
+    m2: f.m2,
+    bjelkeMeter: u.bjelkeMeter || f.bjelkeMeter,
+    langsideMeter: u.langsideMeter || f.langsideMeter,
+    endeMeter: u.endeMeter || f.endeMeter,
+  };
+  const r = vindexTerrasselinjer(val);
+
+  const listeval = (id, koder, valt) =>
+    `<select id="${id}"><option value="">— ingen —</option>${koder
+      .map((k) => {
+        const d = vindexTerrassedel(k);
+        return `<option value="${k}"${valt === k ? " selected" : ""}>${d.navn} — ${d.bruk}</option>`;
+      })
+      .join("")}</select>`;
+
+  opneModal(
+    "Terrassetilbud til " + ((lead.kunde || {}).navn || "kunden"),
+    `<div id="terrasseskjema">
+      ${
+        fraKladd
+          ? `<div class="notice notice-info"><strong>Fortsetter der du slapp.</strong> Lagret ${sidanTekst(fraKladd)}.</div>`
+          : ""
+      }
+      <div class="feltrutenett">
+        <div class="field"><label for="terrLengd">Lengde (m)</label>
+          <input id="terrLengd" type="number" min="0" step="0.1" value="${u.lengd}"></div>
+        <div class="field"><label for="terrBreidd">Bredde (m)</label>
+          <input id="terrBreidd" type="number" min="0" step="0.1" value="${u.breidd}"></div>
+        <div class="field"><label for="terrM2">Areal (m²)</label>
+          <input id="terrM2" type="number" min="0" step="0.01" value="${f.m2 || ""}"
+            ${u.friForm ? "" : "readonly"}></div>
+        <div class="field"><label class="hakelinje"><input type="checkbox" id="terrFriForm"
+          ${u.friForm ? "checked" : ""}> Ujevn form — skriv arealet selv</label></div>
+      </div>
+
+      <h3 class="mt-2">Farge på fyllprofil</h3>
+      <p class="hint">Fyllprofilene er med i kvadratmeterprisen. Valget styrer bare fargen.</p>
+      <div class="feltrutenett">
+        <div class="field brei"><select id="terrFyll">
+          ${["3311", "3313"]
+            .map((k) => {
+              const d = vindexTerrassedel(k);
+              return `<option value="${k}"${u.fyllprofil === k ? " selected" : ""}>${d.navn} — ${d.farge}</option>`;
+            })
+            .join("")}
+        </select></div>
+      </div>
+
+      <h3 class="mt-2">Underlag og kanter</h3>
+      <div class="feltrutenett">
+        <div class="field brei"><label class="hakelinje"><input type="checkbox" id="terrBjelkar"
+          ${u.bjelkar ? "checked" : ""}> Bjelker (strø) under gulvet</label>
+          <span class="hint">Maks 600 mm mellom bjelkene. Forslaget under er regnet av målene.</span></div>
+        <div class="field"><label for="terrBjelkeMeter">Bjelke (lm)</label>
+          <input id="terrBjelkeMeter" type="number" min="0" step="0.5"
+            value="${u.bjelkeMeter || f.bjelkeMeter || ""}"></div>
+        <div class="field brei"><label for="terrLangside">Kantlist langsider</label>
+          ${listeval("terrLangside", ["3314", "3315"], u.langsideList)}</div>
+        <div class="field"><label for="terrLangsideMeter">Langsider (lm)</label>
+          <input id="terrLangsideMeter" type="number" min="0" step="0.5"
+            value="${u.langsideMeter || f.langsideMeter || ""}"></div>
+        <div class="field brei"><label for="terrEnde">Kantlist ender</label>
+          ${listeval("terrEnde", ["3316", "3317"], u.endeList)}</div>
+        <div class="field"><label for="terrEndeMeter">Ender (lm)</label>
+          <input id="terrEndeMeter" type="number" min="0" step="0.5"
+            value="${u.endeMeter || f.endeMeter || ""}"></div>
+      </div>
+
+      <h3 class="mt-2">Tilbehør</h3>
+      <div class="feltrutenett">
+        <div class="field"><label for="terrDekklist">Dekklist (stk)</label>
+          <input id="terrDekklist" type="number" min="0" step="1" value="${u.dekklist}"></div>
+        <div class="field"><label for="terrOringar">O-ringer (stk)</label>
+          <input id="terrOringar" type="number" min="0" step="1" value="${u.oringar}">
+          <span class="hint">På skruene mellom kantblikk og gulv</span></div>
+        <div class="field"><label for="terrSkruer">Skruepakninger</label>
+          <input id="terrSkruer" type="number" min="0" step="1" value="${u.skruerManuell}"
+            placeholder="${r ? r.beregning.skrupakkar : ""}">
+          <span class="hint">Tom = regnet av pakkene</span></div>
+        <div class="field brei"><label for="terrMerknader">Merknader</label>
+          <textarea id="terrMerknader" style="min-height:56px">${u.merknader}</textarea></div>
+      </div>
+
+      <div id="terrSumBoks">${terrassesumHtml(r)}</div>
+      <p class="hint">${VINDEX_TERRASSE.mvaTekst} Prisgrunnlag: Terrassegulv 2026.</p>
+    </div>`,
+    `<button class="btn btn-ghost" id="terrAvbryt">Lukk</button>
+     <button class="btn" id="terrSkrivUt">Skriv ut</button>
+     <button class="btn btn-accent" id="terrLagre">Lagre terrassetilbudet</button>`
+  );
+
+  const lagreKladden = kladdlagrar(terrassekladdnokkel(lead), () => terrasseutkast);
+
+  const les = () => {
+    const v = (id) => ($("#" + id) || {}).value || "";
+    Object.assign(terrasseutkast, {
+      lengd: v("terrLengd"),
+      breidd: v("terrBreidd"),
+      friForm: $("#terrFriForm").checked,
+      m2: v("terrM2"),
+      fyllprofil: v("terrFyll"),
+      bjelkar: $("#terrBjelkar").checked,
+      bjelkeMeter: v("terrBjelkeMeter"),
+      langsideList: v("terrLangside"),
+      langsideMeter: v("terrLangsideMeter"),
+      endeList: v("terrEnde"),
+      endeMeter: v("terrEndeMeter"),
+      dekklist: v("terrDekklist"),
+      oringar: v("terrOringar"),
+      skruerManuell: v("terrSkruer"),
+      merknader: v("terrMerknader"),
+    });
+  };
+
+  // Berre summen blir teikna på nytt medan seljaren skriv — aldri felta.
+  // Same grunn som i delelista: markøren skal bli ståande.
+  $("#terrasseskjema").addEventListener("input", () => {
+    les();
+    const ff = terrasseframlegg(terrasseutkast);
+    if (!terrasseutkast.friForm && $("#terrM2")) $("#terrM2").value = ff.m2 || "";
+
+    // Framlegga skal stå i felta og ikkje berre i summen. Elles ser seljaren
+    // tomme felt og ein sum som likevel inneheld dei — og då veit han ikkje
+    // kva han har lova. Berre tomme felt blir fylte; har han skrive eit tal
+    // sjølv, står det.
+    [["terrBjelkeMeter", "bjelkeMeter"], ["terrLangsideMeter", "langsideMeter"],
+     ["terrEndeMeter", "endeMeter"]].forEach(([id, nokkel]) => {
+      const el = $("#" + id);
+      if (el && !el.value && ff[nokkel]) {
+        el.value = ff[nokkel];
+        terrasseutkast[nokkel] = String(ff[nokkel]);
+      }
+    });
+
+    $("#terrSumBoks").innerHTML = terrassesumHtml(
+      vindexTerrasselinjer({
+        ...terrasseutkast,
+        m2: ff.m2,
+        bjelkeMeter: terrasseutkast.bjelkeMeter || ff.bjelkeMeter,
+        langsideMeter: terrasseutkast.langsideMeter || ff.langsideMeter,
+        endeMeter: terrasseutkast.endeMeter || ff.endeMeter,
+      })
+    );
+    lagreKladden();
+  });
+  $("#terrasseskjema").addEventListener("change", () => {
+    les();
+    if ($("#terrFriForm").checked) $("#terrM2").removeAttribute("readonly");
+    else $("#terrM2").setAttribute("readonly", "");
+  });
+
+  $("#terrAvbryt").addEventListener("click", lukkModal);
+  $("#terrSkrivUt").addEventListener("click", () => window.print());
+  $("#terrLagre").addEventListener("click", async () => {
+    les();
+    const ff = terrasseframlegg(terrasseutkast);
+    const rr = vindexTerrasselinjer({ ...terrasseutkast, m2: ff.m2 });
+    if (!rr) return melding("Skriv inn mål på gulvet først.", "warn");
+    await lagreLead(
+      lead,
+      {
+        terrassetilbod: {
+          ...terrasseutkast,
+          m2: ff.m2,
+          m2Levert: rr.beregning.m2,
+          pakker: rr.beregning.pakker,
+          linjer: rr.linjer,
+          sum: rr.total,
+          dato: new Date().toISOString(),
+          av: app.brukar.navn,
+        },
+      },
+      [`Terrassetilbud satt opp: ${rr.beregning.m2} m² i ${rr.beregning.pakker} pakker, ${kr(rr.total)}.`]
+    );
+    slettKladd(terrassekladdnokkel(lead));
+    lukkModal();
+    teikn();
+    melding("Terrassetilbudet er lagret.");
+  });
 }
 
 // ---------------------------------------------------------------------------
