@@ -158,23 +158,42 @@ function teiknStatRad() {
   const fordeling = vindexTemperaturfordeling(opne);
   const ko = vindexProduksjonsko(app.ordrar);
 
-  const flis = (verdi, etikett, under, klasse) => `<div class="stat-kort">
-    <div class="stat-verdi ${klasse || ""}">${verdi}</div>
-    <div class="stat-etikett">${etikett}</div>
-    ${under ? `<div class="hint">${under}</div>` : ""}
-  </div>`;
+  // Ei flis med saker bak seg er ein inngang, ikkje ein plakat. Flisene utan —
+  // ordreinngang og produksjonskø — blir verande vanlege ruter.
+  const flis = (verdi, etikett, under, klasse, sak) => {
+    const innmat = `<div class="stat-verdi ${klasse || ""}">${verdi}</div>
+      <div class="stat-etikett">${etikett}</div>
+      ${under ? `<div class="hint">${under}</div>` : ""}`;
+    return sak
+      ? `<button type="button" class="stat-kort stat-kort-knapp" data-saksflis="${sak}">${innmat}</button>`
+      : `<div class="stat-kort">${innmat}</div>`;
+  };
 
   $("#statRad").innerHTML = [
-    flis(tal.opne, "åpne saker i landet", `${tal.nye} er ikke sett`),
+    flis(tal.opne, "åpne saker i landet", `${tal.nye} er ikke sett`, "", "opne"),
     flis(
       fordeling.raud,
       "har ventet over tre døgn",
       fordeling.oransje + " bør ringes i dag",
-      fordeling.raud ? "tekst-bad" : "tekst-god"
+      fordeling.raud ? "tekst-bad" : "tekst-god",
+      "raude"
     ),
     flis(vindexKrKort(iAar) + " kr", "ordreinngang i år", `${tal.solgt} salg registrert`),
     flis(ko.dagar + " d", "produksjonskø", ko.tekst),
   ].join("");
+
+  $$("[data-saksflis]").forEach((b) =>
+    b.addEventListener("click", () => {
+      if (b.dataset.saksflis === "opne")
+        opneSaksliste("Åpne saker i landet", opne, "Sortert etter hvor lenge kunden har ventet.");
+      else
+        opneSaksliste(
+          "Har ventet over tre døgn",
+          opne.filter((l) => vindexTemperatur(l).id === "raud"),
+          "Kunden har ikke hørt fra oss på mer enn 72 timer."
+        );
+    })
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -264,9 +283,18 @@ let ordreAar = new Date().getFullYear();
 
 function ordreinngangAar() {
   const naa = new Date().getFullYear();
-  const ut = [];
-  for (let a = 2023; a <= naa; a++) ut.push(a);
-  return ut;
+  const ut = new Set([naa]);
+  // Berre år vi har noko å vise. Eit årstal utan tal er ein knapp som fører
+  // til ei tom side, og den er verre enn ingen knapp.
+  (app.ordrar || []).forEach((o) => {
+    const d = vindexTid(o.opprettet);
+    if (d) ut.add(d.getFullYear());
+  });
+  Object.entries(VINDEX_AARSTAL.aar || {}).forEach(([a, v]) => {
+    if (v && v.driftsinntekter !== null && v.driftsinntekter !== undefined) ut.add(Number(a));
+  });
+  if (VINDEX_FJOR && (VINDEX_FJOR.manad || []).some((m) => m.sum)) ut.add(VINDEX_FJOR.aar);
+  return Array.from(ut).sort();
 }
 
 function teiknOrdreinngang() {
@@ -432,7 +460,9 @@ function teiknSeljartabell() {
         <tbody>
           ${rader
             .map(
-              (r) => `<tr class="${r.seljar.id === app.brukar.uid ? "meg" : ""}">
+              (r) => `<tr class="klikkbar ${r.seljar.id === app.brukar.uid ? "meg" : ""}"
+                data-seljarsaker="${r.seljar.id}" tabindex="0" role="button"
+                aria-label="Se sakene til ${r.seljar.navn}">
                 <td><strong>${r.seljar.navn}</strong><br>
                   <span class="hint">${r.seljar.sted || "—"}</span></td>
                 <td>${r.seljar.type === "forhandler" ? "Forhandler" : "Selger"}</td>
@@ -453,7 +483,28 @@ function teiknSeljartabell() {
       </table>
     </div>
     <p class="hint mt-1">«Over 3 døgn» er saker der kunden ikke har hørt fra oss på
-      mer enn 72 timer. Det er tallet som koster salg.</p>`;
+      mer enn 72 timer. Det er tallet som koster salg. Klikk en rad for å se sakene.</p>`;
+
+  const opneSeljar = (id) => {
+    const s = app.seljarar.find((x) => x.id === id);
+    if (!s) return;
+    opneSaksliste(
+      "Sakene til " + s.navn,
+      opne.filter((l) => l.seljarId === id),
+      `${s.sted || "Sted ikke oppgitt"} · ${
+        (s.distrikt || []).length ? s.distrikt.map((d) => vindexDistriktNavn(d)).join(", ") : "ingen distrikt"
+      }`
+    );
+  };
+  $$("[data-seljarsaker]").forEach((rad) => {
+    rad.addEventListener("click", () => opneSeljar(rad.dataset.seljarsaker));
+    rad.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        opneSeljar(rad.dataset.seljarsaker);
+      }
+    });
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1009,6 +1060,181 @@ async function byggRuting() {
     if (eigarar.length) kart[d.id] = eigarar;
   });
   await fb.setDoc(fb.settingsDoc("ruting"), { ...kart, oppdatert: fb.serverTimestamp() });
+}
+
+// ---------------------------------------------------------------------------
+// Saker sett frå hovudkontoret
+// ---------------------------------------------------------------------------
+// Oversikta viste tal utan veg vidare: «12 åpne saker i landet» og ingen måte å
+// sjå kva dei tolv var. Eit tal du ikkje kan opne er ein påstand.
+//
+// Difor er flisene og seljarradene no inngangar. Hovudkontoret ser sakene,
+// opnar ei av dei, og kan flytte henne til ein annan seljar, ta henne sjølv,
+// eller leggje henne bort — utan å gå vegen om seljaren som sit med henne.
+
+/** Ei sak som rad i ei liste. Klikkbar, med det ein treng for å velje rett. */
+function sakslinje(l) {
+  const k = l.kunde || {};
+  const temp = vindexTemperatur(l);
+  const seljar = app.seljarar.find((s) => s.id === l.seljarId);
+  return `<button type="button" class="sakslinje" data-sak="${l.id}">
+    <span class="temp temp-${temp.id}">${vindexTemperaturDef(temp.id).kort}</span>
+    <span class="saksnamn">
+      <strong>${k.navn || "Ukjent"}</strong>
+      <span class="hint">${k.poststed || ""} ${k.postnr || ""} · ${(l.produkt || {}).navn || ""}</span>
+    </span>
+    <span class="sakseigar">
+      ${seljar ? seljar.navn : '<em class="hint">felles innboks</em>'}
+      <span class="hint">${vindexStatusNavn(l.status)}</span>
+    </span>
+    <span class="sakstid hint">${
+      temp.sisteKontakt ? vindexTemperaturTekst(temp.timar) + " siden" : "aldri kontaktet"
+    }</span>
+  </button>`;
+}
+
+/**
+ * Ei liste med saker i ein dialog.
+ *
+ * Same liste uansett kvar ein kjem frå — frå nøkkeltalsflisa, frå ein seljar,
+ * frå kartet. Det er den same jobben: sjå kva som ligg der, og gjere noko med
+ * det.
+ */
+function opneSaksliste(tittel, leads, undertekst) {
+  const sortert = leads
+    .slice()
+    .sort((a, b) => vindexTemperatur(b).timar - vindexTemperatur(a).timar);
+
+  opneModal(
+    tittel,
+    `<div id="saksliste">
+      ${undertekst ? `<p class="hint">${undertekst}</p>` : ""}
+      ${
+        sortert.length
+          ? `<div class="saksliste">${sortert.map(sakslinje).join("")}</div>`
+          : '<p class="hint">Ingen saker her.</p>'
+      }
+    </div>`,
+    '<button class="btn btn-ghost" id="slLukk">Lukk</button>'
+  );
+  $("#slLukk").addEventListener("click", lukkModal);
+  $$("#saksliste [data-sak]").forEach((b) =>
+    b.addEventListener("click", () => opneSak(b.dataset.sak, { tittel, leads, undertekst }))
+  );
+}
+
+/** Éi sak, med det hovudkontoret kan gjere med henne. */
+function opneSak(id, tilbake) {
+  const l = app.leads.find((x) => x.id === id);
+  if (!l) return;
+  const k = l.kunde || {};
+  const p = l.produkt || {};
+  const temp = vindexTemperatur(l);
+  const ordrar = app.ordrar.filter((o) => o.leadId === l.id);
+  const logg = (l.logg || []).slice().reverse();
+
+  opneModal(
+    k.navn || "Sak",
+    `<div id="sakskort">
+      <div class="temp-linje">
+        <span class="temp temp-${temp.id}">${vindexTemperaturDef(temp.id).kort}</span>
+        <span class="hint">${vindexStatusNavn(l.status)} · mottatt ${datoTekst(l.opprettet)}
+          ${l.kilde ? "· " + l.kilde : ""}</span>
+      </div>
+
+      <dl class="datablad">
+        <div><dt>Kontakt</dt><dd>${
+          [k.telefon ? `<a href="tel:${String(k.telefon).replace(/\s/g, "")}">${k.telefon}</a>` : "", k.epost ? `<a href="mailto:${k.epost}">${k.epost}</a>` : ""]
+            .filter(Boolean)
+            .join("<br>") || "—"
+        }</dd></div>
+        <div><dt>Sted</dt><dd>${[k.adresse, [k.postnr, k.poststed].filter(Boolean).join(" ")].filter(Boolean).join("<br>") || "—"}</dd></div>
+        <div><dt>Produkt</dt><dd>${p.navn || "—"}${p.mengde ? `<br><span class="hint">${p.mengde} ${p.enhet || ""}</span>` : ""}</dd></div>
+        <div><dt>Ordrer</dt><dd>${ordrar.length || '<span class="hint">ingen</span>'}</dd></div>
+      </dl>
+
+      <h3 class="mt-2">Flytt saken</h3>
+      <div class="feltrutenett">
+        <div class="field brei"><label for="sakSeljar">Ansvarlig</label>
+          <select id="sakSeljar">
+            <option value=""${l.seljarId ? "" : " selected"}>— hovedkontoret / felles innboks —</option>
+            ${app.seljarar
+              .filter((s) => s.rolle !== "lager" && (!vindexErArkivert(s) || s.id === l.seljarId))
+              .map(
+                (s) => `<option value="${s.id}"${s.id === l.seljarId ? " selected" : ""}>${s.navn}${
+                  vindexErArkivert(s) ? " (arkivert)" : ""
+                }</option>`
+              )
+              .join("")}
+          </select>
+          <span class="hint">Selgeren mister saken fra listen sin med en gang, og den nye
+            får den. Byttet blir stående i historikken.</span></div>
+      </div>
+
+      <h3 class="mt-2">Historikk</h3>
+      ${
+        logg.length
+          ? `<ul class="logg">${logg
+              .slice(0, 12)
+              .map((h) => `<li><span class="hint">${datoTekst(h.tid)} · ${h.av}</span><br>${h.tekst}</li>`)
+              .join("")}</ul>`
+          : '<p class="hint">Ingenting logget ennå.</p>'
+      }
+      <p class="field-error hidden mt-1" id="sakFeil"></p>
+    </div>`,
+    `<button class="btn btn-ghost" id="sakTilbake">Tilbake</button>
+     <button class="btn btn-ghost" id="sakArkiver">${l.arkivert ? "Hent tilbake" : "Legg bort"}</button>
+     <button class="btn btn-accent" id="sakLagre">Lagre</button>`
+  );
+
+  $("#sakTilbake").addEventListener("click", () =>
+    tilbake ? opneSaksliste(tilbake.tittel, tilbake.leads, tilbake.undertekst) : lukkModal()
+  );
+  $("#sakLagre").addEventListener("click", () => flyttSak(l, $("#sakSeljar").value, tilbake));
+  $("#sakArkiver").addEventListener("click", () => vekslSaksarkiv(l, tilbake));
+}
+
+async function flyttSak(l, nySeljar, tilbake) {
+  const frA = app.seljarar.find((s) => s.id === l.seljarId);
+  const til = app.seljarar.find((s) => s.id === nySeljar);
+  if ((l.seljarId || "") === (nySeljar || "")) return lukkModal();
+
+  try {
+    await lagreLead(l, { seljarId: nySeljar || null }, [
+      `Flyttet fra ${frA ? frA.navn : "felles innboks"} til ${til ? til.navn : "hovedkontoret"} av ${app.brukar.navn}.`,
+    ]);
+    lukkModal();
+    teiknAlt();
+    melding(til ? `Saken er flyttet til ${til.navn}.` : "Saken ligger nå hos hovedkontoret.");
+  } catch (err) {
+    console.error(err);
+    const feil = $("#sakFeil");
+    if (feil) {
+      feil.textContent = "Kunne ikke lagre: " + err.message;
+      feil.classList.remove("hidden");
+    }
+  }
+}
+
+async function vekslSaksarkiv(l, tilbake) {
+  const bort = !l.arkivert;
+  if (bort && !confirm(
+    `Legge bort saken til ${(l.kunde || {}).navn || "kunden"}?\n\n` +
+    "Den forsvinner fra listene, men blir stående i arkivet og i statistikken. " +
+    "Du kan hente den tilbake."
+  )) return;
+
+  try {
+    await lagreLead(l, { arkivert: bort }, [
+      bort ? `Lagt bort av ${app.brukar.navn}.` : `Hentet tilbake av ${app.brukar.navn}.`,
+    ]);
+    lukkModal();
+    teiknAlt();
+    melding(bort ? "Saken er lagt bort." : "Saken er tilbake.");
+  } catch (err) {
+    console.error(err);
+    melding("Kunne ikke lagre: " + err.message);
+  }
 }
 
 // ---------------------------------------------------------------------------

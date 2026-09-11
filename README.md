@@ -899,6 +899,27 @@ sammenligning vet ingen om egne tall er gode.
 Alt regnes i `js/nokkeltal.js`, atskilt fra det som tegner panelene, slik at
 admin og selger aldri kan få to ulike svar på det samme spørsmålet.
 
+### Hovedkontoret kan gå inn i sakene
+
+Oversikten viste tall uten vei videre: «12 åpne saker i landet», og ingen måte å
+se hvilke tolv. **Et tall du ikke kan åpne er en påstand.**
+
+Nå er nøkkeltallsflisene og radene i selgertabellen innganger. Klikk «åpne saker
+i landet» eller «har ventet over tre døgn», eller klikk en selger, og du får
+listen — sortert etter hvor lenge kunden har ventet, ikke etter navn.
+
+Åpner du én sak, ser du kontakt, sted, produkt, ordrer og hele historikken, og
+du kan gjøre to ting med den:
+
+- **Flytte den** til en annen selger, eller til hovedkontoret / felles innboks.
+  Selgeren mister den fra listen sin med en gang, og byttet blir stående i
+  historikken med hvem som gjorde det.
+- **Legge den bort.** Den forsvinner fra listene, men blir stående i arkivet og
+  i statistikken, og kan hentes tilbake.
+
+Årsvelgeren på ordreinngangen viser bare år det finnes et tall for. 2023 sto der
+som en knapp til en tom side, og er borte til noen legger inn omsetning for det.
+
 ### Selgerkortet
 
 Under **Salgsapparatet** har hver selger og forhandler et kort som skal svare på
