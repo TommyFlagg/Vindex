@@ -2433,34 +2433,73 @@ function provisjonsrute(lead, rekna) {
   if (erAdmin() || erLager()) return "";
   // Ikke min kunde, ikke min provisjon.
   if (lead.seljarId && lead.seljarId !== app.brukar.uid) return "";
-  if (!rekna.gyldig) return "";
+  const harSprosser = ((lead.sprossetilbod || {}).rader || []).length > 0;
+  if (!rekna.gyldig && !harSprosser) return "";
 
-  const pr = vindexProvisjon(rekna);
+  const meg = app.seljarar.find((s) => s.id === app.brukar.uid) || app.brukar;
+  const pr = vindexProvisjon(rekna, meg);
   if (!pr) return "";
+  // Sprosser har sitt eige tilbod og ville elles falle heilt utanfor.
+  const sp = vindexSprosseprovisjon(lead.sprossetilbod, meg);
+
+  // Linjene som faktisk gir provisjon, samla per gruppe og rabattrinn. To
+  // sprosselinjer med same rabatt er éin sats, og skal stå som éi linje — det
+  // er satsen seljaren treng å sjå, ikkje kvar einskild vare.
+  const perSats = new Map();
+  pr.linjer
+    .filter((l) => l.prosent)
+    .forEach((l) => {
+      const nokkel = l.gruppeId + "|" + l.trinn;
+      const rad = perSats.get(nokkel) || {
+        navn: l.gruppenavn, trinn: l.trinn, prosent: l.prosent, netto: 0, sum: 0,
+      };
+      rad.netto += l.netto;
+      rad.sum += l.sum;
+      perSats.set(nokkel, rad);
+    });
 
   return `<details class="provisjon no-print mt-1">
     <summary>Din provisjon på dette salget</summary>
-    ${
-      pr.manglarSatsar
-        ? `<p class="hint mb-0">Provisjonssatsene er ikke lagt inn i verktøyet ennå, så
-             beløpet kan ikke regnes ut. Grunnlaget er klart:</p>`
-        : ""
-    }
     <div class="tilbodsum tilbodsum-liten mt-1">
-      <div><span>Materiell</span><span>${kr(pr.grunnlag.materiell)}</span></div>
-      ${pr.grunnlag.frakt ? `<div><span>Frakt</span><span>${kr(pr.grunnlag.frakt)}</span></div>` : ""}
-      ${pr.grunnlag.montering ? `<div><span>Montering</span><span>${kr(pr.grunnlag.montering)}</span></div>` : ""}
+      ${Array.from(perSats.values())
+        .sort((a, b) => b.sum - a.sum)
+        .map(
+          (r) => `<div><span>${r.navn}${
+            r.trinn ? ` · ${r.trinn} % rabatt` : " · listepris"
+          } <span class="hint">${r.prosent} % av ${kr(r.netto)}</span></span><span>${kr(r.sum)}</span></div>`
+        )
+        .join("")}
       ${
-        pr.manglarSatsar
-          ? `<div class="total"><span>Grunnlag</span><span>${kr(pr.grunnlag.total)}</span></div>`
-          : `${pr.delar
-               .map((d) => `<div><span>${d.navn} · ${d.prosent} %</span><span>${kr(d.sum)}</span></div>`)
-               .join("")}
-             <div class="total"><span>Provisjon</span><span>${kr(pr.sum)}</span></div>`
+        sp
+          ? `<div><span>Sprosser${sp.trinn ? ` · ${sp.trinn} % rabatt` : " · listepris"}
+               <span class="hint">${
+                 sp.manglarSats ? "mangler sats" : `${sp.prosent} % av ${kr(sp.netto)}`
+               }</span></span><span>${sp.manglarSats ? "–" : kr(sp.sum)}</span></div>`
+          : ""
       }
+      ${
+        pr.manglarSats
+          ? `<div><span class="tekst-warn">${pr.manglarSats} linje${
+              pr.manglarSats > 1 ? "r" : ""
+            } mangler sats <span class="hint">${kr(pr.manglarGrunnlag)} ikke regnet</span></span><span>–</span></div>`
+          : ""
+      }
+      ${
+        pr.grunnlag.utanProvisjon
+          ? `<div><span class="hint">Uten provisjon: glassklemmer, stålfot, hengsler og låser</span><span class="hint">${kr(
+              pr.grunnlag.utanProvisjon
+            )}</span></div>`
+          : ""
+      }
+      ${pr.grunnlag.frakt ? `<div><span class="hint">Frakt — ikke provisjonsgrunnlag</span><span class="hint">${kr(pr.grunnlag.frakt)}</span></div>` : ""}
+      ${pr.grunnlag.montering ? `<div><span class="hint">Montering — eget oppgjør</span><span class="hint">${kr(pr.grunnlag.montering)}</span></div>` : ""}
+      <div class="total"><span>Provisjon</span><span>${kr(pr.sum + (sp ? sp.sum : 0))}</span></div>
     </div>
-    <p class="hint mb-0">Vises bare for deg. Den følger ikke med i tilbudet, e-poster,
-      utskrifter eller noen rapport.</p>
+    <p class="hint mb-0">Satsen faller med rabatten du gir, og regnes av summen etter
+      rabatt — rabatt koster deg to ganger.${
+        pr.sjolvstendig ? " Satser for selvstendig forhandler." : ""
+      } Vises bare for deg, og følger ikke med i tilbudet, e-poster, utskrifter eller
+      noen rapport.</p>
   </details>`;
 }
 

@@ -975,6 +975,44 @@ leser — en kampanje er ingen personopplysning, men den forteller hva vi gir
 rabatt på, og det skal ikke ligge åpent på nettet. Logikken er i
 `js/kampanje.js`.
 
+### Provisjon
+
+Satsene ligger i `js/provisjon.js`, transkribert fra **«Provisjon selgere 2024»
+side 2**. Radene er rabatten som er gitt, kolonnene er om selgeren er ansatt
+eller selvstendig.
+
+**Satsen faller med rabatten, og det er hele poenget.** Gir du 20 % på sprosser,
+faller satsen fra 25,96 til 22,44 — og den regnes av en lavere sum også. Rabatt
+koster dermed to ganger. Derfor regnes provisjonen **per linje**, ikke på
+totalen: rabatten er gitt per linje med sin egen grense, og en totalregning
+ville brukt en sats som ikke gjelder for noen av dem.
+
+Selvstendig er nøyaktig ansatt × 1,275 i hele arket — kontrollert på alle 36
+tallpar. Faktoren ligger i filen som en sperre mot skrivefeil, ikke som en
+utregning; de trykte tallene står som de står. Én rute avviker: Seksjoner 30 %
+står som «20» der mønsteret gir 20,09. Det er arkets egen avrunding, og arket
+sier selv at «alle nevnte prosenter kan ha noe avvik».
+
+**Ingen provisjon** på glassklemmer, stålfot, veggfester, porthengsler, låser og
+frakt. Merk at det ikke er samme liste som artiklene uten rabatt: stålfot og
+hengsler er i begge, men glassklemmer og låser tåler rabatt uten å gi provisjon.
+
+**Sprosser regnes for seg.** De går ikke gjennom delelisten — de har sitt eget
+måleskjema og sitt eget tilbud — og ville falt helt utenfor hvis vi bare så på
+tilbudslinjene. Det ville vært en stille feilkilde på varegruppen med den
+høyeste satsen i hele arket.
+
+Tre utfall per linje, og forskjellen mellom dem er viktig: **unntatt** (null med
+vilje), **ukjent** (en fritt skrevet linje uten artikkelnummer — vises som
+«mangler sats», ikke som 0 kr), og **regnet**. En linje vi ikke klarer å
+plassere skal aldri se ut som en linje uten verdi.
+
+**Åpent spørsmål: kolonnen «Seksjoner».** I arket har den bare 30 % og 35 %
+utfylt; rutene fra listepris til 25 % står tomme. «Gjerde» er motsatt — utfylt
+til og med 25 %, tom på 30 og 35. Inntil det er avklart går alt som er rekkverk,
+gjerde, levegg og stakitt til **Gjerde**, som er den fullt utfylte kolonnen.
+Endres det, er `vindexProvisjonsgruppe()` det eneste stedet som skal røres.
+
 ### Kundeanmeldelser
 
 Stjernevurderingene står i sidelinjen på begge verktøyene. Selgeren ser sine
