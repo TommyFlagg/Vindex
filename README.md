@@ -1047,8 +1047,11 @@ ville prisen kunden fikk endret seg neste gang selgeren åpnet tilbudet sitt,
 fordi grensene da slo inn igjen — og kunden hadde fått et annet tall enn han ble
 lovet. Hvem som fravek, og på hvor mange linjer, står i historikken på saken.
 
-Provisjonstabellen stopper på 35 %. Gir daglig leder mer enn det, står linjen
-som «mangler sats» i stedet for å bli regnet etter en rad som ikke finnes.
+**Over 35 % rabatt er det ingen provisjon.** Det er en regel, ikke et hull i
+tabellen: rabatten har da spist opp det som skulle deles. Linjen vises som 0 kr
+med begrunnelsen ved siden av — ikke som «mangler sats», for selgeren skal se at
+det er avgjort og ikke uavklart. Forskjellen mellom «vi vet ikke» og «du får
+ingenting» er verdt å holde på.
 
 ### Kalenderen sier fra om krasj
 

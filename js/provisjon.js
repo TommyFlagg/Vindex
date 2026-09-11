@@ -168,16 +168,28 @@ function vindexProvisjonsgruppe(kode, gruppe, utforing) {
   return null;
 }
 
-/** Satsen for ei gruppe ved ein gitt rabatt, eller null om ruta står tom. */
+/**
+ * Satsen for ei gruppe ved ein gitt rabatt.
+ *
+ * Over 35 % er det ingen provisjon. Det er ein regel og ikkje eit hol i
+ * tabellen: rabatten har då ete opp det som skulle delast. Difor kjem det
+ * tilbake som null prosent med ei grunngjeving, og ikkje som «mangler sats» —
+ * seljaren skal sjå at det er avgjort, ikkje at det er uavklart.
+ */
 function vindexProvisjonssats(gruppeId, rabattProsent, sjolvstendig) {
   const g = VINDEX_PROVISJONSTABELL.grupper[gruppeId];
   if (!g) return null;
+
+  const trinn = VINDEX_PROVISJONSTABELL.trinn;
+  const rabatt = rabattProsent || 0;
+  const siste = trinn[trinn.length - 1];
+  if (rabatt > siste) return { prosent: 0, trinn: null, overTabellen: true, grense: siste };
+
   // Rabatten treff sjeldan eit trinn på øret. Vi legg oss på trinnet under —
   // 17 % gir satsen for 15 %, ikkje for 20 %. Å runde oppover ville lova
   // seljaren meir enn arket seier.
-  const trinn = VINDEX_PROVISJONSTABELL.trinn;
   let i = 0;
-  for (let n = 0; n < trinn.length; n++) if (trinn[n] <= (rabattProsent || 0)) i = n;
+  for (let n = 0; n < trinn.length; n++) if (trinn[n] <= rabatt) i = n;
   const rad = sjolvstendig ? g.selvstendig : g.ansatt;
   return rad[i] === null || rad[i] === undefined ? null : { prosent: rad[i], trinn: trinn[i] };
 }
@@ -212,6 +224,17 @@ function vindexProvisjon(rekna, seljar) {
 
     const sats = vindexProvisjonssats(gruppeId, l.rabattProsent, sjolvstendig);
     if (!sats) return { ...l, netto, gruppeId, manglarSats: true, sum: 0 };
+    if (sats.overTabellen)
+      return {
+        ...l,
+        netto,
+        gruppeId,
+        gruppenavn: VINDEX_PROVISJONSTABELL.grupper[gruppeId].navn,
+        overTabellen: true,
+        grense: sats.grense,
+        prosent: 0,
+        sum: 0,
+      };
     return {
       ...l,
       netto,
@@ -234,6 +257,7 @@ function vindexProvisjon(rekna, seljar) {
   grunnlag.total = grunnlag.materiell + grunnlag.utanProvisjon + grunnlag.frakt + grunnlag.montering;
 
   const urekna = linjer.filter((l) => l.manglarSats || l.ukjent);
+  const overTabellen = linjer.filter((l) => l.overTabellen);
   return {
     grunnlag,
     linjer,
@@ -241,6 +265,8 @@ function vindexProvisjon(rekna, seljar) {
     manglarSats: urekna.length,
     manglarGrunnlag: urekna.reduce((n, l) => n + l.netto, 0),
     ukjente: linjer.filter((l) => l.ukjent).length,
+    overTabellen: overTabellen.length,
+    overTabellenGrunnlag: overTabellen.reduce((n, l) => n + l.netto, 0),
     sum: linjer.reduce((n, l) => n + l.sum, 0),
   };
 }

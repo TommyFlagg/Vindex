@@ -2527,6 +2527,15 @@ function provisjonsrute(lead, rekna) {
           : ""
       }
       ${
+        pr.overTabellen
+          ? `<div><span class="tekst-warn">${pr.overTabellen} linje${
+              pr.overTabellen > 1 ? "r" : ""
+            } over 35 % rabatt <span class="hint">gir ingen provisjon · ${kr(
+              pr.overTabellenGrunnlag
+            )}</span></span><span>0 kr</span></div>`
+          : ""
+      }
+      ${
         pr.manglarSats
           ? `<div><span class="tekst-warn">${pr.manglarSats} linje${
               pr.manglarSats > 1 ? "r" : ""
@@ -2545,7 +2554,7 @@ function provisjonsrute(lead, rekna) {
       <div class="total"><span>Provisjon</span><span>${kr(pr.sum + (sp ? sp.sum : 0))}</span></div>
     </div>
     <p class="hint mb-0">Satsen faller med rabatten du gir, og regnes av summen etter
-      rabatt — rabatt koster deg to ganger.${
+      rabatt — rabatt koster deg to ganger. Over 35 % er det ingen provisjon.${
         pr.sjolvstendig ? " Satser for selvstendig forhandler." : ""
       } Vises bare for deg, og følger ikke med i tilbudet, e-poster, utskrifter eller
       noen rapport.</p>
