@@ -343,7 +343,21 @@ function vindexRegnFrakt(f = {}) {
  * Linjene blir ståande sjølv om fastprisen overstyrer summen, så kunden ser kva
  * som inngår. Differansen blir vist som avslag, ikkje gøymd.
  */
-function vindexRegnTilbod(tilbod = {}) {
+/**
+ * Rabattgrensene kan hevast, men berre av daglig leder.
+ *
+ * Ein seljar kjem ikkje over 25 % på ein produsert seksjon. Skal det gjerast
+ * likevel, går saka om «Involver daglig leder» — og då er det han som set
+ * rabatten, ikkje seljaren.
+ *
+ * Fråviket blir lagra på sjølve tilbodet og ikkje avgjort av kven som ser på
+ * det. Utan det ville prisen kunden fekk endra seg neste gong seljaren opna
+ * tilbodet sitt, fordi grensene då slo inn igjen.
+ */
+const vindexUtanGrenser = (tilbod, val) =>
+  !!(val && val.utanGrenser) || !!(tilbod && tilbod.utanGrenser);
+
+function vindexRegnTilbod(tilbod = {}, val = {}) {
   const linjer = (tilbod.linjer || []).map((l) => {
     const antall = parseFloat(l.antall) || 0;
     // Kva lista seier, ved sida av kva seljaren har skrive. Er linja henta frå
@@ -367,7 +381,13 @@ function vindexRegnTilbod(tilbod = {}) {
       frittSett: listepris == null,
       // Utføringa avgjer rabattgrensa: ein standardseksjon frå hylla toler 35 %,
       // den same modellen kappa etter mål toler 25 %.
-      maksRabatt: typeof vindexMaksRabatt === "function" ? vindexMaksRabatt(l.kode, l.utforing) : 100,
+      maksRabatt: vindexUtanGrenser(tilbod, val)
+        ? 100
+        : typeof vindexMaksRabatt === "function"
+        ? vindexMaksRabatt(l.kode, l.utforing)
+        : 100,
+      // Kva grensa ville vore. Brukt til å seie frå om kor mykje som er fråveke.
+      normalGrense: typeof vindexMaksRabatt === "function" ? vindexMaksRabatt(l.kode, l.utforing) : 100,
       // Løpemeter, uansett korleis linja er selt. Standardlinjer er talde i
       // seksjonar, og då er meterane seksjonar × lengd.
       meter: l.seksjonslengd ? (antall * l.seksjonslengd) / 1000 : null,
@@ -442,6 +462,9 @@ function vindexRegnTilbod(tilbod = {}) {
     maksRabattKr,
     rabattAvkorta,
     avkortaLinjer,
+    // Er grensene fråvekne, og kor mange linjer ligg over si eigen grense?
+    utanGrenser: vindexUtanGrenser(tilbod, val),
+    overGrense: linjer.filter((l) => l.navn && l.rabattProsent > l.normalGrense).length,
     fastprisRabatt,
     fastprisOverGrensa: harFastpris && fastprisRabatt > maksRabattKr,
     sum: prosjekt + montering.sum + frakt.sum,

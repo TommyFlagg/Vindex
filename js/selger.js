@@ -835,7 +835,7 @@ function visDetalj(id) {
 
   const t = l.tilbud || {};
   const temp = vindexTemperatur(l);
-  const rekna = vindexRegnTilbod(t);
+  const rekna = vindexRegnTilbod(t, tilbodskontekst());
 
   // Kampanjane som gjeld akkurat denne kunden. Ein kampanje seljaren må hugse
   // å slå opp, er ein kampanje som ikkje blir seld — difor står den her, på
@@ -3091,7 +3091,22 @@ function tilbodsumHtml(r) {
  * En rabatt som stilltiende ble kappet er verre enn ingen rabatt: selgeren tror
  * han har gitt 40 %, kunden har fått 25, og ingen av dem vet det.
  */
+/**
+ * Konteksten tilbodet blir rekna i.
+ *
+ * Daglig leder er ikkje bunden av rabattgrensene. Ein seljar er det, og skal
+ * gå vegen om «Involver daglig leder» når han vil lenger.
+ */
+const tilbodskontekst = () => ({ utanGrenser: erAdmin() });
+
 function rabattvarselHtml(r) {
+  // Er grensene fråvekne, er det ikkje eit varsel lenger — det er ei
+  // opplysning om kven som har opna for det, og den skal stå tydeleg.
+  if (r.utanGrenser || r.overGrense)
+    return `<div><span class="hint" style="grid-column:1/-1">Rabattgrensene er fraveket${
+      r.overGrense ? ` på ${r.overGrense} linje${r.overGrense > 1 ? "r" : ""}` : ""
+    }. Det er daglig leder som kan gjøre det, og det står i historikken på saken.</span></div>`;
+
   const bitar = [];
   if (r.avkortaLinjer)
     bitar.push(`${r.avkortaLinjer} linje${r.avkortaLinjer > 1 ? "r" : ""} tåler mindre rabatt enn du ba om`);
@@ -3102,12 +3117,13 @@ function rabattvarselHtml(r) {
   if (!bitar.length) return "";
   return `<div><span class="hint" style="grid-column:1/-1">⚠︎ ${
     bitar.join(". ")
-  }. Grensene er 25 % på produserte seksjoner, 35 % på standard, 40 % på lys og strøm, og 0 % på stålfot, stolpefester og porthengsler.</span></div>`;
+  }. Grensene er 25 % på produserte seksjoner, 35 % på standard, 40 % på lys og strøm, og 0 % på stålfot, stolpefester og porthengsler.
+    Trenger kunden mer, er det <strong>Involver daglig leder</strong> som åpner for det — han er ikke bundet av grensene.</span></div>`;
 }
 
 function teiknTilbodsdialog(lead) {
   const u = tilbodsutkast;
-  const r = vindexRegnTilbod(u);
+  const r = vindexRegnTilbod(u, tilbodskontekst());
 
   const rader = u.linjer
     .map(
@@ -3298,7 +3314,7 @@ function teiknTilbodsdialog(lead) {
    * summane bytta ut.
    */
   const oppdaterSummar = () => {
-    const rekna = vindexRegnTilbod(u);
+    const rekna = vindexRegnTilbod(u, tilbodskontekst());
     rekna.linjer.forEach((l, i) => {
       const celle = document.querySelector(`tr[data-linje="${i}"] .linjesum`);
       if (celle) celle.textContent = kr(l.sum);
@@ -3419,7 +3435,7 @@ function teiknTilbodsdialog(lead) {
   $("#tbAvbryt").addEventListener("click", lukkModal);
   $("#tbLagre").addEventListener("click", async () => {
     les();
-    const rekna = vindexRegnTilbod(u);
+    const rekna = vindexRegnTilbod(u, tilbodskontekst());
     if (!rekna.gyldig) return melding("Legg inn minst én linje med pris, eller en fast pris for materiellet.", "warn");
 
     const tilbud = {
@@ -3441,11 +3457,29 @@ function teiknTilbodsdialog(lead) {
       sum: rekna.sum,
       dato: new Date().toISOString(),
       av: app.brukar.navn,
+      // Har daglig leder gått over grensene, blir det lagra på tilbodet og
+      // ikkje avgjort av kven som ser på det. Elles ville prisen kunden fekk
+      // endra seg neste gong seljaren opna tilbodet sitt, fordi grensene då
+      // slo inn igjen — og kunden hadde fått eit anna tal enn han vart lova.
+      ...(rekna.overGrense
+        ? {
+            utanGrenser: true,
+            grenserFraveketAv: app.brukar.navn,
+            grenserFraveketDato: new Date().toISOString(),
+          }
+        : {}),
     };
     await lagreLead(lead, { tilbud }, [
       `Tilbud satt opp: ${kr(rekna.sum)}${rekna.harFastpris ? " (fast materiellpris)" : ""}, ${
         tilbud.linjer.length
       } linjer. Ikke delt med kunden ennå.`,
+      // Eit fråvik frå rabattgrensene skal stå i historikken med namn på seg.
+      // Det er den einaste staden nokon kan sjå kvifor prisen er som den er.
+      rekna.overGrense
+        ? `Rabattgrensene fraveket på ${rekna.overGrense} linje${
+            rekna.overGrense > 1 ? "r" : ""
+          } av ${app.brukar.navn}.`
+        : "",
     ]);
     // Tilbodet er lagra på leadet no — utkastet har gjort jobben sin.
     slettKladd(tilbodskladdnokkel(lead));
@@ -3459,7 +3493,7 @@ function teiknTilbodsdialog(lead) {
 /** Tilbodet slik kunden ser det — utskriftsvenleg. */
 function tilbodsHtml(lead) {
   const t = lead.tilbud || {};
-  const r = vindexRegnTilbod(t);
+  const r = vindexRegnTilbod(t, tilbodskontekst());
   const k = lead.kunde || {};
   const seljar = app.seljarar.find((s) => s.id === lead.seljarId) || app.brukar;
 
@@ -3576,7 +3610,7 @@ function visTilbodsvindu(lead) {
  */
 async function delTilbod(lead) {
   const t = lead.tilbud || {};
-  const r = vindexRegnTilbod(t);
+  const r = vindexRegnTilbod(t, tilbodskontekst());
   const k = lead.kunde || {};
 
   opneModal(
@@ -3625,7 +3659,7 @@ async function delTilbod(lead) {
 /** Kunden sa ja: gå rett til ordreseddelen med delelista som utgangspunkt. */
 function akseptertTilbod(lead) {
   const t = lead.tilbud || {};
-  const r = vindexRegnTilbod(t);
+  const r = vindexRegnTilbod(t, tilbodskontekst());
   const skjema = vindexSkjemaFor((lead.produkt || {}).id);
 
   // Delelista blir lest om til felt på ordreseddelen med ein gong, slik at

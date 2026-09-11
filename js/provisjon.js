@@ -67,11 +67,18 @@ const VINDEX_PROVISJONSTABELL = {
     },
     seksjonar: {
       navn: "Seksjoner",
-      // Arket har berre 30 % og 35 % utfylt for denne. Rutene over står tomme,
-      // og eg har ikkje fylt dei ut sjølv — ein gjetta provisjonssats er verre
-      // enn ingen, fordi seljaren planlegg etter talet.
-      ansatt: [null, null, null, null, null, null, 15.76, 13.9],
-      selvstendig: [null, null, null, null, null, null, 20, 17.7],
+      // Standardseksjonen følgjer spesialkurva heilt til 25 %, og held så fram
+      // på sine eigne to trinn. Arket hadde berre dei to siste utfylte; resten
+      // er henta frå «Gjerde» etter avklaring — same vare, same listepris, og
+      // provisjonen skal ikkje sprette når rabatten er den same.
+      //
+      // Kurva er kontrollert monotont fallande heile vegen:
+      //   22,25 · 21,32 · 20,29 · 19,13 · 17,83 · 16,35 · 15,76 · 13,90
+      // Fallet flatar ut på 30 % (−0,59 mot −1,48 trinnet før). Det er med
+      // vilje: standardseksjonen er billegare å klargjere, så det står meir att
+      // å dele når rabatten blir djup.
+      ansatt: [22.25, 21.32, 20.29, 19.13, 17.83, 16.35, 15.76, 13.9],
+      selvstendig: [28.35, 27.19, 25.87, 24.39, 22.72, 20.85, 20, 17.7],
     },
     varmepumpehus: {
       navn: "Varm.p.hus",
@@ -120,20 +127,22 @@ const VINDEX_UTAN_PROVISJON = [
  * levere den same varen på, og dei har same listepris:
  *
  *   Seksjoner  Standard mål, ferdig kappa, på lager. Kunden tilpassar sjølv,
- *              og vi berre plukkar og sender. Difor betre rabatt — og difor
- *              står 30 % og 35 % utfylt i den kolonnen.
+ *              og vi berre plukkar og sender. Difor kan rabatten gå til 35 %.
  *   Gjerde     Spesial, produsert etter mål. Kø og tid i produksjonen gjer
- *              dei dyrare å klargjere, og rabatten stoppar på 25 %. Difor er
- *              den kolonnen utfylt til og med 25 % og tom over.
+ *              dei dyrare å klargjere, og rabatten stoppar på 25 %.
+ *
+ * Satsen er den same på dei seks første trinna. Det er same vare til same
+ * listepris, og provisjonen skal ikkje sprette fordi seljaren tok den eine
+ * eller den andre. Skilnaden ligg i taket: standard kan halde fram til 35 %,
+ * spesialen kan ikkje.
  *
  * Skiljet ligg altså i utføringa på linja, ikkje i varegruppa — den same
  * plassen som alt avgjer rabattgrensa. `utforing` er "maal" for produsert og
  * ein standardlengd ("std-1800") for lagervare.
  *
- *  ⚠️  Éin rute manglar framleis: ein standardseksjon selt med mindre enn
- *     30 % rabatt. Arket har ingen sats der, og gjerde-kolonnen gjeld ei anna
- *     kostnadsbase. Slike linjer blir difor merkte «mangler sats» i staden for
- *     å bli rekna etter feil kolonne.
+ * Dei tomme rutene på 30 og 35 % i gjerde-kolonnen er ikkje hol — dei er
+ * uråd å nå. Rabattgrensa kappar ei produsert linje på 25 % før satsen blir
+ * slått opp, så ein spesial kan aldri hamne der.
  */
 function vindexProvisjonsgruppe(kode, gruppe, utforing) {
   if (VINDEX_UTAN_PROVISJON.includes(String(kode))) return "utan";

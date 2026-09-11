@@ -1019,10 +1019,36 @@ Skillet ligger derfor i **utførelsen på linjen**, ikke i varegruppen — samme
 som allerede avgjør rabattgrensen. Det forklarer også hvorfor arket er utfylt
 som det er: Gjerde til og med 25 %, Seksjoner fra 30 %.
 
-**Én rute mangler fortsatt:** en standardseksjon solgt med mindre enn 30 %
-rabatt. Arket har ingen sats der, og Gjerde-kolonnen gjelder en annen
-kostnadsbase. Slike linjer merkes «mangler sats» i stedet for å regnes etter
-feil kolonne.
+**Satsen er den samme på de seks første trinnene.** Det er samme vare til samme
+listepris, og provisjonen skal ikke sprette fordi selgeren tok den ene eller den
+andre. Forskjellen ligger i taket: standard kan fortsette til 35 %, spesialen
+kan ikke. Kurven for standard blir dermed sammenhengende og monotont fallende:
+
+```
+ 0 %    5 %   10 %   15 %   20 %   25 %   30 %   35 %
+22,25  21,32  20,29  19,13  17,83  16,35  15,76  13,90
+```
+
+Fallet flater ut på 30 % (−0,59 mot −1,48 trinnet før). Det er ikke en feil:
+standardseksjonen er billigere å klargjøre, så det står mer igjen å dele når
+rabatten blir dyp.
+
+De tomme rutene på 30 og 35 % i Gjerde-kolonnen er ikke hull — de er umulige å
+nå. Rabattgrensen kapper en produsert linje på 25 % før satsen slås opp.
+
+### Daglig leder er ikke bundet av grensene
+
+En selger kommer ikke over 25 % på en produsert seksjon. Skal det gjøres
+likevel, går saken om **Involver daglig leder** — og da er det han som setter
+rabatten. Varselet selgeren får når han treffer taket sier det selv.
+
+Fraviket lagres **på tilbudet**, ikke avgjort av hvem som ser på det. Uten det
+ville prisen kunden fikk endret seg neste gang selgeren åpnet tilbudet sitt,
+fordi grensene da slo inn igjen — og kunden hadde fått et annet tall enn han ble
+lovet. Hvem som fravek, og på hvor mange linjer, står i historikken på saken.
+
+Provisjonstabellen stopper på 35 %. Gir daglig leder mer enn det, står linjen
+som «mangler sats» i stedet for å bli regnet etter en rad som ikke finnes.
 
 ### Kalenderen sier fra om krasj
 
