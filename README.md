@@ -1047,6 +1047,16 @@ ville prisen kunden fikk endret seg neste gang selgeren åpnet tilbudet sitt,
 fordi grensene da slo inn igjen — og kunden hadde fått et annet tall enn han ble
 lovet. Hvem som fravek, og på hvor mange linjer, står i historikken på saken.
 
+**Hvem ser den:** selgeren som står som ansvarlig på saken, uansett rolle. En
+daglig leder som selv eier en sak har provisjon på den som alle andre, og skal
+se sin egen; det som er stengt er å se andres. Lageret har ingen kunder og
+dermed ingen boks. Ruten er `no-print` og følger ikke med i tilbudet, e-poster
+eller noen rapport.
+
+Boksen står på **kundekortet**, i Tilbud-seksjonen — sammenklappet, rett over
+«Rediger tilbudet». Ikke inne i delelisten: den hører til salget, ikke til
+redigeringen av det.
+
 **Over 35 % rabatt er det ingen provisjon.** Det er en regel, ikke et hull i
 tabellen: rabatten har da spist opp det som skulle deles. Linjen vises som 0 kr
 med begrunnelsen ved siden av — ikke som «mangler sats», for selgeren skal se at

@@ -2479,9 +2479,13 @@ const tilbodskladdnokkel = (lead) => "tilbod:" + lead.id;
  * er ruta bygd for å forsvinne i alle de tilfellene, ikke bare se diskret ut.
  */
 function provisjonsrute(lead, rekna) {
-  if (erAdmin() || erLager()) return "";
-  // Ikke min kunde, ikke min provisjon.
-  if (lead.seljarId && lead.seljarId !== app.brukar.uid) return "";
+  // Lageret har ingen kundar og dermed ingen provisjon.
+  if (erLager()) return "";
+  // Ikkje min kunde, ikkje min provisjon. Denne eine linja gjer heile jobben,
+  // og ho gjeld uansett rolle: ein daglig leder som står som ansvarleg seljar
+  // har provisjon på saka som alle andre, og skal sjå si eiga. Det som skal
+  // vere stengt er å sjå andre sin — og det er akkurat det ho stenger.
+  if (lead.seljarId !== app.brukar.uid) return "";
   const harSprosser = ((lead.sprossetilbod || {}).rader || []).length > 0;
   if (!rekna.gyldig && !harSprosser) return "";
 
