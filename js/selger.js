@@ -972,6 +972,13 @@ function visDetalj(id) {
       ${provisjonsrute(l, rekna)}
       <div class="btn-row mt-1 no-print">
         <button class="btn btn-sm" id="opneTilbod">${rekna.gyldig ? "Rediger tilbudet" : "Sett opp deleliste"}</button>
+        ${
+          samlaDelar(l).length > 1
+            ? `<button class="btn btn-sm btn-accent" id="samlaTilbod">Samlet tilbud (${
+                samlaDelar(l).length
+              } deler)</button>`
+            : ""
+        }
         <button class="btn btn-sm btn-ghost" id="opneTerrasse">${
           (l.terrassetilbod || {}).pakker ? "Rediger terrassetilbudet" : "Terrassetilbud"
         }</button>
@@ -1229,6 +1236,9 @@ function koplaDetalj(l) {
 
   const terrasseknapp = $("#opneTerrasse");
   if (terrasseknapp) terrasseknapp.addEventListener("click", () => opneTerrassetilbod(l));
+
+  const samlaknapp = $("#samlaTilbod");
+  if (samlaknapp) samlaknapp.addEventListener("click", () => visSamlaTilbod(l));
 
   const apneSkjema = $("#apneSkjema");
   if (apneSkjema) apneSkjema.addEventListener("click", () => opneOrdreskjema(l));
@@ -3901,6 +3911,171 @@ function totaletikett(r) {
   if (r.montering.oppgitt && !r.montering.etterAvtale) med.push("montering");
   if (!med.length) return "Avtalt pris";
   return "Avtalt pris, inkludert " + med.join(" og ");
+}
+
+// ---------------------------------------------------------------------------
+// Samla tilbod
+// ---------------------------------------------------------------------------
+// Ein kunde som skal ha rekkverk, sprosser og terrassegulv har tre tilbod i
+// verktøyet og skal ha eitt ark i handa. Dette er det arket.
+//
+// Dei tre blir ikkje slegne saman i datamodellen, og det er med vilje: dei blir
+// rekna på heilt ulike måtar — rekkverket per linje med rabatt og grenser,
+// sprossene av ein rutetabell, terrassegulvet av pakker. Å tvinge dei inn i
+// same form ville øydelagt alle tre. Dei står difor som kvar sin bolk med si
+// eiga sum, og blir lagde saman til slutt.
+//
+// Frakta står som tre linjer, ikkje ei. Kvar varegruppe har si eiga frakttabell,
+// og vi slår dei ikkje saman på eige initiativ — det er ei prissak, ikkje ei
+// utrekningssak.
+
+/** Kva tilbod finst på denne kunden? */
+function samlaDelar(lead) {
+  const delar = [];
+
+  const t = lead.tilbud || {};
+  const r = vindexRegnTilbod(t, tilbodskontekst());
+  if (r.gyldig)
+    delar.push({
+      id: "deleliste",
+      tittel: "Rekkverk, gjerde og levegg",
+      linjer: r.linjer.filter((l) => l.navn).map((l) => ({
+        navn: l.navn, antall: l.antall, enhet: l.enhet, sum: l.sum,
+      })),
+      materiell: r.prosjekt,
+      rabatt: r.rabattKr,
+      linjesum: r.linjesum,
+      frakt: r.frakt.oppgitt && !r.frakt.hentesSjolv && !r.frakt.utanforTabellen ? r.frakt.sum : 0,
+      fraktMerknad: r.frakt.hentesSjolv ? "Kunden henter selv" : r.frakt.utanforTabellen ? "Avtales" : "",
+      montering: r.montering.oppgitt && !r.montering.etterAvtale ? r.montering.sum : 0,
+      monteringEtterAvtale: !!(r.montering.oppgitt && r.montering.etterAvtale),
+      visLinjeprisar: r.visLinjeprisar,
+    });
+
+  const sp = lead.sprossetilbod || {};
+  if ((sp.rader || []).length) {
+    const s = vindexSprossesum(sp.rader);
+    const frakt = vindexFraktSprosser(s.stk);
+    delar.push({
+      id: "sprosser",
+      tittel: "Sprosser",
+      linjer: [{ navn: `Sprosser etter måleskjema`, antall: s.stk, enhet: "stk", sum: s.sum }],
+      materiell: s.sum,
+      frakt: frakt ? frakt.inkl : 0,
+      uavklart: s.uavklart,
+      visLinjeprisar: true,
+    });
+  }
+
+  const te = lead.terrassetilbod || {};
+  if ((te.linjer || []).length)
+    delar.push({
+      id: "terrasse",
+      tittel: "Terrassegulv",
+      linjer: te.linjer.map((l) => ({ navn: l.navn, antall: l.antall, enhet: l.enhet, sum: l.sum })),
+      materiell: te.linjer.reduce((n, l) => n + l.sum, 0),
+      frakt: (vindexTerrassefrakt(te.pakker) || {}).pris || 0,
+      fraktMerknad: (vindexTerrassefrakt(te.pakker) || {}).utanforTabellen ? "Over 25 pakker — avtales" : "",
+      visLinjeprisar: true,
+    });
+
+  return delar;
+}
+
+function samlaTilbodHtml(lead) {
+  const delar = samlaDelar(lead);
+  const k = lead.kunde || {};
+  const seljar = app.seljarar.find((s) => s.id === lead.seljarId) || app.brukar;
+
+  const materiell = delar.reduce((n, d) => n + d.materiell, 0);
+  const frakt = delar.reduce((n, d) => n + d.frakt, 0);
+  const montering = delar.reduce((n, d) => n + (d.montering || 0), 0);
+  const total = materiell + frakt + montering;
+  const etterAvtale = delar.some((d) => d.monteringEtterAvtale);
+
+  return `<div class="tilbodsark">
+    <p class="hint mb-0">${VINDEX_FIRMA.navn} · ${VINDEX_FIRMA.adresse || ""} · ${VINDEX_FIRMA.telefon}</p>
+    <h3 class="mt-1">Tilbud til ${k.navn || "kunde"}</h3>
+    <p class="hint">${[k.adresse, k.postnr, k.poststed].filter(Boolean).join(", ")}
+      · ${new Date().toLocaleDateString("nb-NO")}</p>
+
+    ${delar
+      .map(
+        (d) => `<h4 class="mt-2">${d.tittel}</h4>
+          <table class="data">
+            <thead><tr><th>Beskrivelse</th><th>Antall</th>${
+              d.visLinjeprisar ? "<th>Sum</th>" : ""
+            }</tr></thead>
+            <tbody>${d.linjer
+              .map(
+                (l) => `<tr><td>${l.navn}</td><td>${l.antall} ${l.enhet || ""}</td>${
+                  d.visLinjeprisar ? `<td>${kr(l.sum)}</td>` : ""
+                }</tr>`
+              )
+              .join("")}</tbody>
+          </table>
+          <div class="tilbodsum tilbodsum-liten">
+            ${
+              d.rabatt
+                ? `<div><span>Sum etter prisliste</span><span>${kr(d.linjesum)}</span></div>
+                   <div><span>Rabatt</span><span>− ${kr(d.rabatt)}</span></div>`
+                : ""
+            }
+            <div><span>Materiell</span><span>${kr(d.materiell)}</span></div>
+            ${
+              d.frakt
+                ? `<div><span>Frakt</span><span>${kr(d.frakt)}</span></div>`
+                : d.fraktMerknad
+                ? `<div><span>Frakt</span><span>${d.fraktMerknad}</span></div>`
+                : ""
+            }
+            ${d.montering ? `<div><span>Montering og reise</span><span>${kr(d.montering)}</span></div>` : ""}
+            ${
+              d.uavklart
+                ? `<div><span class="hint">${d.uavklart} linje${
+                    d.uavklart > 1 ? "r" : ""
+                  } må prises manuelt</span><span></span></div>`
+                : ""
+            }
+          </div>`
+      )
+      .join("")}
+
+    <h4 class="mt-2">Til sammen</h4>
+    <div class="tilbodsum">
+      <div><span>Materiell</span><span>${kr(materiell)}</span></div>
+      ${
+        frakt
+          ? `<div><span>Frakt — ${delar.filter((d) => d.frakt).length} forsendelser</span><span>${kr(frakt)}</span></div>`
+          : ""
+      }
+      ${montering ? `<div><span>Montering og reise</span><span>${kr(montering)}</span></div>` : ""}
+      <div class="total"><span>Avtalt pris</span><span>${kr(total)}</span></div>
+    </div>
+    <p class="hint mt-1">${VINDEX_PRISLISTE.mvaTekst} Sum uten mva: ${kr(vindexEksMva(total))}.${
+      VINDEX_FIRMA.garantiAr ? " " + VINDEX_FIRMA.garantiAr + " års garanti." : ""
+    }</p>
+    ${
+      delar.filter((d) => d.frakt).length > 1
+        ? `<p class="hint">Hver varegruppe sendes fra sin egen produksjon og har egen frakt.</p>`
+        : ""
+    }
+    ${etterAvtale ? `<p class="hint">Montering og reise avtales særskilt og kommer i tillegg.</p>` : ""}
+    <p class="mt-2">Med vennlig hilsen<br><strong>${seljar.navn}</strong><br>
+      ${seljar.telefon || ""} ${seljar.epost ? "· " + seljar.epost : ""}</p>
+  </div>`;
+}
+
+function visSamlaTilbod(lead) {
+  const delar = samlaDelar(lead);
+  opneModal(
+    "Samlet tilbud — " + delar.length + " deler",
+    samlaTilbodHtml(lead),
+    `<button class="btn btn-ghost" id="stLukk">Lukk</button>
+     <button class="btn" id="stSkrivUt">Skriv ut / lagre som PDF</button>`
+  );
+  $("#stLukk").addEventListener("click", lukkModal);
+  $("#stSkrivUt").addEventListener("click", () => window.print());
 }
 
 function visTilbodsvindu(lead) {

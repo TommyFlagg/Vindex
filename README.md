@@ -1109,6 +1109,22 @@ og da vises det som et tall noen må hente inn — ikke som null kroner.
 Logikken ligger i `js/terrasse.js`. Priser fra «Terrassegulv 2026», gjeldende fra
 01.03.2026, inkl. 25 % mva.
 
+### Samlet tilbud
+
+En kunde som skal ha rekkverk, sprosser og terrassegulv har tre tilbud i
+verktøyet og skal ha **ett ark i hånden**. Knappen «Samlet tilbud» dukker opp på
+kundekortet så snart det finnes mer enn én del.
+
+**De tre slås ikke sammen i datamodellen**, og det er med vilje: de regnes på
+helt ulike måter — rekkverket per linje med rabatt og grenser, sprossene av en
+rutetabell, terrassegulvet av pakker. Å tvinge dem inn i samme form ville
+ødelagt alle tre. De står som hver sin bolk med sin egen sum, og legges sammen
+til slutt.
+
+**Frakten står som tre linjer, ikke én.** Hver varegruppe har sin egen
+frakttabell og sendes fra sin egen produksjon. Arket sier det til kunden, så
+summen ikke ser ut som en feil.
+
 ### Kalenderen sier fra om krasj
 
 Avtaler er gruppert per dag under **Kalender**, og «Legg i telefonkalender»
