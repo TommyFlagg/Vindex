@@ -18,21 +18,35 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    function seljarDok() {
+      return firestore.get(/databases/(default)/documents/sellers/$(request.auth.uid)).data;
+    }
+
+    // Same krav som i firestore.rules: ein arkivert person har slutta og skal
+    // ikkje kome inn. Utan denne sto vedlegga opne for alle med eit gyldig
+    // passord, sjølv etter at Firestore hadde stengt dei ute — teikningar og
+    // bilete av kundane sine hus, altså.
+    function erSeljar() {
+      return innlogga()
+             && firestore.exists(/databases/(default)/documents/sellers/$(request.auth.uid))
+             && seljarDok().get('arkivert', false) != true;
+    }
+
     function rolle() {
-      return firestore.get(/databases/(default)/documents/sellers/$(request.auth.uid)).data.rolle;
+      return seljarDok().rolle;
     }
 
     function erAdmin() {
-      return innlogga() && rolle() == 'admin';
+      return erSeljar() && rolle() == 'admin';
     }
 
     function erLager() {
-      return innlogga() && rolle() == 'lager';
+      return erSeljar() && rolle() == 'lager';
     }
 
     // Vedlegg til ordrar.
     //
-    // Lesing: alle innlogga i apparatet. Lageret må sjå skissa for å plukke
+    // Lesing: alle aktive i apparatet. Lageret må sjå skissa for å plukke
     // rett, produksjonen for å lage rett, seljaren for å kontrollere.
     // Kunden er ikkje innlogga og kjem ikkje til.
     //
@@ -41,8 +55,8 @@ service firebase.storage {
     // Sletting: berre admin. Ei skisse som forsvinn etter at ordren er sett i
     // produksjon, er ei skisse ingen kan gå tilbake til.
     match /ordrar/{ordreId}/{fil} {
-      allow read: if innlogga();
-      allow write: if innlogga() && !erLager()
+      allow read: if erSeljar();
+      allow write: if erSeljar() && !erLager()
                    && request.resource.size < 15 * 1024 * 1024
                    && (request.resource.contentType.matches('image/.*')
                        || request.resource.contentType == 'application/pdf');

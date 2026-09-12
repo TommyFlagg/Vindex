@@ -54,11 +54,14 @@ service cloud.firestore {
     // skjemaet faktisk bruker, slik at ingen kan dytte inn eigne felt eller
     // sette seg sjølv som solgt kunde.
     function gyldigNyttLead(d) {
+      // Nøyaktig det skjemaet sender, og ikkje meir. «tilbud» og «avtaler» sto
+      // her utan at skjemaet nokon gong sender dei, og då kunne kven som helst
+      // opprette eit lead som alt hadde eit tilbod på seg. Seljarar som
+      // registrerer manuelt går gjennom den andre greina og er ikkje råka.
       return d.keys().hasOnly([
                'kilde', 'produkt', 'montering', 'tidspunkt', 'estimat', 'kunde',
                'distriktId', 'distriktNavn', 'status', 'samtykke', 'seljarId',
-               'tildeltAutomatisk', 'opprettet', 'statusEndret', 'logg',
-               'avtaler', 'tilbud'
+               'tildeltAutomatisk', 'opprettet', 'statusEndret', 'logg'
              ])
              && d.status == 'ny'
              && d.samtykke == true
