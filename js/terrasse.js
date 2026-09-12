@@ -146,9 +146,33 @@ function vindexTerrasselinjer(val = {}) {
     });
   };
 
-  // Sjølve gulvet. 3010 er prisa per m² og inkluderer fyllprofilane, så
-  // fyllprofil blir ikkje ei eiga linje — berre eit fargeval.
-  legg("3010", b.m2, `${b.pakker} pakker · ${b.planker} planker · ${b.meter} lm`);
+  // Sjølve gulvet, i ei av to former.
+  //
+  //   Med fyllprofil   3010, prisa per m². Fyllprofilane er inkluderte, så dei
+  //                    blir ikkje ei eiga linje — berre eit fargeval.
+  //   Utan fyllprofil  3310, prisa per løpemeter plank.
+  //
+  // Kunden betaler for det han får, ikkje for det han bad om: grunnlaget er
+  // levert areal i heile pakker.
+  const utanFyll = val.fyllprofil === "ingen";
+  if (utanFyll) {
+    legg("3310", b.meter, `${b.pakker} pakker · ${b.planker} planker · ${b.m2} m² · uten fyllprofiler`);
+  } else if (val.prisEining === "pakke") {
+    // Same pris, presentert per pakke. Vi finn ikkje opp ein pakkepris —
+    // dette er kvadratmeterprisen gonge det ei pakke dekkjer.
+    const d = vindexTerrassedel("3010");
+    linjer.push({
+      kode: "3010",
+      navn: d.navn,
+      antall: b.pakker,
+      enhet: "pakke",
+      enhetspris: Math.round(d.pris * VINDEX_TERRASSE_M2_PER_PAKKE),
+      sum: Math.round(b.m2 * d.pris),
+      merknad: `${b.m2} m² · ${b.planker} planker · ${b.meter} lm · inkl. fyllprofiler`,
+    });
+  } else {
+    legg("3010", b.m2, `${b.pakker} pakker · ${b.planker} planker · ${b.meter} lm`);
+  }
 
   if (val.bjelkar) {
     const meter = parseFloat(val.bjelkeMeter) || 0;
@@ -168,11 +192,12 @@ function vindexTerrasselinjer(val = {}) {
   if (val.dekklist) legg("3319", parseFloat(val.dekklist) || 0);
   if (val.oringar) legg("4432", parseFloat(val.oringar) || 0);
 
-  // Skruar: talet kjem av pakkane, men blir selt i pakningar à 250.
-  const skrupakkar = val.skruerManuell
-    ? parseFloat(val.skruerManuell) || 0
-    : b.skrupakkar;
-  legg("4308", skrupakkar, `${b.skruar} skruer trengs · ${VINDEX_TERRASSE.skruar_per_pakning} per pakning`);
+  // Skruar blir lagde til ferdig utrekna, men kan takast bort. Talet kjem av
+  // pakkane åleine — kantlistene er ikkje med i utrekninga.
+  if (val.skruer !== false) {
+    const skrupakkar = val.skruerManuell ? parseFloat(val.skruerManuell) || 0 : b.skrupakkar;
+    legg("4308", skrupakkar, `${b.skruar} skruer trengs · ${VINDEX_TERRASSE.skruar_per_pakning} per pakning`);
+  }
 
   const sum = linjer.reduce((n, l) => n + l.sum, 0);
   const frakt = vindexTerrassefrakt(b.pakker);

@@ -2673,6 +2673,8 @@ function opneTerrassetilbod(lead) {
     m2: lagra.m2 || "",
     friForm: !!lagra.friForm,
     fyllprofil: lagra.fyllprofil || "3311",
+    prisEining: lagra.prisEining || "m2",
+    skruer: lagra.skruer !== false,
     bjelkar: lagra.bjelkar !== false,
     bjelkeMeter: lagra.bjelkeMeter || "",
     langsideList: lagra.langsideList || "3314",
@@ -2786,17 +2788,26 @@ function teiknTerrassedialog(lead, fraKladd) {
           ${u.friForm ? "checked" : ""}> Ujevn form — skriv arealet selv</label></div>
       </div>
 
-      <h3 class="mt-2">Farge på fyllprofil</h3>
-      <p class="hint">Fyllprofilene er med i kvadratmeterprisen. Valget styrer bare fargen.</p>
+      <h3 class="mt-2">Gulvet</h3>
       <div class="feltrutenett">
-        <div class="field brei"><select id="terrFyll">
-          ${["3311", "3313"]
-            .map((k) => {
-              const d = vindexTerrassedel(k);
-              return `<option value="${k}"${u.fyllprofil === k ? " selected" : ""}>${d.navn} — ${d.farge}</option>`;
-            })
-            .join("")}
-        </select></div>
+        <div class="field brei"><label for="terrFyll">Fyllprofiler</label>
+          <select id="terrFyll">
+            ${["3311", "3313"]
+              .map((k) => {
+                const d = vindexTerrassedel(k);
+                return `<option value="${k}"${u.fyllprofil === k ? " selected" : ""}>Med fyllprofil — ${d.farge}</option>`;
+              })
+              .join("")}
+            <option value="ingen"${u.fyllprofil === "ingen" ? " selected" : ""}>Uten fyllprofiler — plank per løpemeter</option>
+          </select>
+          <span class="hint">Med fyllprofil prises gulvet per m² (3010, profilene er inkludert).
+            Uten prises planken per løpemeter (3310).</span></div>
+        <div class="field"><label for="terrPrisEining">Vis prisen</label>
+          <select id="terrPrisEining"${u.fyllprofil === "ingen" ? " disabled" : ""}>
+            <option value="m2"${u.prisEining === "m2" ? " selected" : ""}>Per kvadratmeter</option>
+            <option value="pakke"${u.prisEining === "pakke" ? " selected" : ""}>Per pakke</option>
+          </select>
+          <span class="hint">Samme sum — bare en annen måte å vise den på</span></div>
       </div>
 
       <h3 class="mt-2">Underlag og kanter</h3>
@@ -2828,8 +2839,11 @@ function teiknTerrassedialog(lead, fraKladd) {
           <span class="hint">På skruene mellom kantblikk og gulv</span></div>
         <div class="field"><label for="terrSkruer">Skruepakninger</label>
           <input id="terrSkruer" type="number" min="0" step="1" value="${u.skruerManuell}"
-            placeholder="${r ? r.beregning.skrupakkar : ""}">
+            placeholder="${r ? r.beregning.skrupakkar : ""}"${u.skruer ? "" : " disabled"}>
           <span class="hint">Tom = regnet av pakkene</span></div>
+        <div class="field brei"><label class="hakelinje"><input type="checkbox" id="terrSkruerMed"
+          ${u.skruer ? "checked" : ""}> Ta med skruer <span class="hint">regnet av pakkene ·
+          kantlistene er ikke med i tallet</span></label></div>
         <div class="field brei"><label for="terrMerknader">Merknader</label>
           <textarea id="terrMerknader" style="min-height:56px">${u.merknader}</textarea></div>
       </div>
@@ -2852,6 +2866,8 @@ function teiknTerrassedialog(lead, fraKladd) {
       friForm: $("#terrFriForm").checked,
       m2: v("terrM2"),
       fyllprofil: v("terrFyll"),
+      prisEining: v("terrPrisEining") || "m2",
+      skruer: $("#terrSkruerMed").checked,
       bjelkar: $("#terrBjelkar").checked,
       bjelkeMeter: v("terrBjelkeMeter"),
       langsideList: v("terrLangside"),
@@ -2900,6 +2916,10 @@ function teiknTerrassedialog(lead, fraKladd) {
     les();
     if ($("#terrFriForm").checked) $("#terrM2").removeAttribute("readonly");
     else $("#terrM2").setAttribute("readonly", "");
+    // Utan fyllprofil er gulvet prisa per løpemeter, og då finst det ikkje
+    // noko val mellom m² og pakke å ta.
+    $("#terrPrisEining").disabled = terrasseutkast.fyllprofil === "ingen";
+    $("#terrSkruer").disabled = !terrasseutkast.skruer;
   });
 
   $("#terrAvbryt").addEventListener("click", lukkModal);

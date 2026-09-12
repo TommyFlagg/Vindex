@@ -1086,6 +1086,20 @@ arealet, og målene foreslår resten:
 Alle forslagene står i feltene og kan overstyres. Står de bare i summen, vet
 ikke selgeren hva han har lovet.
 
+**Kunden betaler for det han får**, ikke for det han ba om — grunnlaget er
+levert areal i hele pakker.
+
+Tre valg til:
+
+- **Med eller uten fyllprofiler.** Med profil prises gulvet per m² (3010, 1 399,
+  profilene er inkludert). Uten prises planken per løpemeter (3310, 214). For
+  24,96 m² blir det 34 919 mot 34 989 — profilene koster i praksis ingenting.
+- **Per m² eller per pakke.** Samme sum, bare en annen måte å vise den på. Vi
+  finner ikke opp en pakkepris: den er kvadratmeterprisen ganget med det én
+  pakke dekker. Uten fyllprofiler er valget borte, for da prises det per meter.
+- **Skruer av eller på.** De legges til ferdig utregnet, men kan fjernes.
+  Tallet kommer av pakkene alene — kantlistene er ikke med i det.
+
 Regnestykket er kontrollert mot Vindex' egen beregningstabell: pakker, planker,
 meter, m² og skruer stemmer på alle de førti radene.
 
