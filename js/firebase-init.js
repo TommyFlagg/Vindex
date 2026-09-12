@@ -12,6 +12,7 @@
 //   sellers/{uid}      — ein seljar/forhandlar. Dokument-id = Firebase Auth uid
 //   settings/ruting    — distrikt -> seljar-id (offentleg lesbar)
 //   settings/config    — felles innstillingar
+//   prisdata/{dok}     — prisliste, provisjon, apparattal (berre innlogga)
 // ============================================================================
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
@@ -87,6 +88,10 @@ const representantarCol = () => collection(db, "representanter");
 // settings/config medan bestillingsskjemaet las settings/ruting.
 const settingsDoc = (id = "config") => doc(db, "settings", id);
 
+// Prisliste, provisjonssatsar og omsetningstal. Ligg her og ikkje i koden,
+// fordi koden blir servert til kven som helst og desse dataa ikkje skal det.
+const prisdataDoc = (id) => doc(db, "prisdata", id);
+
 export {
   db,
   auth,
@@ -102,6 +107,7 @@ export {
   reviewDoc,
   representantarCol,
   settingsDoc,
+  prisdataDoc,
   doc,
   getDoc,
   setDoc,

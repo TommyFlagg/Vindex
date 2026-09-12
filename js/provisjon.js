@@ -32,9 +32,10 @@
  * Provisjonstabellen, «Provisjon selgere 2024» side 2 (Randi Farstad).
  *
  * Radene er rabatten som er gitt; kolonnane er om seljaren er tilsett eller
- * sjølvstendig. Selvsten. er nøyaktig ansatt × 1,275 i heile tabellen —
- * kontrollert på alle radene, frå 33,09/25,96 til 40,8/32 — så faktoren ligg
- * her som ein sperre mot skrivefeil, ikkje som ein utrekning.
+ * sjølvstendig. Selvstendig-kolonnen er eit fast påslag på tilsett-kolonnen i
+ * heile tabellen, kontrollert på alle radene. Faktoren er lagra saman med
+ * satsane (`selvstendigFaktor`) som ein sperre mot skrivefeil, ikkje som ein
+ * utrekning — og som satsane sjølve ligg han ikkje i denne fila.
  *
  * `null` tyder at ruta står tom i arket. Det er ikkje det same som null
  * prosent, og blir difor vist som «mangler sats» i staden for som 0 kr.
@@ -42,66 +43,7 @@
  *  ⚠️  Skodder og lufteskodde er ikkje i sortimentet i verktøyet. Dei ligg her
  *     fordi dei står i arket, ikkje fordi noko brukar dei.
  */
-const VINDEX_PROVISJONSTABELL = {
-  kjelde: "Provisjon selgere 2024, side 2",
-  merknad:
-    "«Alle nevnte prosenter kan ha noe avvik. Dette er ment som veiledning.» " +
-    "Skodder er ikke 100 % korrekt på alle størrelser, da andel kostpris varierer.",
-  trinn: [0, 5, 10, 15, 20, 25, 30, 35],
-  selvstendigFaktor: 1.275,
-  grupper: {
-    sprosser: {
-      navn: "Sprosser",
-      ansatt: [25.96, 25.22, 24.4, 23.48, 22.44, 21.27, 19.94, null],
-      selvstendig: [33.09, 32.15, 31.1, 29.93, 28.62, 27.13, 25.42, null],
-    },
-    skodder: {
-      navn: "Skodder",
-      ansatt: [26.42, 25.7, 24.91, 24.02, 23.02, 21.89, 20.59, null],
-      selvstendig: [33.68, 32.77, 31.76, 30.62, 29.35, 27.91, 26.26, null],
-    },
-    gjerde: {
-      navn: "Gjerde",
-      ansatt: [22.25, 21.32, 20.29, 19.13, 17.83, 16.35, null, null],
-      selvstendig: [28.35, 27.19, 25.87, 24.39, 22.72, 20.85, null, null],
-    },
-    seksjonar: {
-      navn: "Seksjoner",
-      // Standardseksjonen følgjer spesialkurva heilt til 25 %, og held så fram
-      // på sine eigne to trinn. Arket hadde berre dei to siste utfylte; resten
-      // er henta frå «Gjerde» etter avklaring — same vare, same listepris, og
-      // provisjonen skal ikkje sprette når rabatten er den same.
-      //
-      // Kurva er kontrollert monotont fallande heile vegen:
-      //   22,25 · 21,32 · 20,29 · 19,13 · 17,83 · 16,35 · 15,76 · 13,90
-      // Fallet flatar ut på 30 % (−0,59 mot −1,48 trinnet før). Det er med
-      // vilje: standardseksjonen er billegare å klargjere, så det står meir att
-      // å dele når rabatten blir djup.
-      ansatt: [22.25, 21.32, 20.29, 19.13, 17.83, 16.35, 15.76, 13.9],
-      selvstendig: [28.35, 27.19, 25.87, 24.39, 22.72, 20.85, 20, 17.7],
-    },
-    varmepumpehus: {
-      navn: "Varm.p.hus",
-      ansatt: [19.19, 18.09, 16.87, 15.51, 13.98, 12.25, null, null],
-      selvstendig: [24.46, 23.07, 21.51, 19.78, 17.83, 15.62, null, null],
-    },
-    terrassegulv: {
-      navn: "Terrassegulv",
-      ansatt: [16.84, 15.62, 14.27, 12.75, 11.05, 9.12, null, null],
-      selvstendig: [21.47, 19.92, 18.19, 16.26, 14.09, 11.63, null, null],
-    },
-    ledlys: {
-      navn: "Ledlys",
-      ansatt: [32, null, null, null, null, null, null, null],
-      selvstendig: [40.8, null, null, null, null, null, null, null],
-    },
-    lufteskodde: {
-      navn: "Lufteskodde",
-      ansatt: [22.06, null, null, null, null, null, null, null],
-      selvstendig: [28.13, null, null, null, null, null, null, null],
-    },
-  },
-};
+const VINDEX_PROVISJONSTABELL = { trinn: [], grupper: {} };
 
 /**
  * Artiklar det ikkje er provisjon på.
@@ -112,13 +54,7 @@ const VINDEX_PROVISJONSTABELL = {
  * hengsler er med i begge, men glassklemmer og låser toler rabatt utan å gi
  * provisjon.
  */
-const VINDEX_UTAN_PROVISJON = [
-  "7505", "7484",                         // glassklemme innland og kyst
-  "7359",                                 // stolpefot
-  "7557", "7376", "7556", "7564", "7535", // veggfeste
-  "4423", "4434",                         // porthengsler
-  "4429", "4433", "4431", "4426",         // låser og dødbolt
-];
+const VINDEX_UTAN_PROVISJON = [];
 
 /**
  * Kva provisjonsgruppe ein artikkel høyrer til.
@@ -273,7 +209,15 @@ function vindexProvisjon(rekna, seljar) {
 
 /** Står vi utan satsar i det heile? Då skal ruta ikkje love eit tal. */
 function vindexHarProvisjonssatsar() {
-  return Object.keys(VINDEX_PROVISJONSTABELL.grupper).length > 0;
+  return Object.keys(VINDEX_PROVISJONSTABELL.grupper || {}).length > 0;
+}
+
+/** Satsane kjem frå Firestore etter innlogging. Sjå js/datalast.js. */
+function vindexSettProvisjon(d) {
+  if (!d) return false;
+  vindexFyllObjekt(VINDEX_PROVISJONSTABELL, d.tabell || { trinn: [], grupper: {} });
+  vindexFyllListe(VINDEX_UTAN_PROVISJON, d.utanProvisjon);
+  return vindexHarProvisjonssatsar();
 }
 
 /**

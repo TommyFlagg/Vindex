@@ -31,30 +31,10 @@ const VINDEX_TERRASSE_M2_PER_PAKKE =
   (VINDEX_TERRASSE.planker_per_pakke * VINDEX_TERRASSE.plankelengd) /
   VINDEX_TERRASSE.meter_per_kvadrat;
 
-const VINDEX_TERRASSEDELAR = [
-  { kode: "3010", navn: "Terrasseplank 143 × 40 mm", pris: 1399, enhet: "m²",
-    merknad: "Inkl. fyllprofiler. 6,55 m = 1 m². 2 lengder à 5,45 m per pakke." },
-  { kode: "3310", navn: "Terrasseplank 143 × 40 mm", pris: 214, enhet: "lm",
-    farge: "NCS-S2502-B (lys grå)" },
-  { kode: "3311", navn: "Fyllprofil lys grå 10 × 10 mm", pris: 11, enhet: "lm",
-    lengd: 5.45, farge: "NCS-S2502-B (lys grå)" },
-  { kode: "3313", navn: "Fyllprofil mørk grå 10 × 10 mm", pris: 11, enhet: "lm",
-    lengd: 5.45, farge: "NCS-S5502-R (mørk grå)" },
-  { kode: "3312", navn: "Bjelke (strø) 42 × 30 mm", pris: 112, enhet: "lm",
-    lengd: 3.0, farge: "Lys brun — ikke synlig på ferdig gulv" },
-  { kode: "3314", navn: "Kantlist 37 mm, 1 knekk", pris: 219, enhet: "lm", lengd: 2.5,
-    bruk: "Langsider" },
-  { kode: "3315", navn: "Kantlist 67 mm, 1 knekk", pris: 232, enhet: "lm", lengd: 2.5,
-    bruk: "Langsider, skjuler underliggere" },
-  { kode: "3316", navn: "Kantlist 49 mm, 3 knekk", pris: 256, enhet: "lm", lengd: 2.5,
-    bruk: "Ender, vanlig montering" },
-  { kode: "3317", navn: "Kantlist 79 mm, 3 knekk", pris: 268, enhet: "lm", lengd: 2.5,
-    bruk: "Ender og distansen ned, med underliggere" },
-  { kode: "3319", navn: "Syrefast dekklist 2950 × 40 × 1,5 mm", pris: 519, enhet: "stk" },
-  { kode: "4308", navn: "A4/AISI syrefaste skruer", pris: 477, enhet: "pakke à 250" },
-  { kode: "4432", navn: "O-ring 5,30 × 2,40", pris: 3, enhet: "stk",
-    merknad: "På skruene mellom kantblikk og PVC-gulvet" },
-];
+// Prisane står ikkje her. Dei ligg i Firestore saman med resten av prisboka
+// og blir fylte inn av vindexSettPrisbok() etter innlogging — sjå
+// js/datafyll.js. Fila blir lasta av selger.html, som er ei open adresse.
+const VINDEX_TERRASSEDELAR = [];
 
 const vindexTerrassedel = (kode) =>
   VINDEX_TERRASSEDELAR.find((d) => d.kode === String(kode)) || null;
@@ -66,14 +46,7 @@ const vindexTerrassedel = (kode) =>
  * er nøyaktig 1, 5, 10, 15, 20 og 25 pakker. Vi ser difor på pakker, så
  * grensetilfella ikkje hamnar feil på ein avrundingsfeil i m².
  */
-const VINDEX_TERRASSEFRAKT = [
-  { maksPakker: 1, pris: 885 },
-  { maksPakker: 5, pris: 2070 },
-  { maksPakker: 10, pris: 3593 },
-  { maksPakker: 15, pris: 4617 },
-  { maksPakker: 20, pris: 5357 },
-  { maksPakker: 25, pris: 5894 },
-];
+const VINDEX_TERRASSEFRAKT = [];
 
 function vindexTerrassefrakt(pakker) {
   const n = Math.max(0, Math.ceil(pakker || 0));

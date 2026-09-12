@@ -187,5 +187,19 @@ service cloud.firestore {
       allow read: if erSeljar();
       allow write: if erAdmin();
     }
+
+    // Prisliste, provisjonssatsar og omsetningstal.
+    //
+    // Desse låg tidlegare i js/modellar.js, js/provisjon.js og js/team.js.
+    // Dei filene blir lasta av selger.html, som er ei open adresse, og då kunne
+    // kven som helst laste ned heile prislista og provisjonsarket utan å logge
+    // inn. Innhaldet ligg her no, og då er det denne regelen som avgjer kven
+    // som ser det — ikkje kva nettstaden tilfeldigvis serverer.
+    //
+    // Lageret les òg: plukklista viser varenamn og kodar frå same lista.
+    match /prisdata/{dokument} {
+      allow read: if erSeljar();
+      allow write: if erAdmin();
+    }
   }
 }

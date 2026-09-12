@@ -10,9 +10,10 @@
 // ============================================================================
 
 import {
-  $, $$, app, settTeiknar, settOppstart, visDemohint,
-  datoTekst, lagreLead, melding, opneModal, lukkModal,
-} from "./verktoy-felles.js?v=1377669d";
+  $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
+  datoTekst, lagreLead, melding, opneModal, lukkModal, visDatavarsel,
+} from "./verktoy-felles.js?v=efea1200";
+import { lastPrisdata, VINDEX_PRISDATA_DOKUMENT } from "./datalast.js?v=ba837177";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visPanel(), { berreAdmin: true });
@@ -29,6 +30,7 @@ const SNARVEGAR = [
   { id: "seksjonKampanjar", navn: "Kampanjer" },
   { id: "seksjonRepresentantar", navn: "Nye representanter" },
   { id: "seksjonTilbakemelding", navn: "Vinn og tap" },
+  { id: "seksjonPrisdata", navn: "Prisliste" },
 ];
 
 async function visPanel() {
@@ -53,6 +55,7 @@ async function visPanel() {
 function teiknAlt() {
   if (!app.brukar) return;
   teiknStatRad();
+  teiknPrisdata();
   teiknBistand();
   teiknOrdreinngang();
   teiknSeljartabell();
@@ -94,7 +97,7 @@ async function hentRepresentantar() {
     return;
   }
   try {
-    const { fb } = await import("./verktoy-felles.js?v=1377669d");
+    const { fb } = await import("./verktoy-felles.js?v=efea1200");
     const q = fb.query(fb.representantarCol(), fb.orderBy("opprettet", "desc"), fb.limit(200));
     representantar = (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (err) {
@@ -412,7 +415,7 @@ async function lagreAarstal() {
 
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=1377669d");
+      const { fb } = await import("./verktoy-felles.js?v=efea1200");
       await fb.setDoc(fb.settingsDoc("aarstal"), { driftsinntekter: tal });
     }
     // Eit tal nokon har skrive inn sjølv er stadfesta — til skilnad frå det eg
@@ -947,7 +950,7 @@ async function lagrePerson(p, ny) {
       if (ny) app.seljarar.push({ ...data, id: "ny-" + Date.now(), arkivert: false });
       else Object.assign(p, data);
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=1377669d");
+      const { fb } = await import("./verktoy-felles.js?v=efea1200");
       if (ny) {
         // Personen får rad i apparatet med ein gong, men kan ikkje logge inn
         // før nokon opprettar brukaren i Firebase Authentication og flyttar
@@ -1001,7 +1004,7 @@ async function vekslArkiv(p) {
   const data = vindexArkiverData(p, dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=1377669d");
+      const { fb } = await import("./verktoy-felles.js?v=efea1200");
       await fb.updateDoc(fb.sellerDoc(p.id), data);
     }
     Object.assign(p, data);
@@ -1022,7 +1025,7 @@ async function lagreDistrikt(seljarId) {
   seljar.distrikt = valde;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=1377669d");
+      const { fb } = await import("./verktoy-felles.js?v=efea1200");
       await fb.updateDoc(fb.sellerDoc(seljarId), { distrikt: valde });
       await byggRuting();
     }
@@ -1042,7 +1045,7 @@ async function lagreDistrikt(seljarId) {
  * innlogga. Difor ligg berre ID-ane der — ingen namn, ingen kontaktinfo.
  */
 async function byggRuting() {
-  const { fb } = await import("./verktoy-felles.js?v=1377669d");
+  const { fb } = await import("./verktoy-felles.js?v=efea1200");
   // Formen må vere den bestillingsskjemaet les: distrikt-id -> liste med
   // selger-id-ar. Er det fleire i same distrikt, roterer skjemaet mellom dei.
   // Dokumentet ligg flatt, uten «distrikt»-nivå, og heiter settings/ruting.
@@ -1327,7 +1330,7 @@ async function knytAnmelding(id, seljarId) {
   if (!a) return;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=1377669d");
+      const { fb } = await import("./verktoy-felles.js?v=efea1200");
       await fb.updateDoc(fb.reviewDoc(id), { seljarId: seljarId || null });
     }
     a.seljarId = seljarId || null;
@@ -1463,7 +1466,7 @@ async function lagreGjeninntaking(s, dato) {
   const data = vindexGjeninntaData(dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=1377669d");
+      const { fb } = await import("./verktoy-felles.js?v=efea1200");
       await fb.updateDoc(fb.sellerDoc(s.id), data);
     }
     Object.assign(s, data);
@@ -1671,7 +1674,7 @@ async function lagreKampanje(kam, ny, data) {
       if (ny) app.kampanjar.push({ ...full, id: "k-" + Date.now(), opprettaAv: app.brukar.navn });
       else Object.assign(kam, full);
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=1377669d");
+      const { fb } = await import("./verktoy-felles.js?v=efea1200");
       if (ny) {
         const ref = await fb.addDoc(fb.campaignsCol(), {
           ...full,
@@ -1697,7 +1700,7 @@ async function vekslKampanje(k) {
   const paa = k.aktiv === false;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=1377669d");
+      const { fb } = await import("./verktoy-felles.js?v=efea1200");
       await fb.updateDoc(fb.campaignDoc(k.id), { aktiv: paa });
     }
     k.aktiv = paa;
@@ -1804,4 +1807,180 @@ function taptTilKort() {
         : '<p class="hint">Ingen registrert ennå.</p>'
     }
   </div>`;
+}
+
+
+// ---------------------------------------------------------------------------
+// Prisliste og satsar
+// ---------------------------------------------------------------------------
+// Prisboka ligg i Firestore under `prisdata/`, ikkje i koden. Det er heile
+// poenget: selger.html er ei open adresse, og alt som blir lasta derifrå kan
+// lastast ned av kven som helst. Dermed må det finnast ein veg inn for den som
+// skal oppdatere lista — og ein veg ut, så vi aldri står med éin kopi.
+//
+// Filene er dei same tre som blir lesne ved innlogging: prisbok, provisjon,
+// apparat. Importen tek imot alle tre på éin gong, og skriv berre dei som
+// faktisk låg i utvalet.
+
+const PRISDATA_NAMN = {
+  prisbok: "Prisliste og modellregister",
+  provisjon: "Provisjonssatser",
+  apparat: "Omsetningstall",
+};
+
+function prisdatalinje(nokkel) {
+  const inne = VINDEX_DATASTATUS[nokkel];
+  const merke = inne
+    ? '<span class="tag tag-good">Lastet</span>'
+    : '<span class="tag tag-warn">Mangler</span>';
+  let detalj = "";
+  if (nokkel === "prisbok" && inne)
+    detalj = `${VINDEX_PRISLISTE.namn || ""} · ${vindexPrisbok().length} varelinjer`;
+  if (nokkel === "provisjon" && inne)
+    detalj = `${Object.keys(VINDEX_PROVISJONSTABELL.grupper || {}).length} varegrupper`;
+  if (nokkel === "apparat" && inne)
+    detalj = `${Object.keys(VINDEX_TEAMTAL).length} personer med tall`;
+  return `<tr>
+      <td>${PRISDATA_NAMN[nokkel]}</td>
+      <td class="hint">${detalj || "–"}</td>
+      <td class="nowrap">${merke}</td>
+    </tr>`;
+}
+
+function teiknPrisdata() {
+  const el = $("#prisdata");
+  if (!el) return;
+  el.innerHTML = `
+    <div class="panel">
+      <table class="tabell">
+        <thead><tr><th>Innhold</th><th>Omfang</th><th>Status</th></tr></thead>
+        <tbody>${VINDEX_PRISDATA_DOKUMENT.map(prisdatalinje).join("")}</tbody>
+      </table>
+      ${VINDEX_DATASTATUS.feil ? `<div class="notice notice-warn mt-2">${VINDEX_DATASTATUS.feil}</div>` : ""}
+      <div class="knapperad mt-2">
+        <button class="btn btn-sm" id="prisdataImport">Legg inn ny prisliste</button>
+        <button class="btn btn-ghost btn-sm" id="prisdataKopi">Last ned sikkerhetskopi</button>
+      </div>
+      <p class="hint mt-1">Listen ligger i databasen bak innlogging. Den følger ikke med
+        nettsiden, og er derfor ikke tilgjengelig for andre enn de som er logget inn.
+        Ta en sikkerhetskopi før du legger inn en ny.</p>
+    </div>`;
+  $("#prisdataImport").addEventListener("click", opnePrisdataImport);
+  $("#prisdataKopi").addEventListener("click", lastNedPrisdata);
+}
+
+/**
+ * Sikkerhetskopi av det som ligg inne akkurat no.
+ *
+ * Vi skriv ut registera slik dei står i minnet i staden for å lese Firestore
+ * på nytt. Det er same innhaldet — og det som faktisk er i bruk.
+ */
+function lastNedPrisdata() {
+  const pakke = {
+    prisbok: {
+      prisliste: VINDEX_PRISLISTE, profilar: VINDEX_PROFILAR,
+      modellseriar: VINDEX_MODELLSERIAR, stolpetypar: VINDEX_STOLPETYPAR,
+      stolpeplassering: VINDEX_STOLPEPLASSERING, stolpeutforing: VINDEX_STOLPEUTFORING,
+      topptypar: VINDEX_TOPPTYPAR, stakittoppar: VINDEX_STAKITTOPPAR,
+      pyntekrans: VINDEX_PYNTEKRANS, porttypar: VINDEX_PORTTYPAR,
+      portdelar: VINDEX_PORTDELAR, tilleggsdelar: VINDEX_TILLEGGSDELAR,
+      montering: VINDEX_MONTERING, standardlengder: VINDEX_STANDARDLENGDER,
+      rabattgrupper: VINDEX_RABATTGRUPPER, utanRabatt: VINDEX_UTAN_RABATT,
+      produserteGrupper: VINDEX_PRODUSERTE_GRUPPER,
+      fraktRekkverk: VINDEX_FRAKT_REKKVERK, fraktSprosser: VINDEX_FRAKT_SPROSSER,
+      sprosseRutekolonnar: VINDEX_SPROSSE_RUTEKOLONNAR,
+      sprossepris: VINDEX_SPROSSEPRIS, sprossetillegg: VINDEX_SPROSSETILLEGG,
+      // Terrasseprisane høyrer til same dokumentet. Gløymer vi dei her, ser
+      // sikkerhetskopien komplett ut heilt til nokon treng dei igjen.
+      terrassedelar: VINDEX_TERRASSEDELAR, terrassefrakt: VINDEX_TERRASSEFRAKT,
+    },
+    provisjon: { tabell: VINDEX_PROVISJONSTABELL, utanProvisjon: VINDEX_UTAN_PROVISJON },
+    apparat: { teamtal: VINDEX_TEAMTAL, fjor: VINDEX_FJOR, aarstal: VINDEX_AARSTAL },
+  };
+  const dato = new Date().toISOString().slice(0, 10);
+  VINDEX_PRISDATA_DOKUMENT.forEach((n) => {
+    const blob = new Blob([JSON.stringify(pakke[n], null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `vindex-${n}-${dato}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  });
+  melding("Lastet ned " + VINDEX_PRISDATA_DOKUMENT.length + " filer.");
+}
+
+function opnePrisdataImport() {
+  opneModal(
+    "Legg inn ny prisliste",
+    `<p>Velg filene som skal inn. Navnet avgjør hva de blir: en fil som heter
+       <code>prisbok</code> blir prislisten, <code>provisjon</code> blir satsene,
+       <code>apparat</code> blir omsetningstallene. Du kan velge alle tre på én gang.</p>
+     <p class="notice notice-warn">Innholdet <strong>erstatter</strong> det som ligger inne.
+       Ta en sikkerhetskopi først hvis du ikke har en.</p>
+     <input type="file" id="prisdataFiler" accept=".json,application/json" multiple>
+     <div id="prisdataSvar" class="mt-2"></div>`,
+    `<button class="btn btn-ghost" id="prisdataAvbryt">Avbryt</button>
+     <button class="btn" id="prisdataLagre">Legg inn</button>`
+  );
+  $("#prisdataAvbryt").addEventListener("click", lukkModal);
+  $("#prisdataLagre").addEventListener("click", lagrePrisdata);
+}
+
+async function lagrePrisdata() {
+  const svar = $("#prisdataSvar");
+  const filer = [...($("#prisdataFiler").files || [])];
+  if (!filer.length) {
+    svar.innerHTML = '<div class="notice notice-warn">Ingen filer valgt.</div>';
+    return;
+  }
+
+  // Namnet på fila avgjer kva dokument innhaldet hamnar i. Kjenner vi ikkje
+  // namnet att, skriv vi ingenting — ei prisliste lagd i feil dokument er
+  // vanskelegare å oppdage enn ei som ikkje kom inn.
+  const funne = [];
+  const ukjende = [];
+  for (const f of filer) {
+    const nokkel = VINDEX_PRISDATA_DOKUMENT.find((n) => f.name.toLowerCase().includes(n));
+    if (!nokkel) { ukjende.push(f.name); continue; }
+    try {
+      funne.push({ nokkel, data: JSON.parse(await f.text()), namn: f.name });
+    } catch (e) {
+      svar.innerHTML = `<div class="notice notice-warn">${f.name} er ikke gyldig JSON: ${e.message}</div>`;
+      return;
+    }
+  }
+  if (!funne.length) {
+    svar.innerHTML =
+      `<div class="notice notice-warn">Kjente ikke igjen noen av filnavnene
+        (${ukjende.join(", ")}). Navnet må inneholde prisbok, provisjon eller apparat.</div>`;
+    return;
+  }
+
+  svar.innerHTML = '<div class="notice">Legger inn …</div>';
+  try {
+    if (!VINDEX_DEMOMODUS) {
+      for (const f of funne) await fb.setDoc(fb.prisdataDoc(f.nokkel), f.data);
+      await lastPrisdata(fb);
+    } else {
+      // Demoen har ingen database. Då set vi registera direkte — og statusen
+      // med dei, elles står tabellen og seier «Mangler» om ei liste som nett
+      // vart lagd inn.
+      funne.forEach((f) => {
+        if (f.nokkel === "prisbok") VINDEX_DATASTATUS.prisbok = vindexSettPrisbok(f.data);
+        if (f.nokkel === "provisjon") VINDEX_DATASTATUS.provisjon = vindexSettProvisjon(f.data);
+        if (f.nokkel === "apparat") VINDEX_DATASTATUS.apparat = vindexSettApparattal(f.data);
+      });
+      if (VINDEX_DATASTATUS.prisbok) VINDEX_DATASTATUS.feil = "";
+    }
+  } catch (e) {
+    svar.innerHTML = `<div class="notice notice-warn">Fikk ikke lagret: ${e.message}</div>`;
+    return;
+  }
+  lukkModal();
+  visDatavarsel();
+  teiknPrisdata();
+  melding(
+    "La inn " + funne.map((f) => PRISDATA_NAMN[f.nokkel].toLowerCase()).join(", ") +
+    (ukjende.length ? ". Hoppet over " + ukjende.join(", ") : ".")
+  );
 }

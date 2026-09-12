@@ -245,7 +245,11 @@ const vindexTomTilbodslinje = () => ({
  * seljaren ein fast sum, overstyrer den utrekninga.
  */
 function vindexRegnMontering(m = {}) {
-  const sats = typeof VINDEX_MONTERING === "object" ? VINDEX_MONTERING : null;
+  // Registeret finst alltid, men står tomt til prisboka er lasta. Tomt objekt
+  // er sant, så det må vere eit felt frå lista som avgjer — elles sprekk
+  // utrekninga på `sats.timepris.pris` før nokon rekk å sjå varselet.
+  const sats =
+    VINDEX_MONTERING && VINDEX_MONTERING.timepris ? VINDEX_MONTERING : null;
   const menn = Math.max(1, parseInt(m.menn, 10) || 1);
   const timar = parseFloat(m.timar) || 0;
   const reisetimar = parseFloat(m.reisetimar) || 0;

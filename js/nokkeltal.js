@@ -14,7 +14,7 @@
 //     lenge. Alt ligg her, i éin blokk.
 //
 //  Sesongen avgjer kva som er rett kapasitet. Ordreinngangen i 2024 (sjå
-//  VINDEX_FJOR i js/team.js) var 142 000 kr i januar og 2 162 000 kr i mai —
+//  VINDEX_FJOR i js/apparattal.js) var 142 000 kr i januar og 2 162 000 kr i mai —
 //  femten gonger så mykje. Mai og juni åleine stod for 40 % av jan–sep.
 //  Kapasiteten må difor dimensjonerast for mai, ikkje for snittet: eit tal som
 //  held i februar gir tolv vekers kø i mai, og då lovar seljarane feil.

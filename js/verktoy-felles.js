@@ -11,8 +11,11 @@
 //   admin    ser alt, flyttar leads og styrer distrikta
 //   lager    ser plukklista og kan kvittere ut ordrar
 //
-// Prisar finst berre her, aldri på nettsida.
+// Prisar finst berre her, aldri på nettsida — og sidan april heller ikkje i
+// koden: dei blir henta frå Firestore etter innlogging (js/datalast.js).
 // ============================================================================
+
+import { lastPrisdata, lastPrisdataLokalt } from "./datalast.js?v=ba837177";
 
 export let fb = null;
 // Lastar ikkje Firebase-biblioteket, skal brukaren få vite kvifor. Utan denne
@@ -20,7 +23,7 @@ export let fb = null;
 // melding, berre eit innloggingsskjema som ikkje gjer noko når du trykkjer.
 if (!VINDEX_DEMOMODUS) {
   try {
-    fb = await import("./firebase-init.js?v=bc4ef637");
+    fb = await import("./firebase-init.js?v=3d1af6f7");
   } catch (err) {
     console.error("Fekk ikkje lasta Firebase:", err);
     // Modulen er defer, så DOMContentLoaded kan alt ha gått. Då skal varselet
@@ -125,6 +128,7 @@ $("#loginSkjema").addEventListener("submit", async (e) => {
   knapp.textContent = "Logger inn …";
   try {
     if (VINDEX_DEMOMODUS) {
+      await lastPrisdataLokalt();
       const epost = $("#loginEpost").value.toLowerCase();
       // Administratorsida har berre éi rolle. Salsverktøyet let deg velje ved
       // å skrive «admin» eller «lager» i e-postfeltet.
@@ -192,10 +196,38 @@ if (!VINDEX_DEMOMODUS && fb) {
       await fb.signOut(fb.auth);
       return;
     }
+    // Prisboka først. Teiknar vi delelista før satsane er inne, viser ho ei
+    // tom liste som om varene ikkje fanst.
+    await lastPrisdata(fb);
     await lastData();
     etterInnlogging();
+    visDatavarsel();
     lyttLive();
   });
+}
+
+
+/**
+ * Seier frå når prislista ikkje kom inn.
+ *
+ * Utan dette ser eit verktøy utan prisar ut som eit verktøy der varene ikkje
+ * finst: delelista er tom, tilbodet blir null kroner, og seljaren oppdagar det
+ * først når kunden spør. Difor står varselet øvst og blir ståande.
+ */
+export function visDatavarsel() {
+  const skal = document.querySelector("#verktoy");
+  if (!skal) return;
+  const gammal = skal.querySelector("#datavarsel");
+  if (gammal) gammal.remove();
+  if (!VINDEX_DATASTATUS.feil) return;
+  const boks = document.createElement("div");
+  boks.id = "datavarsel";
+  boks.className = "notice notice-warn mt-1";
+  boks.innerHTML =
+    `<strong>Prislisten er ikke lastet.</strong> ${VINDEX_DATASTATUS.feil} ` +
+    "Delelisten og tilbudsregningen står uten priser til dette er rettet. " +
+    "Si fra til hovedkontoret.";
+  skal.prepend(boks);
 }
 
 
@@ -235,7 +267,7 @@ export function startDemo(rolle) {
     navn: t.navn,
     sted: t.sted,
     type: t.type,
-    y2024: t.y2024,
+    y2024: vindexTeamtal(t.navn),
     epost: t.navn.toLowerCase().replace(/[^a-zæøå]+/g, ".").replace(/^\.|\.$/g, "") + "@vindex.no",
     telefon: "900 00 " + String(i + 10).padStart(3, "0"),
     rolle: "selger",
@@ -267,6 +299,7 @@ export function startDemo(rolle) {
   app.kampanjar = demoKampanjar();
   app.anmeldingar = demoAnmeldingar();
   etterInnlogging();
+  visDatavarsel();
 }
 
 // ---------------------------------------------------------------------------

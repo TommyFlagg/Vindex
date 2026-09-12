@@ -18,7 +18,7 @@ let fb = null;
 let fbFeil = null;
 if (!VINDEX_DEMOMODUS) {
   try {
-    fb = await import("./firebase-init.js?v=bc4ef637");
+    fb = await import("./firebase-init.js?v=3d1af6f7");
   } catch (err) {
     console.error("Fekk ikkje lasta Firebase:", err);
     fbFeil = err;

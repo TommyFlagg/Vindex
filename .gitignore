@@ -1,2 +1,16 @@
 node_modules/
 .DS_Store
+
+# Prislista, provisjonssatsane og omsetningstala.
+#
+# Desse skal aldri commitast. Alt som ligg i repoet blir servert av GitHub
+# Pages, og repoet sjølv er lesbart — ei fil her ville vore like open som den
+# gamle js/modellar.js. Dataa høyrer heime i Firestore under `prisdata/`, og
+# blir lagde inn frå «Prisliste og satser» på hovudkontorsida.
+#
+# Mappa er likevel nyttig lokalt: køyrer du demoen, leitar js/datalast.js etter
+# filene her og køyrer med verkelege prisar om dei finst.
+data/
+vindex-prisbok-*.json
+vindex-provisjon-*.json
+vindex-apparat-*.json

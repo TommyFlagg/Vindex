@@ -159,6 +159,9 @@ representant kan melde interesse. Den gjør to jobber på én gang:
 | Fylker dekket | 12 av 15 | Distriktene til representantene, mappet til fylker |
 | Ledige fylker | 3 | Rogaland, Troms og Finnmark |
 
+`js/team.js` har navn, sted og distrikt — det kartet trenger. Omsetningen per
+person står ikke der: den lastes fra `prisdata/apparat` etter innlogging, fordi
+forsiden laster `team.js` og tallene dermed ville vært offentlige.
 Legger du inn en ny representant i `js/team.js`, endrer kartet og tallene seg
 av seg selv. **Vi påstår ingen vekst vi ikke kan vise** — teksten sier hvor
 mange vi er og hva som står åpent, ikke at vi har vokst med X prosent.
@@ -229,9 +232,22 @@ plukklisten, men ikke prisseksjonene.
 
 ## Prislisten 2026
 
-`js/modellar.js` er Vindex sin egen prisliste skrevet inn som data: **PRISER
-2026 inkl. mva**, gyldig fra 01.03.2026, pluss **Sprosser 2026 inkl. 25 % mva**.
-Den dekker VB-serien, levegg, stakitt, gardsgjerde, flexigjerde, kystveggen,
+Prislisten ligger **ikke i koden**. Den ligger i Firestore under `prisdata/`,
+og reglene der slipper bare innloggede, aktive brukere til. Grunnen er enkel:
+`selger.html` er en åpen adresse, og alt den laster kan hvem som helst laste
+ned. Lå listen i en `.js`-fil, var den like tilgjengelig som forsiden.
+
+`js/modellar.js` har funksjonene og tomme registre. `js/datalast.js` henter
+innholdet ved innlogging og fyller registrene på plass — se `js/datafyll.js`
+for hvorfor de fylles og ikke tildeles på nytt. Kommer listen ikke inn, sier
+verktøyet fra øverst på siden i stedet for å vise en tom deleliste.
+
+Listen legges inn og tas sikkerhetskopi av under **Prisliste og satser** på
+hovedkontorsiden. Filene heter `prisbok`, `provisjon` og `apparat`, og skal
+aldri commites — `.gitignore` stenger `data/`.
+
+Selve listen er **PRISER 2026 inkl. mva**, gyldig fra 01.03.2026, pluss
+**Sprosser 2026 inkl. 25 % mva**. Den dekker VB-serien, levegg, stakitt, gardsgjerde, flexigjerde, kystveggen,
 stolper, stolpetopper, pyntekrans, porter og portdeler, glass, gulv, LED-lys,
 tilleggsdeler, begge fraktabellene og hele prismatrisen for sprosser.
 
@@ -242,8 +258,8 @@ fordi det er det en privatkunde skal betale — så det er tallet som står før
 overalt. Ved siden av står summen uten mva, for de gangene selgeren trenger
 den: mot en entreprenør, og når summen skal sammenlignes med ordreinngangen.
 `vindexEksMva()` og `vindexPrisTekst()` gjør regnestykket ett sted, slik at
-ingen gjør det i hodet. Ordreinngangstallene i `js/team.js` og `js/nokkeltal.js`
-er **eks. mva**, fordi de kommer fra årsrapporten, og står med hver sin merknad.
+ingen gjør det i hodet. Ordreinngangstallene i `js/apparattal.js` og
+`js/nokkeltal.js` er **eks. mva**, fordi de kommer fra årsrapporten, og står med hver sin merknad.
 
 Mva-satsen er ikke gjettet: fraktabellen i prislisten oppgir både eks. og inkl.
 mva i hver rad, og alle sju radene stemmer med 25 %.
@@ -555,7 +571,7 @@ grense, siden en fast pris er den samme rabatten i en annen innpakning.
 **Inndelingen er min lesning av regelen, ikke noe som står skrevet i
 prislisten.** Særlig to steder er det verdt å se etter: flexigjerdet er
 klassifisert som standard selv om det produseres, og spesialstolpen 7501 som
-produsert selv om den står blant stolpene. Tabellen ligger i `js/modellar.js`
+produsert selv om den står blant stolpene. Tabellen ligger i prisdataene (`prisbok`)
 og er én linje å endre.
 
 ## Frakt
@@ -598,8 +614,9 @@ enkelte, og den lekker lett ved et uhell — en utskrift på pauserommet, en
 skjermdeling i et møte. Derfor er ruta bygd for å forsvinne i alt som forlater
 skjermen, ikke bare for å se diskret ut.
 
-**Satsene er ikke lagt inn.** `js/provisjon.js` har en tom satsliste, og det er
-med vilje: en gjettet provisjonssats er verre enn ingen, fordi selgeren stoler
+**Satsene ligger i databasen, ikke i filen.** `js/provisjon.js` har en tom
+satsliste — den fylles ved innlogging, som prislisten. Og er den tom, er den
+tom med vilje: en gjettet provisjonssats er verre enn ingen, fordi selgeren stoler
 på tallet og planlegger etter det. Fram til listen kommer viser ruta grunnlaget
 — materiell, frakt og montering hver for seg — og sier tydelig at satsen
 mangler. Kommer listen, er filen den eneste som må endres, og formen er
@@ -987,10 +1004,10 @@ koster dermed to ganger. Derfor regnes provisjonen **per linje**, ikke på
 totalen: rabatten er gitt per linje med sin egen grense, og en totalregning
 ville brukt en sats som ikke gjelder for noen av dem.
 
-Selvstendig er nøyaktig ansatt × 1,275 i hele arket — kontrollert på alle 36
+Selvstendig er et fast påslag på ansatt-satsen i hele arket — kontrollert på alle 36
 tallpar. Faktoren ligger i filen som en sperre mot skrivefeil, ikke som en
 utregning; de trykte tallene står som de står. Én rute avviker: Seksjoner 30 %
-står som «20» der mønsteret gir 20,09. Det er arkets egen avrunding, og arket
+står avrundet ett sted der mønsteret gir en desimal til. Det er arkets egen avrunding, og arket
 sier selv at «alle nevnte prosenter kan ha noe avvik».
 
 **Ingen provisjon** på glassklemmer, stålfot, veggfester, porthengsler, låser og
@@ -1024,12 +1041,10 @@ listepris, og provisjonen skal ikke sprette fordi selgeren tok den ene eller den
 andre. Forskjellen ligger i taket: standard kan fortsette til 35 %, spesialen
 kan ikke. Kurven for standard blir dermed sammenhengende og monotont fallende:
 
-```
- 0 %    5 %   10 %   15 %   20 %   25 %   30 %   35 %
-22,25  21,32  20,29  19,13  17,83  16,35  15,76  13,90
-```
+Selve satsene står ikke her. De ligger i `prisdata/provisjon` sammen med
+resten av prislisten, og er ikke en del av det som publiseres.
 
-Fallet flater ut på 30 % (−0,59 mot −1,48 trinnet før). Det er ikke en feil:
+Fallet flater ut på 30 % (mindre enn halvparten av trinnet før). Det er ikke en feil:
 standardseksjonen er billigere å klargjøre, så det står mer igjen å dele når
 rabatten blir dyp.
 
