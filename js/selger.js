@@ -19,7 +19,7 @@ import {
   lastData, startDemo, tid, datoTekst, nesteAvtale,
   lagreLead, melding, opneModal, lukkModal, demoLagreOrdre, demoNullstill,
   lagreKladd, hentKladd, slettKladd, kladdlagrar, sidanTekst,
-} from "./verktoy-felles.js?v=efea1200";
+} from "./verktoy-felles.js?v=62946fe5";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visVerktoy());
@@ -370,7 +370,8 @@ function teiknMinetal() {
       <dt>Median responstid</dt><dd>${vindexTimarTekst(tal.responstimar)}</dd>
       <dt>Treffprosent</dt><dd>${tal.konvertering === null ? "–" : tal.konvertering + " %"}</dd>
       <dt>Ordre i produksjon</dt><dd>${mineOrdrar.filter((o) => o.status === "i_produksjon").length}</dd>
-    </dl>`;
+    </dl>
+    ${minSalsrute()}`;
 }
 
 function teiknPaaminningar() {
@@ -609,7 +610,7 @@ function teiknAnmeldingar() {
       }</span></div>
     ${
       demo
-        ? `<p class="hint"><strong>Oppdiktede eksempler.</strong> Innsamlingen er ikke bygd ennå.</p>`
+        ? ""
         : ""
     }
     ${
@@ -4442,4 +4443,101 @@ function teiknOrdreinngangSeljar() {
       teiknOrdreinngangSeljar();
     })
   );
+}
+
+// ---------------------------------------------------------------------------
+// Mitt salg og min provisjon
+// ---------------------------------------------------------------------------
+// Provisjonen har til no berre stått på kvar einskild sak. Det svarer på «kva
+// fekk eg for denne», men ikkje på «kor ligg eg an» — og det siste er det
+// seljaren faktisk lurer på når han opnar verktøyet.
+//
+// Grunnlaget er dei solgte sakene mine, ikkje ordrane: det er tilbodet som
+// ber rabatten, og rabatten er det som avgjer satsen. Ei solgt sak utan
+// tilbodslinjer tel som salg utan provisjonsgrunnlag, og det skal synast —
+// eit tal som ser lågt ut utan forklaring får folk til å tru det er feil.
+
+function minSalsstatus(aar = new Date().getFullYear()) {
+  if (erLager()) return null;
+  const meg = app.seljarar.find((s) => s.id === app.brukar.uid) || app.brukar;
+  const mine = (app.leads || []).filter(
+    (l) => l.seljarId === app.brukar.uid && l.status === "solgt"
+  );
+
+  let salg = 0, provisjon = 0, tal = 0, utanGrunnlag = 0, manglarSats = 0, overGrensa = 0;
+  mine.forEach((l) => {
+    const naar = tid(l.statusEndret) || tid(l.opprettet);
+    if (!naar || naar.getFullYear() !== aar) return;
+    tal++;
+
+    const rekna = vindexRegnTilbod(l.tilbud || {}, tilbodskontekst());
+    const harSprosser = ((l.sprossetilbod || {}).rader || []).length > 0;
+
+    if (!rekna.gyldig && !harSprosser) {
+      // Ingen tilbodslinjer. Salet er likevel eit sal — står det ein ordre på
+      // saka, veit vi kva det vart. Provisjonen kan vi ikkje rekne, for det er
+      // rabatten på linjene som avgjer satsen, og den finst ikkje her.
+      const ordre = (app.ordrar || []).find((o) => o.leadId === l.id);
+      const verdi = ordre ? vindexOrdreVerdi(ordre) : 0;
+      salg += verdi;
+      utanGrunnlag++;
+      return;
+    }
+
+    salg += rekna.sum || 0;
+    const pr = vindexProvisjon(rekna, meg);
+    if (pr) {
+      provisjon += pr.sum;
+      manglarSats += pr.manglarSats;
+      overGrensa += pr.overTabellen;
+    }
+    const sp = vindexSprosseprovisjon(l.sprossetilbod, meg);
+    if (sp) {
+      salg += sp.netto || 0;
+      provisjon += sp.sum || 0;
+      if (sp.manglarSats) manglarSats++;
+    }
+  });
+
+  return { aar, salg, provisjon, tal, utanGrunnlag, manglarSats, overGrensa };
+}
+
+function minSalsrute() {
+  const st = minSalsstatus();
+  if (!st) return "";
+  if (!vindexHarProvisjonssatsar() && !st.salg) return "";
+
+  const merknader = [];
+  if (st.utanGrunnlag)
+    merknader.push(
+      st.utanGrunnlag === 1
+        ? "1 solgt sak har ingen tilbudslinjer — den teller i salget, men gir ingen provisjon her."
+        : `${st.utanGrunnlag} solgte saker har ingen tilbudslinjer — de teller i salget, men gir ingen provisjon her.`
+    );
+  if (st.manglarSats)
+    merknader.push(`${st.manglarSats} linje${st.manglarSats === 1 ? "" : "r"} mangler sats.`);
+  if (st.overGrensa)
+    merknader.push(`${st.overGrensa} linje${st.overGrensa === 1 ? "" : "r"} over 35 % — ingen provisjon.`);
+
+  return `
+    <div class="minsals no-print">
+      <div class="panel-topp" style="margin-bottom:.5rem">
+        <h3 class="mt-0 mb-0">Mitt salg ${st.aar}</h3>
+        <span class="spacer"></span>
+        <span class="hint">${st.tal} solgt${st.tal === 1 ? "" : "e"}</span>
+      </div>
+      <div class="kpi-row" style="grid-template-columns:repeat(2,1fr)">
+        <div class="kpi">
+          <div class="kpi-num">${vindexKrKort(st.salg)}</div>
+          <div class="kpi-label">solgt for</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-num tekst-god">${vindexKrKort(st.provisjon)}</div>
+          <div class="kpi-label">min provisjon</div>
+        </div>
+      </div>
+      ${merknader.length ? `<p class="hint mb-0 mt-1">${merknader.join(" ")}</p>` : ""}
+      <p class="hint mb-0 mt-1">Regnet av tilbudene på sakene du har solgt i år.
+        Frakt, glassklemmer, stålfot, porthengsler og låser gir ingen provisjon.</p>
+    </div>`;
 }

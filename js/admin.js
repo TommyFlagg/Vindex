@@ -12,7 +12,7 @@
 import {
   $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
   datoTekst, lagreLead, melding, opneModal, lukkModal, visDatavarsel,
-} from "./verktoy-felles.js?v=efea1200";
+} from "./verktoy-felles.js?v=62946fe5";
 import { lastPrisdata, VINDEX_PRISDATA_DOKUMENT } from "./datalast.js?v=ba837177";
 
 settTeiknar(() => teiknAlt());
@@ -97,7 +97,7 @@ async function hentRepresentantar() {
     return;
   }
   try {
-    const { fb } = await import("./verktoy-felles.js?v=efea1200");
+    const { fb } = await import("./verktoy-felles.js?v=62946fe5");
     const q = fb.query(fb.representantarCol(), fb.orderBy("opprettet", "desc"), fb.limit(200));
     representantar = (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (err) {
@@ -434,7 +434,7 @@ async function lagreAarstal() {
 
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=efea1200");
+      const { fb } = await import("./verktoy-felles.js?v=62946fe5");
       await fb.setDoc(fb.settingsDoc("aarstal"), { driftsinntekter: tal });
     }
     // Eit tal nokon har skrive inn sjølv er stadfesta — til skilnad frå det eg
@@ -969,7 +969,7 @@ async function lagrePerson(p, ny) {
       if (ny) app.seljarar.push({ ...data, id: "ny-" + Date.now(), arkivert: false });
       else Object.assign(p, data);
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=efea1200");
+      const { fb } = await import("./verktoy-felles.js?v=62946fe5");
       if (ny) {
         // Personen får rad i apparatet med ein gong, men kan ikkje logge inn
         // før nokon opprettar brukaren i Firebase Authentication og flyttar
@@ -1023,7 +1023,7 @@ async function vekslArkiv(p) {
   const data = vindexArkiverData(p, dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=efea1200");
+      const { fb } = await import("./verktoy-felles.js?v=62946fe5");
       await fb.updateDoc(fb.sellerDoc(p.id), data);
     }
     Object.assign(p, data);
@@ -1044,7 +1044,7 @@ async function lagreDistrikt(seljarId) {
   seljar.distrikt = valde;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=efea1200");
+      const { fb } = await import("./verktoy-felles.js?v=62946fe5");
       await fb.updateDoc(fb.sellerDoc(seljarId), { distrikt: valde });
       await byggRuting();
     }
@@ -1064,7 +1064,7 @@ async function lagreDistrikt(seljarId) {
  * innlogga. Difor ligg berre ID-ane der — ingen namn, ingen kontaktinfo.
  */
 async function byggRuting() {
-  const { fb } = await import("./verktoy-felles.js?v=efea1200");
+  const { fb } = await import("./verktoy-felles.js?v=62946fe5");
   // Formen må vere den bestillingsskjemaet les: distrikt-id -> liste med
   // selger-id-ar. Er det fleire i same distrikt, roterer skjemaet mellom dei.
   // Dokumentet ligg flatt, uten «distrikt»-nivå, og heiter settings/ruting.
@@ -1284,6 +1284,10 @@ function anmeldingsrad(a) {
     </div>
     <p class="mb-1">${a.tekst || ""}</p>
     <div class="anmelding-botn">
+      <label class="avkryssrad hint" style="margin:0">
+        <input type="checkbox" data-anmvis="${a.id}"${a.vis ? " checked" : ""}>
+        <span>Vis på nettsiden</span>
+      </label>
       <label class="hint" for="anm_${a.id}">Selger</label>
       <select id="anm_${a.id}" data-anmseljar="${a.id}">
         <option value="">— ikke knyttet —</option>
@@ -1312,7 +1316,6 @@ function teiknAnmeldingar() {
   const alle = vindexAnmeldingarSortert(app.anmeldingar);
   const snitt = vindexAnmeldingssnitt(alle);
   const utan = alle.filter((a) => !a.seljarId).length;
-  const demo = alle.some((a) => a.demo);
 
   $("#anmeldingar").innerHTML = `
     <div class="panel-topp"><h3>Kundeanmeldelser</h3><span class="spacer"></span>
@@ -1322,19 +1325,29 @@ function teiknAnmeldingar() {
           : `${snitt.snitt} av 5 · ${snitt.tal} ${snitt.tal === 1 ? "vurdering" : "vurderinger"}`
       }</span></div>
     ${
-      demo
-        ? `<div class="notice notice-warn"><strong>Oppdiktede eksempler.</strong>
-             Innsamlingen er ikke bygd ennå — disse er laget for å vise panelet, og
-             ingen av dem er sagt av et menneske.</div>`
-        : ""
-    }
-    ${
       snitt.tynt && snitt.tal
         ? `<p class="hint">Bare ${snitt.tal} vurderinger — snittet er ikke et snitt ennå.</p>`
         : ""
     }
     ${alle.length ? alle.map(anmeldingsrad).join("") : '<p class="hint">Ingen anmeldelser registrert.</p>'}
-    ${utan ? `<p class="hint mb-0">${utan} venter på å bli knyttet til en selger.</p>` : ""}`;
+    ${utan ? `<p class="hint mb-0">${utan} venter på å bli knyttet til en selger.</p>` : ""}
+    ${
+      alle.length
+        ? `<div class="knapperad mt-2">
+             <button class="btn btn-sm" id="publiserOmtaler">Oppdater nettsiden</button>
+             <span class="hint" id="omtaleteljar">${alle.filter((a) => a.vis).length} av ${alle.length} er valgt</span>
+           </div>
+           <p class="hint mb-0">Hak av «Vis på nettsiden» på dem som skal ut, og trykk
+             oppdater. Bare stjerner, tekst, navn og sted blir sendt — ikke e-post,
+             telefon eller hvilken selger saken hører til.</p>`
+        : ""
+    }`;
+
+  $$("[data-anmvis]").forEach((b) =>
+    b.addEventListener("change", () => settOmtaleVis(b.dataset.anmvis, b.checked))
+  );
+  const publiser = $("#publiserOmtaler");
+  if (publiser) publiser.addEventListener("click", skrivOmtalerTilNettsida);
 
   $$("[data-anmseljar]").forEach((v) =>
     v.addEventListener("change", () => knytAnmelding(v.dataset.anmseljar, v.value))
@@ -1349,7 +1362,7 @@ async function knytAnmelding(id, seljarId) {
   if (!a) return;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=efea1200");
+      const { fb } = await import("./verktoy-felles.js?v=62946fe5");
       await fb.updateDoc(fb.reviewDoc(id), { seljarId: seljarId || null });
     }
     a.seljarId = seljarId || null;
@@ -1485,7 +1498,7 @@ async function lagreGjeninntaking(s, dato) {
   const data = vindexGjeninntaData(dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=efea1200");
+      const { fb } = await import("./verktoy-felles.js?v=62946fe5");
       await fb.updateDoc(fb.sellerDoc(s.id), data);
     }
     Object.assign(s, data);
@@ -1693,7 +1706,7 @@ async function lagreKampanje(kam, ny, data) {
       if (ny) app.kampanjar.push({ ...full, id: "k-" + Date.now(), opprettaAv: app.brukar.navn });
       else Object.assign(kam, full);
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=efea1200");
+      const { fb } = await import("./verktoy-felles.js?v=62946fe5");
       if (ny) {
         const ref = await fb.addDoc(fb.campaignsCol(), {
           ...full,
@@ -1719,7 +1732,7 @@ async function vekslKampanje(k) {
   const paa = k.aktiv === false;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=efea1200");
+      const { fb } = await import("./verktoy-felles.js?v=62946fe5");
       await fb.updateDoc(fb.campaignDoc(k.id), { aktiv: paa });
     }
     k.aktiv = paa;
@@ -2005,4 +2018,78 @@ async function lagrePrisdata() {
     "La inn " + funne.map((f) => PRISDATA_NAMN[f.nokkel].toLowerCase()).join(", ") +
     (ukjende.length ? ". Hoppet over " + ukjende.join(", ") : ".")
   );
+}
+
+
+// ---------------------------------------------------------------------------
+// Omtaler ut på nettsida
+// ---------------------------------------------------------------------------
+// Sjølve samlinga `reviews` krev innlogging. Nettsida les eit eige dokument,
+// settings/omtaler, som berre inneheld det som er meint å stå ute. Skiljet er
+// heile poenget: ingenting hamnar på nettsida fordi det låg i same samlinga
+// som noko anna — det må vere valt.
+
+async function settOmtaleVis(id, vis) {
+  const a = app.anmeldingar.find((x) => x.id === id);
+  if (!a) return;
+  a.vis = vis;
+  // Berre teljaren blir oppdatert, ikkje heile panelet. Teiknar vi på nytt for
+  // kvar avkryssing, blir avkryssingsboksane bytta ut under fingeren — og den
+  // som skal hake av fem omtaler får berre den første med seg.
+  oppdaterOmtaleteljar();
+  try {
+    if (!VINDEX_DEMOMODUS) await fb.updateDoc(fb.reviewDoc(id), { vis });
+  } catch (err) {
+    console.error(err);
+    melding("Kunne ikke lagre valget: " + err.message);
+    a.vis = !vis;
+    const boks = document.querySelector(`[data-anmvis="${id}"]`);
+    if (boks) boks.checked = !vis;
+    oppdaterOmtaleteljar();
+  }
+}
+
+function oppdaterOmtaleteljar() {
+  const el = document.querySelector("#omtaleteljar");
+  if (!el) return;
+  const alle = app.anmeldingar || [];
+  el.textContent = `${alle.filter((a) => a.vis).length} av ${alle.length} er valgt`;
+}
+
+async function skrivOmtalerTilNettsida() {
+  // Berre felta som skal ut. E-post, telefon og seljar-id blir att her —
+  // det er kopien som blir open, ikkje originalen.
+  const omtaler = (app.anmeldingar || [])
+    .filter((a) => a.vis && a.tekst)
+    .sort((a, b) => String(b.dato || "").localeCompare(String(a.dato || "")))
+    .map((a) => ({
+      stjerner: Number(a.stjerner) || 0,
+      tekst: String(a.tekst),
+      navn: String(a.navn || "Kunde"),
+      poststed: String(a.poststed || ""),
+      kjelde: String(a.kjelde || ""),
+      dato: String(a.dato || ""),
+    }));
+
+  try {
+    if (VINDEX_DEMOMODUS) {
+      // Demoen har ingen database. Utan dette stoppar flyten her, og då kan
+      // ein ikkje vise fram det som er heile poenget: at omtalen dukkar opp
+      // på nettsida etterpå.
+      localStorage.setItem("vindex_demo_omtaler", JSON.stringify(omtaler));
+    } else {
+      await fb.setDoc(fb.settingsDoc("omtaler"), {
+        omtaler,
+        oppdatert: new Date().toISOString(),
+      });
+    }
+    melding(
+      omtaler.length
+        ? `${omtaler.length} omtale${omtaler.length === 1 ? "" : "r"} ligger nå på nettsiden.`
+        : "Ingen omtaler er valgt — seksjonen på nettsiden står tom."
+    );
+  } catch (err) {
+    console.error(err);
+    melding("Kunne ikke oppdatere nettsiden: " + err.message);
+  }
 }

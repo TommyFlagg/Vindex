@@ -22,8 +22,13 @@
 // den frå lys til mørk; på mørk botn må den gå andre vegen, elles ville "null
 // kundar" lyst kraftigast av alt. Begge er kontrollerte for monotont
 // stigande/fallande lysheit.
-const VINDEX_RAMPE_LYS = ["#eef2f3", "#d3e4e9", "#a8c9d4", "#6fa3b5", "#3a7b91", "#14556b", "#0a3341"];
-const VINDEX_RAMPE_MORK = ["#12222e", "#1a3a4a", "#215064", "#2b6980", "#43899f", "#6bafc4", "#9ed3e4"];
+//
+// Nullsteget er løfta eitt hakk frå det det var. Det låg så nær bakgrunnen at
+// fylke utan kundar forsvann heilt, og då ser kartet ut som om halve Noreg
+// ikkje finst. Det skal framleis lese som «ingenting her» — berre synleg nok
+// til at forma på landet held seg.
+const VINDEX_RAMPE_LYS = ["#dde5e8", "#c4dbe2", "#a8c9d4", "#6fa3b5", "#3a7b91", "#14556b", "#0a3341"];
+const VINDEX_RAMPE_MORK = ["#1c3140", "#244455", "#215064", "#2b6980", "#43899f", "#6bafc4", "#9ed3e4"];
 
 const erMorkt = () => document.body.classList.contains("tema-mork");
 const rampe = () => (erMorkt() ? VINDEX_RAMPE_MORK : VINDEX_RAMPE_LYS);

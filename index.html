@@ -12,7 +12,7 @@
 <meta property="og:image" content="https://vindex.no/assets/bilder/hero-fasade.jpg">
 <meta name="theme-color" content="#0a1621">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="stylesheet" href="css/style.css?v=7846a675">
+<link rel="stylesheet" href="css/style.css?v=95b6b56f">
 <script>
   // Nettstaden er mørk som standard. Set temaet før sida teiknar, så den ikkje
   // blinkar i feil farge først.
@@ -175,6 +175,24 @@
   </div>
 </section>
 
+<!-- Omtaler hovudkontoret har sleppt ut. Seksjonen står skjult til det finst
+     minst éi — ein tom karusell er verre enn ingen.
+
+     Merket over har høgd, seksjonen har det ikkje så lenge han er skjult. Det
+     er merket vi ser etter for å vite når vi er i nærleiken: eit `hidden`
+     element har ingen boks, og blir aldri meldt som synleg. -->
+<div data-omtalemerke aria-hidden="true" style="height:1px"></div>
+<section class="section-alt" id="omtaler" data-omtaleseksjon hidden>
+  <div class="wrap">
+    <div class="section-head" data-avslor>
+      <span class="merkelapp">Omtaler</span>
+      <h2>Det kundene har sagt</h2>
+      <p class="lead" data-omtalesnitt></p>
+    </div>
+    <div id="omtalerad"></div>
+  </div>
+</section>
+
 <!-- 7 — MONTERING OG TEKNISK ------------------------------------------ -->
 <section id="teknisk">
   <div class="wrap">
@@ -286,6 +304,7 @@
 
 <script src="js/produkter.js?v=7fe9eba2"></script>
 <script src="js/team.js?v=6f3a0da3"></script>
+<script src="js/omtale.js?v=39909ba1"></script>
 <script src="js/tilbakemeldingar.js?v=28c0309d"></script>
 <script src="js/personar.js?v=addc3308"></script>
 <script src="js/distrikt.js?v=577fba13"></script>

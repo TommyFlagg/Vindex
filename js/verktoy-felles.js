@@ -567,6 +567,21 @@ export function demoAnmeldingar() {
       seljarId: "demo-1", demo: true },
     { id: "a5", navn: "Terje Aas", poststed: "Oslo", stjerner: 5, kjelde: "telefon", dato: dag(38),
       tekst: "Andre gang jeg kjøper. Det sier vel det meste.", seljarId: null, demo: true },
+    { id: "a6", navn: "Kristin Vatne", poststed: "Molde", stjerner: 5, kjelde: "google", dato: dag(6),
+      tekst: "Vi fikk tegning og pris etter befaring, og prisen holdt. Rekkverket ser likt ut nå som da det kom.",
+      seljarId: "demo-1", demo: true },
+    { id: "a7", navn: "Odd Inge Rødseth", poststed: "Vestnes", stjerner: 5, kjelde: "facebook", dato: dag(13),
+      tekst: "Har hatt gjerdet i seks år. Spyler det én gang i året, ellers ingenting. Naboen maler fortsatt.",
+      seljarId: "demo-2", demo: true },
+    { id: "a8", navn: "Hanne Ulvestad", poststed: "Ålesund", stjerner: 5, kjelde: "google", dato: dag(21),
+      tekst: "Levegg mot vest, og vi sitter ute til langt ut i september. Montøren ryddet etter seg også.",
+      seljarId: "demo-1", demo: true },
+    { id: "a9", navn: "Arve Kalvøy", poststed: "Herøy", stjerner: 5, kjelde: "facebook", dato: dag(29),
+      tekst: "Bor rett ved sjøen og har prøvd det meste. Dette er det første som ikke ruster eller flasser.",
+      seljarId: "demo-3", demo: true },
+    { id: "a10", navn: "Grete Sunde", poststed: "Kristiansund", stjerner: 5, kjelde: "google", dato: dag(44),
+      tekst: "Sprossene gjorde hele fasaden. Fikk hjelp til å velge mønster som passet huset.",
+      seljarId: "demo-2", demo: true },
   ];
 }
 

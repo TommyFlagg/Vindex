@@ -193,6 +193,18 @@ service cloud.firestore {
       allow write: if erAdmin();
     }
 
+    // Omtaler hovudkontoret har sleppt ut på nettsida.
+    //
+    // Sjølve samlinga `reviews` krev innlogging — der står namn, poststad og
+    // kva seljar saka høyrer til. Dette dokumentet er kopien som er meint å
+    // stå ute, og inneheld berre stjerner, tekst, namn og stad. Skiljet er
+    // med vilje: det som er ope skal vere ope fordi nokon har bestemt det,
+    // ikkje fordi det låg i same samlinga som noko anna.
+    match /settings/omtaler {
+      allow read: if true;
+      allow write: if erAdmin();
+    }
+
     match /settings/{dokument} {
       allow read: if erSeljar();
       allow write: if erAdmin();

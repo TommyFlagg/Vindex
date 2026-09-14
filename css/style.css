@@ -1716,13 +1716,13 @@ body.tema-mork .fordelingsstolpe i { background: var(--accent); }
   transition: fill 0.2s ease, opacity 0.2s ease;
 }
 .nettfylke.dekt { fill: #10495a; }
-.nettfylke.ledig { fill: #dbe6e9; stroke: #3a7b91; stroke-dasharray: 3 2.5; stroke-width: 1.4; }
+.nettfylke.ledig { fill: #c8dce1; stroke: #2f6d82; stroke-dasharray: 3 2.5; stroke-width: 1.5; }
 .nettfylke:hover, .nettfylke:focus-visible { opacity: 0.82; outline: none; }
 .nettfylke.valt { stroke: var(--accent); stroke-width: 2.4; stroke-dasharray: none; }
 .nettfylke:focus-visible { stroke: var(--accent); stroke-width: 2.4; }
 
 body.tema-mork .nettfylke.dekt { fill: #b8862f; }
-body.tema-mork .nettfylke.ledig { fill: #1a3a4a; stroke: #9ed3e4; }
+body.tema-mork .nettfylke.ledig { fill: #23505f; stroke: #9ed3e4; }
 body.tema-mork .nettkart .norgeskart { filter: drop-shadow(0 12px 30px rgba(0, 0, 0, 0.5)); }
 
 .nettverk-tegn {
@@ -1732,9 +1732,9 @@ body.tema-mork .nettkart .norgeskart { filter: drop-shadow(0 12px 30px rgba(0, 0
 .nettverk-tegn .tegn-rad { display: inline-flex; align-items: center; gap: 0.45rem; }
 .nettverk-tegn i { width: 1rem; height: 1rem; border-radius: 3px; display: inline-block; }
 .nettverk-tegn .prov-dekt { background: #10495a; }
-.nettverk-tegn .prov-ledig { background: #dbe6e9; border: 1.5px dashed #3a7b91; }
+.nettverk-tegn .prov-ledig { background: #c8dce1; border: 1.5px dashed #2f6d82; }
 body.tema-mork .nettverk-tegn .prov-dekt { background: #b8862f; }
-body.tema-mork .nettverk-tegn .prov-ledig { background: #1a3a4a; border-color: #9ed3e4; }
+body.tema-mork .nettverk-tegn .prov-ledig { background: #23505f; border-color: #9ed3e4; }
 
 .nettverk-detalj {
   margin-top: 0.9rem; padding: 0.85rem 1rem; min-height: 5.5rem;
@@ -1748,9 +1748,9 @@ body.tema-mork .nettverk-tegn .prov-ledig { background: #1a3a4a; border-color: #
   margin-right: 0.4rem; vertical-align: baseline;
 }
 .statusprikk.dekt { background: #10495a; }
-.statusprikk.ledig { background: #dbe6e9; border: 1.5px solid #3a7b91; }
+.statusprikk.ledig { background: #c8dce1; border: 1.5px solid #2f6d82; }
 body.tema-mork .statusprikk.dekt { background: var(--accent); }
-body.tema-mork .statusprikk.ledig { background: #1a3a4a; border-color: #9ed3e4; }
+body.tema-mork .statusprikk.ledig { background: #23505f; border-color: #9ed3e4; }
 
 /* Dei tre tala. Store nok til å lesast på avstand — det er dei som skal
    feste seg, både hos kunden og hos den som vurderer å bli med. */
@@ -2211,3 +2211,52 @@ tr.klikkbar:hover td { background: var(--primary-soft); }
 body.tema-mork .modellfigur { color: var(--ink); background: rgba(255, 255, 255, 0.04); }
 body.tema-mork .choice:has(input:checked) .modellfigur { background: rgba(255, 255, 255, 0.07); }
 body.tema-mork .valgte-merkelapp { background: rgba(255, 255, 255, 0.06); color: var(--ink); }
+
+/* Mitt salg og min provisjon, i «Mine tall» på seljardashbordet. */
+.minsals {
+  margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid var(--border);
+}
+.minsals .kpi-num { font-size: 1.35rem; }
+
+/* ---------------------------------------------------------------------------
+   Kundeomtaler — den vandrande rada på nettsida
+   ---------------------------------------------------------------------------
+   Rada inneheld korta to gonger. Animasjonen flyttar henne nøyaktig halvvegs
+   og startar på nytt; då er det same biletet, og skøyten er usynleg.
+--------------------------------------------------------------------------- */
+.omtalerad { overflow: hidden; margin: 0 -1rem; padding: 0.25rem 0; -webkit-mask-image:
+  linear-gradient(90deg, transparent, #000 5rem, #000 calc(100% - 5rem), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 5rem, #000 calc(100% - 5rem), transparent); }
+.omtalespor { display: flex; gap: 1rem; width: max-content;
+  animation: omtaleglid var(--omtale-tid, 60s) linear infinite; }
+.omtalerad:hover .omtalespor, .omtalerad:focus-within .omtalespor { animation-play-state: paused; }
+@keyframes omtaleglid { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+.omtalerad-still { display: grid; gap: 1rem; margin: 0;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); -webkit-mask-image: none; mask-image: none; }
+
+.omtale {
+  flex: 0 0 auto; width: min(21rem, 78vw); margin: 0; padding: 1.15rem 1.25rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; gap: 0.6rem;
+}
+.omtalerad-still .omtale { width: auto; }
+.omtale blockquote { margin: 0; font-size: 0.97rem; line-height: 1.55; color: var(--ink); }
+.omtale blockquote::before { content: "«"; }
+.omtale blockquote::after { content: "»"; }
+.omtale figcaption { font-size: 0.85rem; font-weight: 600; color: var(--primary-dark);
+  margin-top: auto; display: flex; flex-direction: column; gap: 0.1rem; }
+.omtale figcaption span { font-weight: 400; color: var(--muted); font-size: 0.8rem; }
+.omtale-stjerner { color: var(--accent); letter-spacing: 0.1em; font-size: 1rem; line-height: 1; }
+.omtale-tomme { opacity: 0.25; }
+
+body.tema-mork .omtale { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.1); }
+body.tema-mork .omtale figcaption { color: var(--ink); }
+
+/* Rørsle er ikkje innhald. Den som har bedt om ro, skal få eit rutenett. */
+@media (prefers-reduced-motion: reduce) {
+  .omtalespor { animation: none; flex-wrap: wrap; width: auto; }
+  .omtalerad { -webkit-mask-image: none; mask-image: none; }
+  .omtalespor .omtale:nth-child(n + 7) { display: none; }
+}
