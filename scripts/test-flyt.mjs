@@ -78,6 +78,14 @@ console.log("SELJARVERKTØYET");
   await p.evaluate(() => document.querySelector(".leadrad")?.click());
   await p.waitForTimeout(700);
   sjekk("kundekort opnar", (await p.$eval("#leadDetalj", (e) => e.innerText)).length > 200);
+  // Innhald, ikkje berre struktur. Ein feil i escapinga gjorde ein gong at
+  // alle namn vart tomme — sida såg heil ut, og strukturtestane merka ingenting.
+  const kort = await p.$eval("#leadDetalj", (e) => e.innerText);
+  sjekk("kundenamnet står på kortet", /[A-ZÆØÅ][a-zæøå]+ [A-ZÆØÅ][a-zæøå]+/.test(kort));
+  sjekk("telefonnummer på kortet", /\d{2}\s?\d{2}\s?\d{2}\s?\d{2}/.test(kort));
+  const liste = await p.$eval(".arbeidsliste", (e) => e.innerText);
+  sjekk("namn i leadlista", /Bjørn|Ingrid|Per|Marit|Marte/.test(liste));
+  sjekk("poststad i leadlista", /Elnesvågen|Førde|Frei|Volda|Ålesund/.test(liste));
   await p.close();
 }
 
@@ -89,6 +97,14 @@ console.log("HOVUDKONTORET");
   sjekk("fire år", (await p.$$("[data-oaar]")).length === 4);
   sjekk("demovarsel", (await p.$eval("#ordreinngang", (e) => e.innerText)).includes("Demotall"));
   sjekk("seljartabell", await p.$("#seljartabell table") !== null);
+  const tab = await p.$eval("#seljartabell", (e) => e.innerText);
+  sjekk("seljarnamn i tabellen", /Oddveig|Erling|Knut|Rolf/.test(tab));
+  const app2 = await p.$eval("#seljarListe", (e) => e.innerText);
+  sjekk("namn på apparatkorta", /Oddveig Farstad/.test(app2));
+  sjekk("stad på apparatkorta", /Farstad|Brandbu|Ålesund/.test(app2));
+  const anm = await p.$eval("#anmeldingar", (e) => e.innerText);
+  sjekk("omtaletekst synleg", /Rekkverket kom|Veldig fornøyd|prisen holdt/.test(anm));
+  sjekk("omtalenamn synleg", /Bjørn Hatlem|Kristin Vatne/.test(anm));
   sjekk("apparat", (await p.$$("#seljarListe .seljarkort, #seljarListe .apparatkort, #seljarListe article")).length > 10 || (await p.$eval("#seljarListe", (e) => e.innerText)).includes("Forhandlere"));
   sjekk("arkiv", await p.$("#arkivListe") !== null);
   sjekk("kampanjar", await p.$("#kampanjar") !== null);

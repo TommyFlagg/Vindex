@@ -103,8 +103,8 @@ function vindexTeiknNettverkskart(el, nett, val = {}) {
       const dekt = nett.dekteFylke.has(f.id);
       const info = vindexFylkeinfo(nett, f.id);
       const merkelapp = dekt
-        ? `${vindexT(f.navnnavn)}: representant på plass${info.stader.length ? " i " + info.stader.join(", ") : ""}`
-        : `${vindexT(f.navnnavn)}: ledig område`;
+        ? `${vindexT(f.navn)}: representant på plass${info.stader.length ? " i " + info.stader.join(", ") : ""}`
+        : `${vindexT(f.navn)}: ledig område`;
       return `<path d="${f.bane}"
         class="nettfylke ${dekt ? "dekt" : "ledig"} ${valt === f.id ? "valt" : ""}"
         data-fylke="${f.id}" tabindex="0" role="button" aria-label="${merkelapp}">
@@ -186,7 +186,7 @@ function vindexTeiknNettverk(el, { rot = "" } = {}) {
 
         <div class="btn-row mt-2">
           <button class="btn btn-accent" type="button" id="opneRepSkjema">Meld interesse</button>
-          <a class="btn btn-ghost" href="tel:${(VINDEX_FIRMA.telefon || "").replace(/\s/g, "")}">Ring ${vindexT(VINDEX_FIRMA.telefontelefon)}</a>
+          <a class="btn btn-ghost" href="tel:${(VINDEX_FIRMA.telefon || "").replace(/\s/g, "")}">Ring ${vindexT(VINDEX_FIRMA.telefon)}</a>
         </div>
 
         <form class="repskjema hidden" id="repSkjema" novalidate>
@@ -238,13 +238,13 @@ function vindexTeiknNettverk(el, { rot = "" } = {}) {
       return;
     }
     detaljEl.innerHTML = info.dekt
-      ? `<h4 class="mt-0 mb-0">${vindexT(info.fylke.navnnavn)}</h4>
+      ? `<h4 class="mt-0 mb-0">${vindexT(info.fylke.navn)}</h4>
          <p class="mb-0"><span class="statusprikk dekt"></span>
            Representant på plass${
              info.stader.length ? " — " + info.stader.join(", ") : ""
            }.</p>
          <p class="hint mb-0">Be om tilbud, så tar den nærmeste kontakt.</p>`
-      : `<h4 class="mt-0 mb-0">${vindexT(info.fylke.navnnavn)}</h4>
+      : `<h4 class="mt-0 mb-0">${vindexT(info.fylke.navn)}</h4>
          <p class="mb-0"><span class="statusprikk ledig"></span>
            <strong>Ledig område.</strong> Her har vi ingen ennå.</p>
          <p class="hint mb-0">Bor du her? Da er det deg vi leter etter.</p>`;
@@ -325,8 +325,8 @@ function vindexTeiknNettverk(el, { rot = "" } = {}) {
     el.querySelector("#repDistrikt").textContent = !d
       ? ""
       : rad && rad.folk.length
-      ? `${vindexT(d.navnnavn)} — her har vi noen fra før, men vi hører gjerne fra deg.`
-      : `${vindexT(d.navnnavn)} — dette området står ledig.`;
+      ? `${vindexT(d.navn)} — her har vi noen fra før, men vi hører gjerne fra deg.`
+      : `${vindexT(d.navn)} — dette området står ledig.`;
   });
 
   skjema.addEventListener("submit", (e) => {
@@ -398,8 +398,8 @@ async function sendRepresentantskjema(rot, nett) {
     $("#repSkjema").classList.add("hidden");
     const kvitt = $("#repKvittering");
     kvitt.innerHTML = `<strong>Takk, ${data.navn.split(" ")[0]}!</strong>
-      Vi har fått meldingen din om ${vindexT(distrikt.navnnavn)}, og tar kontakt for en prat.
-      Haster det, ring ${vindexT(VINDEX_FIRMA.telefontelefon)}.
+      Vi har fått meldingen din om ${vindexT(distrikt.navn)}, og tar kontakt for en prat.
+      Haster det, ring ${vindexT(VINDEX_FIRMA.telefon)}.
       ${VINDEX_DEMOMODUS ? "<br><em>Demomodus: lagret lokalt i nettleseren.</em>" : ""}`;
     kvitt.classList.remove("hidden");
     kvitt.scrollIntoView({ behavior: "smooth", block: "center" });

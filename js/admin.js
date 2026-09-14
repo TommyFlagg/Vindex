@@ -40,7 +40,7 @@ async function visPanel() {
   $("#brukarMerke").textContent = app.brukar.navn + " · administrator";
 
   $("#snarvegar").innerHTML = SNARVEGAR.map(
-    (s) => `<button class="fane" data-hopp="${s.id}">${vindexT(s.navnnavn)}</button>`
+    (s) => `<button class="fane" data-hopp="${s.id}">${vindexT(s.navn)}</button>`
   ).join("");
   $$("#snarvegar .fane").forEach((k) =>
     k.addEventListener("click", () => {
@@ -129,8 +129,8 @@ function teiknRepresentantar() {
         (r) => `<div class="card">
           <div class="detail-head">
             <div>
-              <h3 class="mt-0 mb-0">${vindexT(r.navnnavn)}</h3>
-              <p class="hint mb-0">${r.distriktNavn || "–"} · ${vindexT(r.postnrpostnr)}
+              <h3 class="mt-0 mb-0">${vindexT(r.navn)}</h3>
+              <p class="hint mb-0">${r.distriktNavn || "–"} · ${vindexT(r.postnr)}
                 ${r.firma ? " · " + r.firma : ""} · ${datoTekst(r.opprettet)}</p>
             </div>
             ${
@@ -139,10 +139,10 @@ function teiknRepresentantar() {
                 : '<span class="tag tag-muted">Dekket i dag</span>'
             }
           </div>
-          ${r.omDeg ? `<p>${vindexT(r.omDegomDeg)}</p>` : '<p class="hint">Skrev ingenting om seg selv.</p>'}
+          ${r.omDeg ? `<p>${vindexT(r.omDeg)}</p>` : '<p class="hint">Skrev ingenting om seg selv.</p>'}
           <div class="btn-row no-print">
-            ${r.telefon ? `<a class="btn btn-sm" href="tel:${String(r.telefon).replace(/\s/g, "")}">📞 ${vindexT(r.telefontelefon)}</a>` : ""}
-            ${r.epost ? `<a class="btn btn-ghost btn-sm" href="mailto:${vindexT(r.epostepost)}">✉️ ${vindexT(r.epostepost)}</a>` : ""}
+            ${r.telefon ? `<a class="btn btn-sm" href="tel:${String(r.telefon).replace(/\s/g, "")}">📞 ${vindexT(r.telefon)}</a>` : ""}
+            ${r.epost ? `<a class="btn btn-ghost btn-sm" href="mailto:${vindexT(r.epost)}">✉️ ${vindexT(r.epost)}</a>` : ""}
           </div>
         </div>`
       )
@@ -224,7 +224,7 @@ function teiknBistand() {
             const b = l.bistand;
             return `<li>
               <strong>${vindexBistandNavn(b.sak)}</strong> — ${b.av} om
-              ${vindexT((l.kunde || {}).navnnavn)}, ${datoTekst(b.bedt)}<br>
+              ${vindexT((l.kunde || {}).navn)}, ${datoTekst(b.bedt)}<br>
               «${b.beskrivelse}»
               <button class="btn btn-sm mt-1" data-svar="${l.id}">Svar</button>
             </li>`;
@@ -245,7 +245,7 @@ function opneBistandssvar(lead) {
     "Svar på bistandsforespørselen",
     `<div class="notice notice-info">
        <strong>${vindexBistandNavn(b.sak)}</strong> — ${b.av}, ${datoTekst(b.bedt)}<br>
-       Kunde: ${vindexT((lead.kunde || {}).navnnavn)} · ${vindexT((lead.produkt || {}).navnnavn)}<br>
+       Kunde: ${vindexT((lead.kunde || {}).navn)} · ${vindexT((lead.produkt || {}).navn)}<br>
        «${b.beskrivelse}»
      </div>
      <div class="field">
@@ -484,9 +484,9 @@ function teiknSeljartabell() {
             .map(
               (r) => `<tr class="klikkbar ${r.seljar.id === app.brukar.uid ? "meg" : ""}"
                 data-seljarsaker="${r.seljar.id}" tabindex="0" role="button"
-                aria-label="Se sakene til ${vindexT(r.seljar.navnnavn)}">
-                <td><strong>${vindexT(r.seljar.navnnavn)}</strong><br>
-                  <span class="hint">${vindexT(r.seljar.stedsted)}</span></td>
+                aria-label="Se sakene til ${vindexT(r.seljar.navn)}">
+                <td><strong>${vindexT(r.seljar.navn)}</strong><br>
+                  <span class="hint">${vindexT(r.seljar.sted)}</span></td>
                 <td>${r.seljar.type === "forhandler" ? "Forhandler" : "Selger"}</td>
                 <td>${r.tal.opne}</td>
                 <td>${
@@ -513,7 +513,7 @@ function teiknSeljartabell() {
     opneSaksliste(
       "Sakene til " + s.navn,
       opne.filter((l) => l.seljarId === id),
-      `${vindexT(s.stedsted)} · ${
+      `${vindexT(s.sted)} · ${
         (s.distrikt || []).length ? s.distrikt.map((d) => vindexDistriktNavn(d)).join(", ") : "ingen distrikt"
       }`
     );
@@ -557,7 +557,7 @@ function teiknKanalar() {
       ${rader
         .map(
           (r) => `<div class="kanalrad">
-            <span class="kanalnavn">${vindexT(r.navnnavn)}</span>
+            <span class="kanalnavn">${vindexT(r.navn)}</span>
             <span class="kanalstolpe"><i style="width:${Math.round((r.tal / maks) * 100)}%"></i></span>
             <span class="kanaltal">${r.tal}</span>
             <span class="kanalverdi">${r.verdi ? vindexKrKort(r.verdi) + " kr" : "–"}</span>
@@ -702,7 +702,7 @@ function apparatKort(s) {
   if (s.rolle !== "selger") {
     return `<div class="card${arkivert ? " arkivkort" : ""}">
       <div class="detail-head">
-        <h3 class="mt-0 mb-0">${vindexT(s.navnnavn)}</h3>
+        <h3 class="mt-0 mb-0">${vindexT(s.navn)}</h3>
         ${merke}
       </div>
       <p class="hint">${kontakt || "Ingen kontaktinfo"}</p>
@@ -722,7 +722,7 @@ function apparatKort(s) {
   return `<div class="card seljarkort${arkivert ? " arkivkort" : ""}">
     <div class="detail-head">
       <div>
-        <h3 class="mt-0 mb-0">${vindexT(s.navnnavn)}</h3>
+        <h3 class="mt-0 mb-0">${vindexT(s.navn)}</h3>
         <p class="hint mb-0">${s.sted ? s.sted : "Sted ikke oppgitt"}${kontakt ? " · " + kontakt : ""}</p>
       </div>
       ${merke}
@@ -751,7 +751,7 @@ function apparatKort(s) {
             ? '<span class="hint">Ingen avgjorte saker med årsak</span>'
             : vinn.topp
                 .slice(0, 3)
-                .map((g) => `<span class="grunnmerke">${vindexT(g.navnnavn)} <b>${g.tal}</b></span>`)
+                .map((g) => `<span class="grunnmerke">${vindexT(g.navn)} <b>${g.tal}</b></span>`)
                 .join("") +
               (vinn.tynt
                 ? `<span class="hint grunnatterhald">Bare ${vinn.saker} sak${
@@ -768,7 +768,7 @@ function apparatKort(s) {
         (d) => `<label class="hakelinje">
           <input type="checkbox" data-seljar="${s.id}" value="${d.id}"
             ${(s.distrikt || []).includes(d.id) ? "checked" : ""}>
-          ${vindexT(d.navnnavn)}
+          ${vindexT(d.navn)}
         </label>`
       ).join("")}
       <button class="btn btn-sm mt-1" data-lagre="${s.id}">Lagre distrikt</button>
@@ -884,7 +884,7 @@ function opnePersonskjema(person) {
     `<div id="personskjema">
       <div class="feltrutenett">
         ${PERSONFELT.map(
-          (f) => `<div class="field"><label for="pf_${f.id}">${vindexT(f.navnnavn)}</label>
+          (f) => `<div class="field"><label for="pf_${f.id}">${vindexT(f.navn)}</label>
             <input id="pf_${f.id}" type="${f.type}" value="${String(p[f.id] || "").replace(/"/g, "&quot;")}"></div>`
         ).join("")}
         <div class="field"><label for="pf_type">Type</label>
@@ -924,7 +924,7 @@ function opnePersonskjema(person) {
       ${VINDEX_DISTRIKT.map(
         (d) => `<label class="hakelinje">
           <input type="checkbox" data-pdistrikt value="${d.id}"
-            ${(p.distrikt || []).includes(d.id) ? "checked" : ""}> ${vindexT(d.navnnavn)}
+            ${(p.distrikt || []).includes(d.id) ? "checked" : ""}> ${vindexT(d.navn)}
         </label>`
       ).join("")}
       <p class="field-error hidden mt-1" id="pfFeil"></p>
@@ -1008,7 +1008,7 @@ async function vekslArkiv(p) {
   // inn i ei historie som skal stå.
   const idag = new Date().toISOString().slice(0, 10);
   const svar = prompt(
-    `Arkivere ${vindexT(p.navnnavn)}?\n\n` +
+    `Arkivere ${vindexT(p.navn)}?\n\n` +
       "Personen mister tilgangen til salgsverktøyet og går ut av fordelingen av nye " +
       "forespørsler. Salget står igjen i statistikken, og du kan hente personen tilbake " +
       "fra arkivet når som helst.\n\n" +
@@ -1029,7 +1029,7 @@ async function vekslArkiv(p) {
     Object.assign(p, data);
     if (!VINDEX_DEMOMODUS) await byggRuting();
     teiknAlt();
-    melding(`${vindexT(p.navnnavn)} er arkivert og står i arkivet.`);
+    melding(`${vindexT(p.navn)} er arkivert og står i arkivet.`);
   } catch (err) {
     console.error(err);
     melding("Kunne ikke lagre: " + err.message);
@@ -1102,8 +1102,8 @@ function sakslinje(l) {
   return `<button type="button" class="sakslinje" data-sak="${l.id}">
     <span class="temp temp-${temp.id}">${vindexTemperaturDef(temp.id).kort}</span>
     <span class="saksnamn">
-      <strong>${vindexT(k.navnnavn)}</strong>
-      <span class="hint">${vindexT(k.poststedpoststed)} ${vindexT(k.postnrpostnr)} · ${vindexT((l.produkt || {}).navnnavn)}</span>
+      <strong>${vindexT(k.navn)}</strong>
+      <span class="hint">${vindexT(k.poststed)} ${vindexT(k.postnr)} · ${vindexT((l.produkt || {}).navn)}</span>
     </span>
     <span class="sakseigar">
       ${seljar ? seljar.navn : '<em class="hint">felles innboks</em>'}
@@ -1166,12 +1166,12 @@ function opneSak(id, tilbake) {
 
       <dl class="datablad">
         <div><dt>Kontakt</dt><dd>${
-          [k.telefon ? `<a href="tel:${String(k.telefon).replace(/\s/g, "")}">${vindexT(k.telefontelefon)}</a>` : "", k.epost ? `<a href="mailto:${vindexT(k.epostepost)}">${vindexT(k.epostepost)}</a>` : ""]
+          [k.telefon ? `<a href="tel:${String(k.telefon).replace(/\s/g, "")}">${vindexT(k.telefon)}</a>` : "", k.epost ? `<a href="mailto:${vindexT(k.epost)}">${vindexT(k.epost)}</a>` : ""]
             .filter(Boolean)
             .join("<br>") || "—"
         }</dd></div>
         <div><dt>Sted</dt><dd>${[k.adresse, [k.postnr, k.poststed].filter(Boolean).join(" ")].filter(Boolean).join("<br>") || "—"}</dd></div>
-        <div><dt>Produkt</dt><dd>${vindexT(p.navnnavn)}${p.mengde ? `<br><span class="hint">${p.mengde} ${p.enhet || ""}</span>` : ""}</dd></div>
+        <div><dt>Produkt</dt><dd>${vindexT(p.navn)}${p.mengde ? `<br><span class="hint">${p.mengde} ${p.enhet || ""}</span>` : ""}</dd></div>
         <div><dt>Ordrer</dt><dd>${ordrar.length || '<span class="hint">ingen</span>'}</dd></div>
       </dl>
 
@@ -1183,7 +1183,7 @@ function opneSak(id, tilbake) {
             ${app.seljarar
               .filter((s) => s.rolle !== "lager" && (!vindexErArkivert(s) || s.id === l.seljarId))
               .map(
-                (s) => `<option value="${s.id}"${s.id === l.seljarId ? " selected" : ""}>${vindexT(s.navnnavn)}${
+                (s) => `<option value="${s.id}"${s.id === l.seljarId ? " selected" : ""}>${vindexT(s.navn)}${
                   vindexErArkivert(s) ? " (arkivert)" : ""
                 }</option>`
               )
@@ -1198,7 +1198,7 @@ function opneSak(id, tilbake) {
         logg.length
           ? `<ul class="logg">${logg
               .slice(0, 12)
-              .map((h) => `<li><span class="hint">${datoTekst(h.tid)} · ${h.av}</span><br>${vindexT(h.teksttekst)}</li>`)
+              .map((h) => `<li><span class="hint">${datoTekst(h.tid)} · ${h.av}</span><br>${vindexT(h.tekst)}</li>`)
               .join("")}</ul>`
           : '<p class="hint">Ingenting logget ennå.</p>'
       }
@@ -1223,11 +1223,11 @@ async function flyttSak(l, nySeljar, tilbake) {
 
   try {
     await lagreLead(l, { seljarId: nySeljar || null }, [
-      `Flyttet fra ${frA ? frA.navn : "felles innboks"} til ${til ? til.navn : "hovedkontoret"} av ${vindexT(app.brukar.navnnavn)}.`,
+      `Flyttet fra ${frA ? frA.navn : "felles innboks"} til ${til ? til.navn : "hovedkontoret"} av ${vindexT(app.brukar.navn)}.`,
     ]);
     lukkModal();
     teiknAlt();
-    melding(til ? `Saken er flyttet til ${vindexT(til.navnnavn)}.` : "Saken ligger nå hos hovedkontoret.");
+    melding(til ? `Saken er flyttet til ${vindexT(til.navn)}.` : "Saken ligger nå hos hovedkontoret.");
   } catch (err) {
     console.error(err);
     const feil = $("#sakFeil");
@@ -1241,14 +1241,14 @@ async function flyttSak(l, nySeljar, tilbake) {
 async function vekslSaksarkiv(l, tilbake) {
   const bort = !l.arkivert;
   if (bort && !confirm(
-    `Legge bort saken til ${vindexT((l.kunde || {}).navnnavn)}?\n\n` +
+    `Legge bort saken til ${vindexT((l.kunde || {}).navn)}?\n\n` +
     "Den forsvinner fra listene, men blir stående i arkivet og i statistikken. " +
     "Du kan hente den tilbake."
   )) return;
 
   try {
     await lagreLead(l, { arkivert: bort }, [
-      bort ? `Lagt bort av ${vindexT(app.brukar.navnnavn)}.` : `Hentet tilbake av ${vindexT(app.brukar.navnnavn)}.`,
+      bort ? `Lagt bort av ${vindexT(app.brukar.navn)}.` : `Hentet tilbake av ${vindexT(app.brukar.navn)}.`,
     ]);
     lukkModal();
     teiknAlt();
@@ -1279,10 +1279,10 @@ function anmeldingsrad(a) {
   return `<div class="anmelding">
     <div class="anmelding-topp">
       ${vindexStjerner(a.stjerner)}
-      <strong>${vindexT(a.navnnavn)}</strong>
-      <span class="hint">${vindexT(a.poststedpoststed)}${a.poststed ? " · " : ""}${vindexKjeldeNavn(a.kjelde)} · ${a.dato || ""}</span>
+      <strong>${vindexT(a.navn)}</strong>
+      <span class="hint">${vindexT(a.poststed)}${a.poststed ? " · " : ""}${vindexKjeldeNavn(a.kjelde)} · ${a.dato || ""}</span>
     </div>
-    <p class="mb-1">${vindexT(a.teksttekst)}</p>
+    <p class="mb-1">${vindexT(a.tekst)}</p>
     <div class="anmelding-botn">
       <label class="avkryssrad hint" style="margin:0">
         <input type="checkbox" data-anmvis="${a.id}"${a.vis ? " checked" : ""}>
@@ -1294,7 +1294,7 @@ function anmeldingsrad(a) {
         ${app.seljarar
           .filter((s) => s.rolle !== "lager")
           .map(
-            (s) => `<option value="${s.id}"${s.id === a.seljarId ? " selected" : ""}>${vindexT(s.navnnavn)}${
+            (s) => `<option value="${s.id}"${s.id === a.seljarId ? " selected" : ""}>${vindexT(s.navn)}${
               vindexErArkivert(s) ? " (arkivert)" : ""
             }</option>`
           )
@@ -1303,7 +1303,7 @@ function anmeldingsrad(a) {
       ${
         !a.seljarId && foreslegen
           ? `<button class="lenkeknapp" data-anmframlegg="${a.id}" data-seljar="${foreslegen.id}">
-               Foreslått: ${vindexT(foreslegen.navnnavn)}${framlegg[0].sikker ? "" : " (usikkert)"}</button>`
+               Foreslått: ${vindexT(foreslegen.navn)}${framlegg[0].sikker ? "" : " (usikkert)"}</button>`
           : seljar
           ? ""
           : '<span class="hint">Fant ingen sak med dette navnet</span>'
@@ -1368,7 +1368,7 @@ async function knytAnmelding(id, seljarId) {
     a.seljarId = seljarId || null;
     teiknAnmeldingar();
     const s = app.seljarar.find((x) => x.id === seljarId);
-    melding(s ? `Knyttet til ${vindexT(s.navnnavn)}.` : "Koblingen er fjernet.");
+    melding(s ? `Knyttet til ${vindexT(s.navn)}.` : "Koblingen er fjernet.");
   } catch (err) {
     console.error(err);
     melding("Kunne ikke lagre: " + err.message);
@@ -1398,8 +1398,8 @@ function arkivkort(s) {
   return `<div class="card arkivkort">
     <div class="detail-head">
       <div>
-        <h3 class="mt-0 mb-0">${vindexT(s.navnnavn)}</h3>
-        <p class="hint mb-0">${vindexT(s.stedsted)} ·
+        <h3 class="mt-0 mb-0">${vindexT(s.navn)}</h3>
+        <p class="hint mb-0">${vindexT(s.sted)} ·
           ${s.type === "forhandler" ? "Forhandler" : s.rolle === "lager" ? "Lager" : "Selger"}</p>
       </div>
       <span class="tag tag-muted">Sluttet${s.sluttet ? " " + s.sluttet : ""}</span>
@@ -1449,7 +1449,7 @@ function opneGjeninntaking(s) {
   opneModal(
     "Hent tilbake " + s.navn,
     `<div id="hentskjema">
-      <p>${vindexT(s.navnnavn)} får tilgangen til salgsverktøyet tilbake og går inn i fordelingen av nye
+      <p>${vindexT(s.navn)} får tilgangen til salgsverktøyet tilbake og går inn i fordelingen av nye
         forespørsler igjen${(s.distrikt || []).length ? ` — på distriktene som står lagret` : ""}.</p>
       <div class="field">
         <label for="hentDato">Ny oppstart</label>
@@ -1505,7 +1505,7 @@ async function lagreGjeninntaking(s, dato) {
     if (!VINDEX_DEMOMODUS) await byggRuting();
     lukkModal();
     teiknAlt();
-    melding(`${vindexT(s.navnnavn)} er tilbake fra ${dato}.`);
+    melding(`${vindexT(s.navn)} er tilbake fra ${dato}.`);
   } catch (err) {
     console.error(err);
     const feil = $("#hentFeil");
@@ -1591,7 +1591,7 @@ function opneKampanje(k) {
             placeholder="Høstkampanje levegg"></div>
         <div class="field brei"><label for="kf_tekst">Det selgeren skal si</label>
           <textarea id="kf_tekst" style="min-height:80px"
-            placeholder="Hva kampanjen er, hva den ikke gjelder, og hva selgeren skal gjøre med den.">${vindexT(kam.teksttekst)}</textarea></div>
+            placeholder="Hva kampanjen er, hva den ikke gjelder, og hva selgeren skal gjøre med den.">${vindexT(kam.tekst)}</textarea></div>
         <div class="field"><label for="kf_fra">Fra</label>
           <input id="kf_fra" type="date" value="${kam.fra || ""}"></div>
         <div class="field"><label for="kf_til">Til</label>
@@ -1603,14 +1603,14 @@ function opneKampanje(k) {
         <div class="field brei"><label for="kf_omraade">Rekkevidde</label>
           <select id="kf_omraade">
             ${VINDEX_KAMPANJEOMRAADE.map(
-              (o) => `<option value="${o.id}"${kam.omraade === o.id ? " selected" : ""}>${vindexT(o.navnnavn)} — ${o.hjelp}</option>`
+              (o) => `<option value="${o.id}"${kam.omraade === o.id ? " selected" : ""}>${vindexT(o.navn)} — ${o.hjelp}</option>`
             ).join("")}
           </select></div>
       </div>
       <div id="kfFylke" class="${kam.omraade === "fylke" ? "" : "hidden"}">
         ${VINDEX_FYLKE.map(
           (f) => `<label class="hakelinje"><input type="checkbox" data-kfylke value="${f.id}"
-            ${(kam.fylke || []).includes(f.id) ? "checked" : ""}> ${vindexT(f.navnnavn)}</label>`
+            ${(kam.fylke || []).includes(f.id) ? "checked" : ""}> ${vindexT(f.navn)}</label>`
         ).join("")}
       </div>
       <div id="kfPostnr" class="field ${kam.omraade === "postnr" ? "" : "hidden"}">
@@ -1627,8 +1627,8 @@ function opneKampanje(k) {
         ${seljarar
           .map(
             (s) => `<label class="hakelinje"><input type="checkbox" data-kseljar value="${s.id}"
-              ${(kam.seljarar || []).includes(s.id) ? "checked" : ""}> ${vindexT(s.navnnavn)}
-              <span class="hint">${vindexT(s.stedsted)}</span></label>`
+              ${(kam.seljarar || []).includes(s.id) ? "checked" : ""}> ${vindexT(s.navn)}
+              <span class="hint">${vindexT(s.sted)}</span></label>`
           )
           .join("")}
       </div>
@@ -1759,7 +1759,7 @@ function teiknGrunnar() {
           ? rader
               .map(
                 (r) => `<div class="fordelingsrad">
-                  <span class="fordelingsnavn">${vindexT(r.navnnavn)}</span>
+                  <span class="fordelingsnavn">${vindexT(r.navn)}</span>
                   <span class="fordelingsstolpe"><i class="fyll-${status}" style="width:${Math.round((r.tal / total) * 100)}%"></i></span>
                   <span class="fordelingstal">${r.tal}</span>
                 </div>`
@@ -1800,7 +1800,7 @@ function konkurrentkort() {
              <tbody>${rader
                .map(
                  (r) => `<tr>
-                   <td>${vindexT(r.navnnavn)}<br>
+                   <td>${vindexT(r.navn)}<br>
                      <span class="fordelingsstolpe" style="max-width:9rem"><i class="fyll-solgt"
                        style="width:${Math.round((r.moter / flest) * 100)}%"></i></span></td>
                    <td class="tal">${r.moter}</td>
@@ -1830,7 +1830,7 @@ function taptTilKort() {
         ? rader
             .map(
               (r) => `<div class="fordelingsrad">
-                <span class="fordelingsnavn">${vindexT(r.navnnavn)}</span>
+                <span class="fordelingsnavn">${vindexT(r.navn)}</span>
                 <span class="fordelingsstolpe"><i class="fyll-avslatt" style="width:${Math.round((r.tal / total) * 100)}%"></i></span>
                 <span class="fordelingstal">${r.tal}</span>
               </div>`
