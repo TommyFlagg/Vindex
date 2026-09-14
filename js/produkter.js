@@ -29,7 +29,13 @@ const VINDEX_FIRMA = {
   finn: "",
   // Miljøfyrtårn-sertifisert. Sertifikatnummer og lenke må fyllast inn før
   // lansering — vi påstår ikkje noko vi ikkje kan vise fram.
-  miljofyrtarn: { sertifisert: true, nummer: "", lenke: "" },
+  // `logo` peikar på det offisielle sertifiseringsmerket. Ligg fila ikkje der,
+  // fell seksjonen tilbake på ordmerket — eit brote bilete på ein
+  // sertifiseringspåstand er verre enn ingen logo.
+  miljofyrtarn: {
+    sertifisert: true, nummer: "", lenke: "",
+    logo: "assets/miljofyrtarn.png",
+  },
   // Bilete av folka på fabrikken, til «Hvem er vi»-seksjonen. Står feltet
   // tomt, viser seksjonen berre teksten — vi set ikkje inn eit produktbilete
   // og kallar det eit lagbilete.

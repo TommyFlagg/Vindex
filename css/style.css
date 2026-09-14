@@ -2260,3 +2260,13 @@ body.tema-mork .omtale figcaption { color: var(--ink); }
   .omtalerad { -webkit-mask-image: none; mask-image: none; }
   .omtalespor .omtale:nth-child(n + 7) { display: none; }
 }
+
+/* Miljøfyrtårn-merket. Ordmerket står i boksen til den ekte logoen har lasta —
+   ein sertifiseringspåstand med eit brote bilete ved sida av er verre enn
+   ingen logo i det heile. */
+.miljomerke.har-logo {
+  background: #fff; border: 1px solid var(--border); display: grid; place-items: center;
+  padding: 1.1rem; font-size: 0; aspect-ratio: auto;
+}
+.miljologo { width: 100%; height: auto; max-width: 260px; display: block; }
+body.tema-mork .miljomerke.har-logo { background: #fff; }

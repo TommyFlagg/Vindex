@@ -12,7 +12,7 @@
 <meta property="og:image" content="https://vindex.no/assets/bilder/hero-fasade.jpg">
 <meta name="theme-color" content="#0a1621">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="stylesheet" href="css/style.css?v=95b6b56f">
+<link rel="stylesheet" href="css/style.css?v=2ed1bf5f">
 <script>
   // Nettstaden er mørk som standard. Set temaet før sida teiknar, så den ikkje
   // blinkar i feil farge først.
@@ -253,7 +253,7 @@
 <section id="miljo">
   <div class="wrap">
     <div class="miljoblokk" data-avslor>
-      <div class="miljomerke" aria-hidden="true">MILJØ<br>FYRTÅRN</div>
+      <div class="miljomerke" id="miljomerke" aria-hidden="true">MILJØ<br>FYRTÅRN</div>
       <div>
         <span class="merkelapp">Miljø</span>
         <h2 class="mt-0">Miljøfyrtårn-sertifisert</h2>
@@ -303,7 +303,7 @@
 </section>
 
 <script src="js/tekst.js?v=c6ce3e21"></script>
-<script src="js/produkter.js?v=0a2ed3fb"></script>
+<script src="js/produkter.js?v=c884b6ca"></script>
 <script src="js/team.js?v=6f3a0da3"></script>
 <script src="js/omtale.js?v=428a17d4"></script>
 <script src="js/tilbakemeldingar.js?v=28c0309d"></script>
@@ -373,6 +373,17 @@
   }
 
   const m = VINDEX_FIRMA.miljofyrtarn || {};
+  // Det offisielle merket om vi har fila, elles ordmerket som sto der før.
+  // Eit brote bilete på ein sertifiseringspåstand er verre enn ingen logo.
+  if (m.logo) {
+    const boks = document.getElementById("miljomerke");
+    const bilete = new Image();
+    bilete.src = m.logo;
+    bilete.alt = "Miljøfyrtårn — sertifisert virksomhet";
+    bilete.className = "miljologo";
+    bilete.loading = "lazy";
+    bilete.onload = () => { boks.replaceChildren(bilete); boks.classList.add("har-logo"); };
+  }
   document.getElementById("miljoSertifikat").innerHTML = m.nummer
     ? `Sertifikatnummer ${m.nummer}${m.lenke ? ` · <a href="${m.lenke}" rel="noopener">se sertifikatet</a>` : ""}.`
     : "";
