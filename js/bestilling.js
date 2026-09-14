@@ -353,7 +353,7 @@ $("#tilbake").addEventListener("click", () => {
 /** Kva eitt produkt er valt som, samla på ein stad. */
 function produktLinjer(p) {
   const v = forProdukt(p.id);
-  const m = vindexModell(p.id, v.modellId);
+  const m = vindexProduktmodell(p.id, v.modellId);
   const enhet = p.enhet === "lm" ? "lm" : p.enhet === "m2" ? "m²" : "stk";
   const tilvalg = (p.valg || [])
     .map((val) => {
@@ -492,7 +492,7 @@ skjema.addEventListener("submit", async (e) => {
 /** Eitt produkt på den forma leadet lagrar det. */
 function produktNyttelast(p) {
   const v = forProdukt(p.id);
-  const m = vindexModell(p.id, v.modellId);
+  const m = vindexProduktmodell(p.id, v.modellId);
   const tilvalg = {};
   (p.valg || []).forEach((val) => {
     const alt = val.alternativ.find((a) => a.id === (v.ekstra || {})[val.id]);

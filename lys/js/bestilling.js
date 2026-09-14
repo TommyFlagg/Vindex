@@ -234,7 +234,7 @@ $("#tilbake").addEventListener("click", () => {
 // ---------------------------------------------------------------------------
 function teiknOppsummering() {
   const p = vindexProdukt(state.produktId);
-  const m = vindexModell(state.produktId, state.modellId);
+  const m = vindexProduktmodell(state.produktId, state.modellId);
   const est = vindexPrisEstimat(state);   // null når prisestimat er slått av
   if (!p || !m) return;
 
@@ -339,7 +339,7 @@ skjema.addEventListener("submit", async (e) => {
 
 function byggLead() {
   const p = vindexProdukt(state.produktId);
-  const m = vindexModell(state.produktId, state.modellId);
+  const m = vindexProduktmodell(state.produktId, state.modellId);
   const est = vindexPrisEstimat(state);
   const distrikt = vindexFinnDistrikt($("#postnr").value);
 

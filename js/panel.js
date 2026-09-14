@@ -130,7 +130,7 @@ function manadsdiagram(iAar, iFjor, aar, fjorAar) {
       const x = venstre + i * breidd + (breidd - stolpe) / 2;
       const fjor = iFjor[i] ? iFjor[i].sum : 0;
       const merk = m.sum > 0 && m.navn === toppManad.navn;
-      return `<g class="stolpegruppe" data-manad="${m.navn}" data-sum="${m.sum}" data-fjor="${fjor}">
+      return `<g class="stolpegruppe" data-manad="${vindexT(m.navnnavn)}" data-sum="${m.sum}" data-fjor="${fjor}">
         ${fjor ? `<rect class="stolpe-fjor" x="${x}" y="${y(fjor)}" width="${stolpe}" height="${hogd(fjor)}" rx="4"/>` : ""}
         ${m.sum ? `<rect class="stolpe-aar" x="${x + 3}" y="${y(m.sum)}" width="${stolpe - 6}" height="${hogd(m.sum)}" rx="4"/>` : ""}
         ${merk ? `<text class="stolpe-tal" x="${x + stolpe / 2}" y="${y(m.sum) - 6}">${vindexKrKort(m.sum)}</text>` : ""}
@@ -267,7 +267,7 @@ function vindexTeiknOversikt(el, ctx) {
           <span class="ko-ikon" aria-hidden="true">${ko.niva === "god" ? "●" : ko.niva === "warn" ? "▲" : "■"}</span>
           <span data-tell="${Math.round(ko.dagar)}">0</span><span class="ko-eining">dager i kø</span>
         </div>
-        <p class="ko-status ko-${ko.niva}">${ko.tekst}</p>
+        <p class="ko-status ko-${ko.niva}">${vindexT(ko.teksttekst)}</p>
         ${kapasitetsmalar(ko)}
         <p class="hint mb-0">${ko.ordrar} ordre i produksjon.
           Leveringstid å love kunden nå: <strong>${ko.veker} uke${ko.veker === 1 ? "" : "r"}</strong> pluss montering.</p>
@@ -296,8 +296,8 @@ function vindexTeiknOversikt(el, ctx) {
           <tbody>${perSeljar
             .map(
               (r) => `<tr>
-                <td><strong>${r.seljar.navn}</strong>${r.seljar.type === "forhandler" ? ' <span class="merke merke-liten">forhandler</span>' : ""}</td>
-                <td>${r.seljar.sted || "–"}</td>
+                <td><strong>${vindexT(r.seljar.navnnavn)}</strong>${r.seljar.type === "forhandler" ? ' <span class="merke merke-liten">forhandler</span>' : ""}</td>
+                <td>${vindexT(r.seljar.stedsted)}</td>
                 <td>${r.tal}</td>
                 <td class="nowrap">${r.sum ? kr(r.sum) : "–"}</td>
                 <td class="nowrap hint">${r.seljar.y2024 ? kr(r.seljar.y2024) : "–"}</td>
@@ -324,9 +324,9 @@ function vindexTeiknOversikt(el, ctx) {
               .map(
                 (r, i) => `<tr class="${r.seljar.id === brukar.uid ? "meg" : ""}">
                   <td class="nowrap">${i + 1}</td>
-                  <td><strong>${r.seljar.navn}</strong>${r.seljar.id === brukar.uid ? ' <span class="merke merke-liten">deg</span>' : ""}
+                  <td><strong>${vindexT(r.seljar.navnnavn)}</strong>${r.seljar.id === brukar.uid ? ' <span class="merke merke-liten">deg</span>' : ""}
                     ${r.seljar.type === "forhandler" ? '<br><span class="hint">forhandler</span>' : ""}
-                    ${r.seljar.sted ? `<br><span class="hint">${r.seljar.sted}</span>` : ""}</td>
+                    ${r.seljar.sted ? `<br><span class="hint">${vindexT(r.seljar.stedsted)}</span>` : ""}</td>
                   <td>
                     <div class="stolpe" title="${r.tal.oppfolgingsrate} %">
                       <span style="width:${r.tal.oppfolgingsrate}%"></span>
@@ -419,8 +419,8 @@ function teiknKartSvg(el, leads, val = {}) {
       const interaktiv = val.interaktiv !== false;
       return `<path d="${f.bane}" fill="${rampe()[steg]}"
         class="fylke ${val.valt === f.id ? "valt" : ""}" data-fylke="${f.id}"
-        ${interaktiv ? `tabindex="0" role="button" aria-label="${f.navn}: ${verdi} ${eining}"` : 'aria-hidden="true"'}>
-        ${interaktiv ? `<title>${f.navn} — ${verdi} ${eining}</title>` : ""}
+        ${interaktiv ? `tabindex="0" role="button" aria-label="${vindexT(f.navnnavn)}: ${verdi} ${eining}"` : 'aria-hidden="true"'}>
+        ${interaktiv ? `<title>${vindexT(f.navnnavn)} — ${verdi} ${eining}</title>` : ""}
       </path>`;
     })
     .join("");
@@ -454,7 +454,7 @@ function vindexTeiknKart(el, ctx) {
         <h2 class="mt-0 mb-0">Kunder i Norge</h2>
       </div>
       <div class="fanerad" id="kartFaner">
-        ${KART_VISNINGAR.map((v) => `<button class="fane ${v.id === "kunder" ? "aktiv" : ""}" data-kartfane="${v.id}">${v.navn}</button>`).join("")}
+        ${KART_VISNINGAR.map((v) => `<button class="fane ${v.id === "kunder" ? "aktiv" : ""}" data-kartfane="${v.id}">${vindexT(v.navnnavn)}</button>`).join("")}
       </div>
     </div>
     <div class="kart-oppsett">
@@ -537,7 +537,7 @@ function vindexTeiknKart(el, ctx) {
         (rader.length
           ? `<ul class="grunnliste">${rader
               .map(
-                (r) => `<li><span>${r.navn}</span><span class="grunntal ${klasse}">${r.tal}</span></li>`
+                (r) => `<li><span>${vindexT(r.navnnavn)}</span><span class="grunntal ${klasse}">${r.tal}</span></li>`
               )
               .join("")}</ul>`
           : '<p class="hint">Ingen registrert ennå.</p>');
@@ -563,12 +563,12 @@ function vindexTeiknKart(el, ctx) {
           <dt>I arbeid</dt><dd>${rad.opne}</dd>
         </dl>
         <h4>Dekkes av</h4>
-        ${dekker.length ? `<ul class="enkelliste">${dekker.map((s) => `<li>${s.navn}</li>`).join("")}</ul>`
+        ${dekker.length ? `<ul class="enkelliste">${dekker.map((s) => `<li>${vindexT(s.navnnavn)}</li>`).join("")}</ul>`
                         : '<p class="hint" style="color:var(--bad)">Ingen selger dekker dette fylket.</p>'}
         <h4>Siste saker</h4>
         ${sisteLeads.length
           ? `<ul class="enkelliste">${sisteLeads
-              .map((l) => `<li><button class="lenkeknapp" data-lead="${l.id}">${(l.kunde || {}).navn}</button>
+              .map((l) => `<li><button class="lenkeknapp" data-lead="${l.id}">${vindexT((l.kunde || {}).navnnavn)}</button>
                  <span class="tag tag-${l.status}">${vindexStatusNavn(l.status)}</span></li>`)
               .join("")}</ul>`
           : '<p class="hint">Ingen saker her ennå.</p>'}`;

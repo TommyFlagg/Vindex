@@ -40,8 +40,8 @@ function vindexOmtalekort(o) {
   const stad = [o.poststed, kjelde].filter(Boolean).join(" · ");
   return `<figure class="omtale">
     ${vindexOmtaleStjerner(o.stjerner)}
-    <blockquote>${o.tekst || ""}</blockquote>
-    <figcaption>${o.navn || "Kunde"}${stad ? `<span>${stad}</span>` : ""}</figcaption>
+    <blockquote>${vindexT(o.teksttekst)}</blockquote>
+    <figcaption>${vindexT(o.navnnavn)}${stad ? `<span>${stad}</span>` : ""}</figcaption>
   </figure>`;
 }
 

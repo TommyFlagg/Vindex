@@ -379,7 +379,11 @@ function vindexProdukt(produktId) {
   return VINDEX_PRODUKT.find((p) => p.id === produktId) || null;
 }
 
-function vindexModell(produktId, modellId) {
+// Heitte `vindexModell` til det kolliderte med oppslaget i js/modellar.js, som
+// tek artikkelnummer i staden for produkt + modell. Begge blir lasta på
+// selger.html, og då avgjorde rekkjefølgja i HTML-en kven som vann — ein feil
+// som ville gitt feil modell og feil pris, heilt stille.
+function vindexProduktmodell(produktId, modellId) {
   const p = vindexProdukt(produktId);
   return p ? p.modeller.find((m) => m.id === modellId) || null : null;
 }
@@ -437,7 +441,7 @@ function vindexPrisEstimat(valg) {
   if (!VINDEX_VIS_PRISESTIMAT) return null;
 
   const produkt = vindexProdukt(valg.produktId);
-  const modell = vindexModell(valg.produktId, valg.modellId);
+  const modell = vindexProduktmodell(valg.produktId, valg.modellId);
   if (!produkt || !modell || !modell.pris) return null;
 
   const mengde = Math.max(Number(valg.mengde) || 0, 0);
