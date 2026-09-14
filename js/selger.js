@@ -152,6 +152,7 @@ function teiknAlt() {
     teiknTempFilter();
     teiknArbeidsliste(liste);
     teiknMinetal();
+    teiknOrdreinngangSeljar();
     teiknKampanjepanel();
     teiknAnmeldingar();
     teiknPaaminningar();
@@ -4362,4 +4363,83 @@ function opneBistandssvar(lead) {
     teikn();
     melding("Svaret ligger på leadet.");
   });
+}
+
+
+// ---------------------------------------------------------------------------
+// Ordreinngang — same tal som hovudkontoret ser
+// ---------------------------------------------------------------------------
+// Seljaren skal kunne sjå korleis året ligg an mot i fjor utan å spørje nokon.
+// Diagrammet er det same som på hovudkontorsida, og hentar frå same stad —
+// vindexAarsdata() — så dei to sidene aldri viser ulike tal for same året.
+//
+// Panelet hjå seljaren viser heile selskapet, ikkje berre hans eigne ordrar.
+// Det er referansen han treng: er mai svak i år, er det verdt å vite om det
+// gjeld han eller alle.
+let ordreinngangAarSeljar = new Date().getFullYear();
+
+function ordreinngangAaraSeljar() {
+  const ut = new Set([new Date().getFullYear()]);
+  (app.ordrar || []).forEach((o) => {
+    const d = tid(o.opprettet);
+    if (d) ut.add(d.getFullYear());
+  });
+  Object.entries(typeof VINDEX_ORDREINNGANG === "object" ? VINDEX_ORDREINNGANG : {})
+    .forEach(([a, v]) => { if (v && (v.manad || []).some((m) => m.sum)) ut.add(Number(a)); });
+  if (VINDEX_FJOR && (VINDEX_FJOR.manad || []).some((m) => m.sum)) ut.add(VINDEX_FJOR.aar);
+  return Array.from(ut).sort();
+}
+
+function teiknOrdreinngangSeljar() {
+  const el = $("#ordreinngangSeljar");
+  if (!el || erLager()) return;
+  const aara = ordreinngangAaraSeljar();
+  if (!aara.includes(ordreinngangAarSeljar)) ordreinngangAarSeljar = aara[aara.length - 1];
+
+  const data = vindexAarsdata(ordreinngangAarSeljar, app.ordrar);
+  const forrige = vindexAarsdata(ordreinngangAarSeljar - 1, app.ordrar);
+  const sum = data.manad.reduce((n, m) => n + m.sum, 0);
+
+  el.innerHTML = `
+    <div class="panel-topp">
+      <h2>Ordreinngang</h2>
+      <span class="spacer"></span>
+      <span class="hint">Hele selskapet, eks. mva</span>
+    </div>
+    <div class="fanerad mt-1 no-print">
+      ${aara
+        .map(
+          (a) => `<button class="fane${a === ordreinngangAarSeljar ? " aktiv" : ""}"
+            data-seljaraar="${a}" aria-pressed="${a === ordreinngangAarSeljar}">${a}</button>`
+        )
+        .join("")}
+    </div>
+    ${
+      vindexErDemotal(ordreinngangAarSeljar)
+        ? `<div class="notice notice-warn mt-1"><strong>Demotall.</strong> Tallene for
+             ${ordreinngangAarSeljar} er oppdiktet for demonstrasjon.</div>`
+        : ""
+    }
+    ${
+      data.manad.length
+        ? manadsdiagram(data.manad, forrige.manad, ordreinngangAarSeljar,
+                        forrige.manad.length ? ordreinngangAarSeljar - 1 : null)
+        : `<p class="notice notice-info mt-1">Ingen tall for ${ordreinngangAarSeljar} ennå.</p>`
+    }
+    ${
+      data.manad.length
+        ? `<p class="hint mb-0 mt-1">${
+            ordreinngangAarSeljar === new Date().getFullYear() ? "Hittil i år" : "Året"
+          }: <strong>${kr(sum)}</strong>${
+            data.periode && data.periode !== "hele året" ? ` (${data.periode})` : ""
+          }.</p>`
+        : ""
+    }`;
+
+  $$("#ordreinngangSeljar [data-seljaraar]").forEach((b) =>
+    b.addEventListener("click", () => {
+      ordreinngangAarSeljar = Number(b.dataset.seljaraar);
+      teiknOrdreinngangSeljar();
+    })
+  );
 }

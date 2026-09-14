@@ -18,6 +18,31 @@
  */
 const VINDEX_TEAMTAL = {};
 
+/**
+ * Omsetning per person per år, for åra vi ikkje har lagt inn på seljardokumentet.
+ *
+ * Forma er { "Navn": { "2023": 1200000, "2024": … } }. Talet på seljardokumentet
+ * i Firestore vinn alltid — dette er botnen under, ikkje eit overstyr.
+ */
+const VINDEX_HISTORIKK = {};
+
+/**
+ * Ordreinngang per år, månad for månad.
+ *
+ * VINDEX_FJOR heldt eitt år, og det var nok så lenge det fanst éin rapport.
+ * Skal ein kunne bla mellom åra i diagrammet, må det liggje eitt oppslag per
+ * år. Forma på kvart år er den same som VINDEX_FJOR: { periode, merknad,
+ * manad, kanal, total }. Eit år kan i tillegg ha `demo: true` — då seier
+ * diagrammet frå at tala ikkje er verkelege.
+ */
+const VINDEX_ORDREINNGANG = {};
+
+/** Ordreinngangen for eitt år, eller null. */
+const vindexOrdreinngangAar = (aar) => VINDEX_ORDREINNGANG[String(aar)] || null;
+
+/** Er tala for dette året oppdikta? Styrer merkelappen i diagrammet. */
+const vindexErDemotal = (aar) => Boolean((vindexOrdreinngangAar(aar) || {}).demo);
+
 /** Omsetninga til éin person, eller null om vi ikkje har tal på han. */
 function vindexTeamtal(navn) {
   const t = VINDEX_TEAMTAL[navn];
@@ -63,8 +88,19 @@ function vindexAarsdata(aar, ordrar) {
     const d = vindexTid(o.opprettet);
     return d && d.getFullYear() === aar;
   });
-  if (harOrdrar)
+  const lagra = vindexOrdreinngangAar(aar);
+  // Ordrane i verktøyet er sanninga — unnateke når året er merkt som demotal.
+  // Då er heile poenget å vise noko anna enn dei tre prøveordrane som ligg
+  // inne, og eit diagram som blandar dei to ville vore verre enn begge delar.
+  if (harOrdrar && !(lagra && lagra.demo))
     return { manad: vindexOrdreinngang(ordrar, aar), kjelde: "ordrar", periode: "hele året" };
+  if (lagra && (lagra.manad || []).length)
+    return {
+      manad: lagra.manad,
+      kjelde: lagra.demo ? "demo" : "rapport",
+      periode: lagra.periode || "hele året",
+      merknad: lagra.merknad || "",
+    };
   if (aar === VINDEX_FJOR.aar)
     return { manad: VINDEX_FJOR.manad, kjelde: "rapport", periode: VINDEX_FJOR.periode };
   return { manad: [], kjelde: null, periode: null };
@@ -78,6 +114,8 @@ function vindexAarsdata(aar, ordrar) {
 function vindexSettApparattal(d) {
   if (!d) return false;
   vindexFyllObjekt(VINDEX_TEAMTAL, d.teamtal);
+  vindexFyllObjekt(VINDEX_HISTORIKK, d.historikk);
+  vindexFyllObjekt(VINDEX_ORDREINNGANG, d.ordreinngang);
   // Forma blir garantert her òg. Ei importert fil som manglar «manad» eller
   // «aar» skal gi tomme tal, ikkje eit register som sprekk ved fyrste oppslag.
   vindexFyllObjekt(VINDEX_FJOR, { manad: [], kanal: [], total: 0, ...(d.fjor || {}) });

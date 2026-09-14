@@ -157,7 +157,13 @@ function teiknStatRad() {
   const opne = app.leads.filter((l) => !l.arkivert);
   const tal = vindexNokkeltal(opne, app.ordrar);
   const inngang = vindexOrdreinngang(app.ordrar);
-  const iAar = inngang.reduce((n, m) => n + m.sum, 0);
+  // Same kjelde som diagrammet. Står det demotal inne for året, skal flisa
+  // vise dei — elles seier ho 118 000 medan diagrammet like ved seier 13,6
+  // millionar, og då trur folk på den som står størst.
+  const iAarData = typeof vindexAarsdata === "function"
+    ? vindexAarsdata(new Date().getFullYear(), app.ordrar)
+    : { manad: inngang };
+  const iAar = (iAarData.manad || inngang).reduce((n, m) => n + m.sum, 0);
   const fordeling = vindexTemperaturfordeling(opne);
   const ko = vindexProduksjonsko(app.ordrar);
 
@@ -296,6 +302,9 @@ function ordreinngangAar() {
   Object.entries(VINDEX_AARSTAL.aar || {}).forEach(([a, v]) => {
     if (v && v.driftsinntekter !== null && v.driftsinntekter !== undefined) ut.add(Number(a));
   });
+  Object.entries(VINDEX_ORDREINNGANG || {}).forEach(([a, v]) => {
+    if (v && (v.manad || []).some((m) => m.sum)) ut.add(Number(a));
+  });
   if (VINDEX_FJOR && (VINDEX_FJOR.manad || []).some((m) => m.sum)) ut.add(VINDEX_FJOR.aar);
   return Array.from(ut).sort();
 }
@@ -324,6 +333,14 @@ function teiknOrdreinngang() {
         .join("")}
     </div>
     ${
+      vindexErDemotal(ordreAar)
+        ? `<div class="notice notice-warn mt-1"><strong>Demotall.</strong> Tallene for
+             ${ordreAar} er oppdiktet og lagt inn for demonstrasjon. De er ikke
+             ordreinngang. Fjern dem ved å laste inn den ekte apparat-filen på nytt
+             under «Prisliste og satser».</div>`
+        : ""
+    }
+    ${
       data.manad.length
         ? manadsdiagram(data.manad, forrige.manad, ordreAar, forrige.manad.length ? ordreAar - 1 : null)
         : `<p class="notice notice-info mt-1"><strong>Ingen månedstall for ${ordreAar}.</strong>
@@ -340,7 +357,9 @@ function teiknOrdreinngang() {
         <dd>${
           data.manad.length
             ? `<strong>${kr(sum)}</strong><span class="hint">${
-                data.kjelde === "ordrar" ? "Regnet av ordrene i verktøyet" : VINDEX_FJOR.merknad
+                data.kjelde === "ordrar"
+                  ? "Regnet av ordrene i verktøyet"
+                  : data.merknad || VINDEX_FJOR.merknad
               }</span>`
             : '<span class="hint">Ikke registrert</span>'
         }</dd>
@@ -1895,7 +1914,10 @@ function lastNedPrisdata() {
       terrassedelar: VINDEX_TERRASSEDELAR, terrassefrakt: VINDEX_TERRASSEFRAKT,
     },
     provisjon: { tabell: VINDEX_PROVISJONSTABELL, utanProvisjon: VINDEX_UTAN_PROVISJON },
-    apparat: { teamtal: VINDEX_TEAMTAL, fjor: VINDEX_FJOR, aarstal: VINDEX_AARSTAL },
+    apparat: {
+      teamtal: VINDEX_TEAMTAL, historikk: VINDEX_HISTORIKK,
+      ordreinngang: VINDEX_ORDREINNGANG, fjor: VINDEX_FJOR, aarstal: VINDEX_AARSTAL,
+    },
   };
   const dato = new Date().toISOString().slice(0, 10);
   VINDEX_PRISDATA_DOKUMENT.forEach((n) => {

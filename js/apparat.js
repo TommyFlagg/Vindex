@@ -34,7 +34,11 @@ function vindexSalgsaar(seljar, ordrar, aar) {
     return d && d.getFullYear() === aar;
   });
 
-  if (harOrdreAaret) {
+  // Er året merkt som demotal, går den lagra summen føre ordreboka — same
+  // regel som diagrammet på hovudkontorsida. Elles ville kortet vise 0 kr
+  // ved sida av eit diagram som viser fjorten millionar.
+  const demoAar = typeof vindexErDemotal === "function" && vindexErDemotal(aar);
+  if (harOrdreAaret && !demoAar) {
     const eigne = (ordrar || []).filter((o) => {
       const d = vindexTid(o.opprettet);
       return o.seljarId === seljar.id && d && d.getFullYear() === aar;
@@ -47,9 +51,16 @@ function vindexSalgsaar(seljar, ordrar, aar) {
     };
   }
 
+  // Rekkjefølgja er med vilje: talet på seljardokumentet vinn, så det felles
+  // oppslaget i prisdata/apparat, og heilt til slutt det gamle y2024-feltet.
+  // Den som skriv eit tal på personen skal ikkje bli overstyrt av ei liste.
   const lagra = (seljar.historikk || {})[String(aar)];
+  const felles =
+    typeof VINDEX_HISTORIKK === "object"
+      ? (VINDEX_HISTORIKK[seljar.navn] || {})[String(aar)]
+      : undefined;
   const gammal = aar === 2024 ? seljar.y2024 : undefined;
-  const sum = lagra === undefined || lagra === null ? gammal : lagra;
+  const sum = [lagra, felles, gammal].find((v) => v !== undefined && v !== null);
   if (sum === undefined || sum === null) return { sum: null, kjelde: null, merknad: "Ikke lagt inn." };
   return {
     sum,
@@ -71,6 +82,8 @@ function vindexSalgsaarListe(seljarar, ordrar) {
   (seljarar || []).forEach((s) => {
     if (s.y2024 !== undefined && s.y2024 !== null) aar.add(2024);
     Object.keys(s.historikk || {}).forEach((a) => aar.add(parseInt(a, 10)));
+    if (typeof VINDEX_HISTORIKK === "object")
+      Object.keys(VINDEX_HISTORIKK[s.navn] || {}).forEach((a) => aar.add(parseInt(a, 10)));
   });
   return Array.from(aar).filter(Boolean).sort();
 }

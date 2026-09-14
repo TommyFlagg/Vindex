@@ -196,8 +196,14 @@ function vindexTeiknOversikt(el, ctx) {
   const aarSum = inngang.reduce((n, m) => n + m.sum, 0);
   // Fjoråret som referanse. Rapporten dekkjer jan–sep, så resten står tom
   // heller enn å bli fylt med null — vi skal ikkje teikne data vi ikkje har.
+  // Referanseåret er året før, henta same stad som hovudkontoret hentar sitt —
+  // elles ville seljaren samanlikne med 2024 i det uendelege.
+  const ifjor = typeof vindexAarsdata === "function"
+    ? vindexAarsdata(iAar - 1, ordrar)
+    : { manad: VINDEX_FJOR.manad };
+  const fjorKjelde = (ifjor.manad || []).length ? ifjor.manad : VINDEX_FJOR.manad || [];
   const fjorManad = MANADSNAVN.map((navn) => {
-    const f = VINDEX_FJOR.manad.find((m) => m.navn === navn);
+    const f = fjorKjelde.find((m) => m.navn === navn);
     return { navn, sum: f ? f.sum : 0 };
   });
   const perSeljar = vindexOrdreinngangPerSeljar(seljarar, ordrar, iAar);
@@ -268,7 +274,7 @@ function vindexTeiknOversikt(el, ctx) {
         <h3 class="mt-0 mb-0">Ordreinngang ${iAar}</h3>
         <span class="hint">Eks. mva, uten frakt — samme grunnlag som årsrapporten.</span>
       </div>
-      ${manadsdiagram(inngang, fjorManad, iAar)}
+      ${manadsdiagram(inngang, fjorManad, iAar, iAar - 1)}
       <p class="hint mb-0">Hittil i år: <strong>${kr(aarSum)}</strong>.
         ${VINDEX_FJOR.aar} ${VINDEX_FJOR.periode}: ${kr(VINDEX_FJOR.total)} totalt,
         hvorav ${VINDEX_FJOR.kanal.map((k) => k.navn.toLowerCase() + " " + vindexKrKort(k.sum)).join(", ")}.</p>
