@@ -2261,12 +2261,23 @@ body.tema-mork .omtale figcaption { color: var(--ink); }
   .omtalespor .omtale:nth-child(n + 7) { display: none; }
 }
 
-/* Miljøfyrtårn-merket. Ordmerket står i boksen til den ekte logoen har lasta —
-   ein sertifiseringspåstand med eit brote bilete ved sida av er verre enn
-   ingen logo i det heile. */
+/* Miljøfyrtårn-merket.
+   Ordmerket står i boksen til den ekte logoen har lasta — ein
+   sertifiseringspåstand med eit brote bilete ved sida av er verre enn ingen
+   logo i det heile.
+   Boksen er ein sirkel på 128 px så lenge det er ordmerket som står der. Den
+   ekte logoen er nesten tre gonger så brei som han er høg, og blir uleseleg
+   klemt inn i ein sirkel — difor byter både boksen og spalta form når logoen
+   er på plass. Kvit botn i begge tema: merket er laga for det, og ein
+   sertifiseringslogo skal ikkje fargeleggjast om. */
 .miljomerke.har-logo {
-  background: #fff; border: 1px solid var(--border); display: grid; place-items: center;
-  padding: 1.1rem; font-size: 0; aspect-ratio: auto;
+  width: 100%; max-width: 280px; height: auto; border-radius: 8px;
+  background: #fff; border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+  padding: 1rem 1.2rem; font-size: 0; place-items: center;
 }
-.miljologo { width: 100%; height: auto; max-width: 260px; display: block; }
-body.tema-mork .miljomerke.har-logo { background: #fff; }
+.miljoblokk.har-logo { align-items: center; }
+@media (min-width: 820px) {
+  .miljoblokk.har-logo { grid-template-columns: 280px 1fr; }
+}
+.miljologo { width: 100%; height: auto; display: block; }
+body.tema-mork .miljomerke.har-logo { background: #fff; border-color: rgba(255,255,255,.18); }

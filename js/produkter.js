@@ -34,7 +34,7 @@ const VINDEX_FIRMA = {
   // sertifiseringspåstand er verre enn ingen logo.
   miljofyrtarn: {
     sertifisert: true, nummer: "", lenke: "",
-    logo: "assets/miljofyrtarn.png",
+    logo: "assets/miljofyrtarn.jpg",
   },
   // Bilete av folka på fabrikken, til «Hvem er vi»-seksjonen. Står feltet
   // tomt, viser seksjonen berre teksten — vi set ikkje inn eit produktbilete
