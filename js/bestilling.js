@@ -52,25 +52,37 @@ async function sikreFirebase() {
 }
 
 const SISTE_STEG = 4;
+
+// Kunden vil ofte ha fleire ting på ein gong — rekkverk og terrassegulv, eller
+// gjerde og port. Før tok skjemaet berre imot eitt, og resten måtte skrivast i
+// kommentarfeltet. Då kom det inn som fritekst og måtte tolkast på nytt av
+// seljaren.
+//
+// `produktIdar` held rekkjefølgja dei vart valde i, og `perProdukt` held
+// modell, tilval og mengd for kvar av dei. Det første valde produktet er
+// hovudproduktet — det er det leadet blir merka med, og det verktøyet filtrerer
+// og søkjer på.
 const state = {
   steg: 1,
-  produktId: null,
-  modellId: null,
-  mengde: null,
-  ekstra: {},          // { valgId: alternativId }
+  produktIdar: [],
+  perProdukt: {},      // { produktId: { modellId, ekstra: {}, mengde } }
   montering: false,
   tidspunkt: "snarest",
 };
 
 const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => [...document.querySelectorAll(sel)];
 const skjema = $("#skjema");
+
+const valdeProdukt = () => state.produktIdar.map((id) => vindexProdukt(id)).filter(Boolean);
+const forProdukt = (id) => state.perProdukt[id] || {};
 
 // ---------------------------------------------------------------------------
 // Steg 1 — produktval
 // ---------------------------------------------------------------------------
 $("#produktValg").innerHTML = VINDEX_PRODUKT.map(
   (p) => `<label class="choice">
-    <input type="radio" name="produkt" value="${p.id}">
+    <input type="checkbox" name="produkt" value="${p.id}">
     ${vindexBiletHtml(p, "choice-bilde")}
     <span class="choice-title">${p.navn}</span>
     <span class="choice-sub">${p.kort}</span>
@@ -79,92 +91,171 @@ $("#produktValg").innerHTML = VINDEX_PRODUKT.map(
 
 $("#produktValg").addEventListener("change", (e) => {
   if (e.target.name !== "produkt") return;
-  velgProdukt(e.target.value);
+  if (e.target.checked) leggTilProdukt(e.target.value);
+  else fjernProdukt(e.target.value);
 });
 
-function visKampanje(produktId) {
+function leggTilProdukt(id) {
+  if (state.produktIdar.includes(id)) return;
+  const p = vindexProdukt(id);
+  if (!p) return;
+  state.produktIdar.push(id);
+  // Førstevalet i kvar tilvalgsgruppe er standard, så forespørselen er komplett
+  // sjølv om kunden berre klikkar seg vidare.
+  const ekstra = {};
+  (p.valg || []).forEach((v) => { ekstra[v.id] = v.alternativ[0].id; });
+  state.perProdukt[id] = { modellId: null, ekstra, mengde: p.standardMengde };
+  etterProduktendring();
+}
+
+function fjernProdukt(id) {
+  state.produktIdar = state.produktIdar.filter((x) => x !== id);
+  delete state.perProdukt[id];
+  const boks = $(`#produktValg input[value="${id}"]`);
+  if (boks) boks.checked = false;
+  etterProduktendring();
+}
+
+function etterProduktendring() {
+  teiknValde();
+  byggSteg2();
+  visKampanje();
+  visFeil("");
+}
+
+// ---------------------------------------------------------------------------
+// Raden som viser kva som er valt
+// ---------------------------------------------------------------------------
+// Står øvst gjennom heile skjemaet. Når ein kan velje fleire ting, må ein
+// kunne sjå kva ein har valt utan å bla tilbake — og kunne angre der ein er.
+function teiknValde() {
+  const el = $("#valgteProdukt");
+  if (!el) return;
+  if (!state.produktIdar.length) {
+    el.innerHTML = state.steg === 1
+      ? ""
+      : `<span class="valgte-tom">Ingenting valgt ennå.</span>`;
+    return;
+  }
+  el.innerHTML = valdeProdukt()
+    .map((p) => {
+      const ikon = p.bilde
+        ? `<img src="${p.bilde}" alt="" loading="lazy" onerror="this.remove()">`
+        : "";
+      return `<span class="valgte-merkelapp">${ikon}${p.navn}
+        <button type="button" class="valgte-fjern" data-fjern="${p.id}"
+          aria-label="Fjern ${p.navn}">✕</button></span>`;
+    })
+    .join("");
+}
+
+$("#valgteProdukt").addEventListener("click", (e) => {
+  const knapp = e.target.closest("[data-fjern]");
+  if (knapp) fjernProdukt(knapp.dataset.fjern);
+});
+
+function visKampanje() {
   const boks = $("#kampanjeBanner");
   if (!boks) return;
-  const k = vindexKampanjeFor(produktId);
+  // Fleire produkt kan vere med i same kampanjen. Vi viser han éin gong.
+  const k = state.produktIdar.map((id) => vindexKampanjeFor(id)).find(Boolean);
   boks.innerHTML = k
     ? `<div class="notice notice-warn"><strong>${k.tittel}:</strong> ${k.tekst}</div>`
     : "";
 }
 
-function velgProdukt(id) {
-  if (state.produktId === id) return;
-  state.produktId = id;
-  state.modellId = null;
-  state.ekstra = {};
-  const p = vindexProdukt(id);
-  state.mengde = p.standardMengde;
-  byggSteg2(p);
-  visKampanje(id);
+// ---------------------------------------------------------------------------
+// Steg 2 — ei blokk per valt produkt
+// ---------------------------------------------------------------------------
+function mengdeTekst(p) {
+  return p.enhet === "lm" ? "Antall løpemeter" : p.enhet === "m2" ? "Antall kvadratmeter" : "Antall";
 }
 
-// ---------------------------------------------------------------------------
-// Steg 2 — modell, tilvalg, farge og mengde
-// ---------------------------------------------------------------------------
-function byggSteg2(p) {
-  $("#steg2Tittel").textContent = "Velg modell — " + p.navn.toLowerCase();
+function byggSteg2() {
+  const boks = $("#steg2Blokker");
+  if (!boks) return;
+  const valde = valdeProdukt();
+  $("#steg2Tittel").textContent =
+    valde.length > 1 ? "Velg modell og mål" : "Velg modell";
 
-  $("#modellValg").innerHTML = p.modeller
-    .map(
-      (m) => `<label class="choice">
-        <input type="radio" name="modell" value="${m.id}">
-        <span class="choice-title">${m.navn}</span>
-        <span class="choice-sub">${m.sub || ""}${m.pris ? " · fra " + kr(m.pris) : ""}</span>
-      </label>`
-    )
-    .join("");
+  boks.innerHTML = valde
+    .map((p) => {
+      const v = forProdukt(p.id);
+      const modellar = p.modeller
+        .map(
+          (m) => `<label class="choice">
+            <input type="radio" name="modell_${p.id}" value="${m.id}"${v.modellId === m.id ? " checked" : ""}>
+            ${vindexModellfigur(p.id, m.id)}
+            <span class="choice-title">${m.navn}</span>
+            <span class="choice-sub">${m.sub || ""}${m.pris ? " · fra " + kr(m.pris) : ""}</span>
+          </label>`
+        )
+        .join("");
 
-  $("#tilvalgFelt").innerHTML = (p.valg || [])
-    .map(
-      (v) => `<div class="field">
-        <span class="field-label">${v.navn}</span>
-        <div class="choices" data-valg="${v.id}">
-          ${v.alternativ
-            .map(
-              (a) => `<label class="choice">
-                <input type="radio" name="valg_${v.id}" value="${a.id}">
-                <span class="choice-title">${a.navn}</span>
-                <span class="choice-sub">${a.sub || (a.tillegg ? "+ " + kr(a.tillegg) : "Ingen tillegg")}</span>
-              </label>`
-            )
-            .join("")}
+      const tilvalg = (p.valg || [])
+        .map(
+          (val) => `<div class="field">
+            <span class="field-label">${val.navn}</span>
+            <div class="choices" data-valg="${val.id}">
+              ${val.alternativ
+                .map(
+                  (a) => `<label class="choice">
+                    <input type="radio" name="valg_${p.id}_${val.id}" value="${a.id}"${
+                      (v.ekstra || {})[val.id] === a.id ? " checked" : ""
+                    }>
+                    <span class="choice-title">${a.navn}</span>
+                    <span class="choice-sub">${a.sub || (a.tillegg ? "+ " + kr(a.tillegg) : "Ingen tillegg")}</span>
+                  </label>`
+                )
+                .join("")}
+            </div>
+          </div>`
+        )
+        .join("");
+
+      const hjelp =
+        p.enhet === "stk"
+          ? `Omtrentlig antall holder. Minimum ${p.minMengde}.`
+          : `Omtrentlig mål holder i denne omgang — selgeren måler nøyaktig på befaring. Minimum ${p.minMengde}.`;
+
+      return `<div class="produktblokk" data-produkt="${p.id}">
+        ${valde.length > 1 ? `<h3>${p.navn}</h3>` : ""}
+        <div class="choices mb-2">${modellar}</div>
+        ${tilvalg}
+        <div class="field">
+          <label for="mengde_${p.id}">${mengdeTekst(p)}</label>
+          <input type="number" id="mengde_${p.id}" name="mengde_${p.id}"
+            min="${p.minMengde}" step="0.5" inputmode="decimal" value="${v.mengde ?? p.standardMengde}">
+          <p class="hint">${hjelp}</p>
+          <p class="field-error hidden" data-mengdefeil="${p.id}"></p>
         </div>
-      </div>`
-    )
+      </div>`;
+    })
     .join("");
-
-  // Førstevalet i kvar tilvalgsgruppe er standard, så estimatet alltid er komplett.
-  (p.valg || []).forEach((v) => {
-    state.ekstra[v.id] = v.alternativ[0].id;
-    const input = $(`input[name="valg_${v.id}"][value="${v.alternativ[0].id}"]`);
-    if (input) input.checked = true;
-  });
-
-  const enhetTekst =
-    p.enhet === "lm" ? "Antall løpemeter" : p.enhet === "m2" ? "Antall kvadratmeter" : "Antall";
-  $("#mengdeLabel").textContent = enhetTekst;
-  $("#mengde").value = p.standardMengde;
-  $("#mengde").min = p.minMengde;
-  $("#mengdeHjelp").textContent =
-    p.enhet === "stk"
-      ? `Omtrentlig antall holder. Minimum ${p.minMengde}.`
-      : `Omtrentlig mål holder i denne omgang — selgeren måler nøyaktig på befaring. Minimum ${p.minMengde}.`;
 }
 
 skjema.addEventListener("change", (e) => {
-  const n = e.target.name;
-  if (n === "modell") state.modellId = e.target.value;
-  else if (n && n.startsWith("valg_")) state.ekstra[n.slice(5)] = e.target.value;
-  else if (n === "montering") state.montering = e.target.value === "ja";
+  const n = e.target.name || "";
+  if (n.startsWith("modell_")) {
+    const id = n.slice(7);
+    if (state.perProdukt[id]) state.perProdukt[id].modellId = e.target.value;
+  } else if (n.startsWith("valg_")) {
+    // valg_<produktId>_<valgId> — produkt-id-ane har bindestrek i seg, så vi
+    // finn skiljet ved å prøve kvart valt produkt i staden for å dele på «_».
+    const rest = n.slice(5);
+    const pid = state.produktIdar.find((x) => rest.startsWith(x + "_"));
+    if (pid && state.perProdukt[pid]) {
+      state.perProdukt[pid].ekstra[rest.slice(pid.length + 1)] = e.target.value;
+    }
+  } else if (n === "montering") state.montering = e.target.value === "ja";
   else if (n === "tidspunkt") state.tidspunkt = e.target.value;
 });
 
-$("#mengde").addEventListener("input", (e) => {
-  state.mengde = parseFloat(e.target.value);
+skjema.addEventListener("input", (e) => {
+  const n = e.target.name || "";
+  if (!n.startsWith("mengde_")) return;
+  const id = n.slice(7);
+  if (state.perProdukt[id]) state.perProdukt[id].mengde = parseFloat(e.target.value);
 });
 
 // Postnummer -> distrikt, vist med ein gong kunden skriv det inn.
@@ -206,19 +297,37 @@ function visFeil(melding) {
 
 function stegErGyldig() {
   if (state.steg === 1) {
-    if (!state.produktId) return "Velg et produkt for å gå videre.";
+    if (!state.produktIdar.length) return "Velg minst ett produkt for å gå videre.";
     return null;
   }
   if (state.steg === 2) {
-    if (!state.modellId) return "Velg en modell for å gå videre.";
-    const p = vindexProdukt(state.produktId);
-    const feil = $("#mengdeFeil");
-    if (!state.mengde || state.mengde < p.minMengde) {
-      feil.textContent = `Oppgi minst ${p.minMengde}.`;
-      feil.classList.remove("hidden");
-      return "Sjekk antallet.";
-    }
-    feil.classList.add("hidden");
+    // Kvar blokk blir sjekka for seg, og alle feila blir ståande synlege
+    // samtidig. Å rette éin ting om gongen når fire står feil, er ein måte å
+    // få folk til å gi opp på.
+    let utanModell = null;
+    let mengdefeil = null;
+    valdeProdukt().forEach((p) => {
+      const v = forProdukt(p.id);
+      const feil = document.querySelector(`[data-mengdefeil="${p.id}"]`);
+      if (!v.modellId && !utanModell) utanModell = p;
+      if (!v.mengde || v.mengde < p.minMengde) {
+        if (feil) {
+          feil.textContent = `Oppgi minst ${p.minMengde}.`;
+          feil.classList.remove("hidden");
+        }
+        if (!mengdefeil) mengdefeil = p;
+      } else if (feil) {
+        feil.classList.add("hidden");
+      }
+    });
+    if (utanModell)
+      return valdeProdukt().length > 1
+        ? `Velg en modell for ${utanModell.navn.toLowerCase()}.`
+        : "Velg en modell for å gå videre.";
+    if (mengdefeil)
+      return valdeProdukt().length > 1
+        ? `Sjekk antallet for ${mengdefeil.navn.toLowerCase()}.`
+        : "Sjekk antallet.";
     return null;
   }
   return null;
@@ -241,36 +350,73 @@ $("#tilbake").addEventListener("click", () => {
 // ---------------------------------------------------------------------------
 // Oppsummering og prisestimat
 // ---------------------------------------------------------------------------
+/** Kva eitt produkt er valt som, samla på ein stad. */
+function produktLinjer(p) {
+  const v = forProdukt(p.id);
+  const m = vindexModell(p.id, v.modellId);
+  const enhet = p.enhet === "lm" ? "lm" : p.enhet === "m2" ? "m²" : "stk";
+  const tilvalg = (p.valg || [])
+    .map((val) => {
+      const alt = val.alternativ.find((a) => a.id === (v.ekstra || {})[val.id]);
+      return alt ? [val.navn, alt.navn] : null;
+    })
+    .filter(Boolean);
+  return { modell: m, enhet, tilvalg, mengde: v.mengde };
+}
+
 function teiknOppsummering() {
-  const p = vindexProdukt(state.produktId);
-  const m = vindexModell(state.produktId, state.modellId);
-  const est = vindexPrisEstimat(state);   // null når prisestimat er slått av
-  if (!p || !m) return;
+  const valde = valdeProdukt();
+  if (!valde.length) return;
 
   const rad = (dt, dd) => `<div class="summary-row"><dt>${dt}</dt><dd>${dd}</dd></div>`;
-  const enhet = p.enhet === "lm" ? "lm" : p.enhet === "m2" ? "m²" : "stk";
+  const fleire = valde.length > 1;
 
-  const tilvalgRader = (p.valg || [])
-    .map((v) => {
-      const alt = v.alternativ.find((a) => a.id === state.ekstra[v.id]);
-      return alt ? rad(v.navn, alt.navn) : "";
+  // Eitt estimat per produkt gir ikkje meining å summere så lenge prisane ikkje
+  // er lagde inn. Er dei det, er det summen kunden vil sjå — ikkje ein sum per
+  // linje han må leggje saman sjølv.
+  const estimat = valde.map((p) =>
+    vindexPrisEstimat({
+      produktId: p.id,
+      modellId: forProdukt(p.id).modellId,
+      mengde: forProdukt(p.id).mengde,
+      ekstra: forProdukt(p.id).ekstra,
+      montering: state.montering,
+    })
+  );
+  const harEstimat = estimat.every(Boolean) && estimat.length > 0;
+
+  const produktDel = valde
+    .map((p) => {
+      const d = produktLinjer(p);
+      if (!d.modell) return "";
+      const overskrift = fleire
+        ? `<div class="summary-row" style="border-top:1px solid var(--border);margin-top:.5rem;padding-top:.6rem">
+             <dt style="font-weight:700">${p.navn}</dt><dd></dd></div>`
+        : rad("Produkt", p.navn);
+      return (
+        overskrift +
+        rad("Modell", d.modell.navn) +
+        d.tilvalg.map(([n, v]) => rad(n, v)).join("") +
+        rad("Omfang", `${d.mengde} ${d.enhet}`)
+      );
     })
     .join("");
 
   let prisDel;
-  if (!est) {
+  if (!harEstimat) {
     // Vindex prisar etter befaring og tegning — då lovar vi ikkje eit tal her.
     prisDel = `<p class="notice notice-info mb-0">Basert på ønskene dine lager vi et forslag
       med tegning og pristilbud — helt uforpliktende for deg.</p>`;
   } else {
+    const sum = (felt) => estimat.reduce((n, e) => n + (e[felt] || 0), 0);
     prisDel = `
-      ${rad("Varer", kr(est.varer))}
-      ${state.montering ? rad("Montering", kr(est.monteringPris)) : ""}
-      ${rad("Frakt (anslag)", est.frakt ? kr(est.frakt) : "Inkludert")}
-      ${est.rabatt ? rad("Kampanjerabatt", "− " + kr(est.rabatt)) : ""}
+      ${rad("Varer", kr(sum("varer")))}
+      ${state.montering ? rad("Montering", kr(sum("monteringPris"))) : ""}
+      ${rad("Frakt (anslag)", sum("frakt") ? kr(sum("frakt")) : "Inkludert")}
+      ${sum("rabatt") ? rad("Kampanjerabatt", "− " + kr(sum("rabatt"))) : ""}
       <div class="summary-row" style="border-top:1px solid rgba(16,73,90,.25);margin-top:.4rem;padding-top:.7rem">
         <dt style="font-size:1rem">Estimat</dt>
-        <dd><span class="price-estimate">${kr(est.sum)}</span></dd>
+        <dd><span class="price-estimate">${kr(sum("sum"))}</span></dd>
       </div>
       <p class="hint mt-1 mb-0">Veiledende estimat inkl. mva. Endelig pris kommer i tilbudet
         fra selgeren, etter oppmåling. Frakt beregnes eksakt ut fra volum og leveringsadresse.</p>`;
@@ -279,11 +425,8 @@ function teiknOppsummering() {
   $("#oppsummering").innerHTML = `
     <h3 class="mt-0">Din forespørsel</h3>
     <dl style="margin:0">
-      ${rad("Produkt", p.navn)}
-      ${rad("Modell", m.navn)}
-      ${tilvalgRader}
+      ${produktDel}
       ${rad("Farge", VINDEX_FARGE.navn)}
-      ${rad("Omfang", `${state.mengde} ${enhet}`)}
       ${rad("Montering", state.montering ? "Vindex monterer" : "Jeg monterer selv")}
       ${prisDel}
     </dl>`;
@@ -346,30 +489,48 @@ skjema.addEventListener("submit", async (e) => {
   }
 });
 
-function byggLead() {
-  const p = vindexProdukt(state.produktId);
-  const m = vindexModell(state.produktId, state.modellId);
-  const est = vindexPrisEstimat(state);
-  const distrikt = vindexFinnDistrikt($("#postnr").value);
-
+/** Eitt produkt på den forma leadet lagrar det. */
+function produktNyttelast(p) {
+  const v = forProdukt(p.id);
+  const m = vindexModell(p.id, v.modellId);
   const tilvalg = {};
-  (p.valg || []).forEach((v) => {
-    const alt = v.alternativ.find((a) => a.id === state.ekstra[v.id]);
-    if (alt) tilvalg[v.navn] = alt.navn;
+  (p.valg || []).forEach((val) => {
+    const alt = val.alternativ.find((a) => a.id === (v.ekstra || {})[val.id]);
+    if (alt) tilvalg[val.navn] = alt.navn;
   });
+  return {
+    id: p.id,
+    navn: p.navn,
+    modellId: m ? m.id : "",
+    modellNavn: m ? m.navn : "",
+    farge: VINDEX_FARGE.id,
+    mengde: v.mengde,
+    enhet: p.enhet,
+    tilvalg,
+  };
+}
+
+function byggLead() {
+  const valde = valdeProdukt();
+  const p = valde[0];
+  const est = vindexPrisEstimat({
+    produktId: p.id,
+    modellId: forProdukt(p.id).modellId,
+    mengde: forProdukt(p.id).mengde,
+    ekstra: forProdukt(p.id).ekstra,
+    montering: state.montering,
+  });
+  const distrikt = vindexFinnDistrikt($("#postnr").value);
 
   return {
     kilde: "nettside",
-    produkt: {
-      id: p.id,
-      navn: p.navn,
-      modellId: m.id,
-      modellNavn: m.navn,
-      farge: VINDEX_FARGE.id,
-      mengde: state.mengde,
-      enhet: p.enhet,
-      tilvalg,
-    },
+    // `produkt` er det første valde, og held same forma som før. Heile
+    // salsverktøyet filtrerer, søkjer og byggjer ordreskjema på det feltet, og
+    // ein kunde som ber om rekkverk og terrassegulv skal framleis kome opp
+    // under rekkverk. `produkter` har alle — også det første, så ingen treng å
+    // hugse å slå dei saman.
+    produkt: produktNyttelast(p),
+    produkter: valde.map(produktNyttelast),
     montering: state.montering,
     tidspunkt: state.tidspunkt,
     estimat: est

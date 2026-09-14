@@ -7,7 +7,7 @@
 <meta name="description" content="Legg inn mål og ønsker, få et uforpliktende prisestimat med én gang, og bli satt i kontakt med selgeren i ditt distrikt.">
 <meta name="robots" content="index,follow">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="stylesheet" href="css/style.css?v=fe84d8db">
+<link rel="stylesheet" href="css/style.css?v=7846a675">
 <script>
   // Nettstaden er mørk som standard. Set temaet før sida teiknar, så den ikkje
   // blinkar i feil farge først.
@@ -34,30 +34,27 @@
     <div class="steps" id="steg"></div>
     <form id="skjema" novalidate>
 
+      <!-- Kva som er valt, synleg gjennom heile skjemaet -->
+      <div class="valgte-rad" id="valgteProdukt" aria-live="polite"
+           aria-label="Produkter du har valgt"></div>
+
       <!-- Steg 1: produkt -->
       <div class="stegside" data-steg="1">
         <h2>Hva skal du ha?</h2>
-        <p class="hint mb-2">Velg produktet du vil ha pris på. Trenger du flere ting,
-          skriver du det i kommentarfeltet til slutt — selgeren samler det i ett tilbud.</p>
+        <p class="hint mb-2">Velg alt du vil ha pris på — du kan krysse av for flere.
+          Selgeren samler det i ett tilbud.</p>
         <div class="choices" id="produktValg"></div>
         <div id="kampanjeBanner" class="mt-1"></div>
       </div>
 
-      <!-- Steg 2: modell, tilvalg, farge og mengde -->
+      <!-- Steg 2: modell, tilvalg, farge og mengde — ei blokk per valt produkt -->
       <div class="stegside hidden" data-steg="2">
         <h2 id="steg2Tittel">Velg modell</h2>
-        <div id="modellValg" class="choices mb-2"></div>
-        <div id="tilvalgFelt"></div>
         <p class="hint mb-2" id="fargeOpplysning">
           Alle Vindex-produkter leveres i klassisk hvit PVC — fargen sitter i
           materialet og skal aldri males.
         </p>
-        <div class="field">
-          <label for="mengde" id="mengdeLabel">Antall</label>
-          <input type="number" id="mengde" name="mengde" min="1" step="0.5" inputmode="decimal">
-          <p class="hint" id="mengdeHjelp"></p>
-          <p class="field-error hidden" id="mengdeFeil"></p>
-        </div>
+        <div id="steg2Blokker"></div>
       </div>
 
       <!-- Steg 3: montering -->
@@ -157,11 +154,12 @@
   </div>
 </section>
 
+<script src="js/modellfigur.js?v=fe37aedb"></script>
 <script src="js/produkter.js?v=7fe9eba2"></script>
 <script src="js/distrikt.js?v=577fba13"></script>
 <script src="js/firebase-config.js?v=81771b43"></script>
 <script src="js/app.js?v=31d656bf"></script>
 <script src="js/effekter.js?v=84d5e123"></script>
-<script type="module" src="js/bestilling.js?v=8c394d8b"></script>
+<script type="module" src="js/bestilling.js?v=68e353dc"></script>
 </body>
 </html>

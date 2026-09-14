@@ -59,8 +59,8 @@ service cloud.firestore {
       // opprette eit lead som alt hadde eit tilbod på seg. Seljarar som
       // registrerer manuelt går gjennom den andre greina og er ikkje råka.
       return d.keys().hasOnly([
-               'kilde', 'produkt', 'montering', 'tidspunkt', 'estimat', 'kunde',
-               'distriktId', 'distriktNavn', 'status', 'samtykke', 'seljarId',
+               'kilde', 'produkt', 'produkter', 'montering', 'tidspunkt', 'estimat',
+               'kunde', 'distriktId', 'distriktNavn', 'status', 'samtykke', 'seljarId',
                'tildeltAutomatisk', 'opprettet', 'statusEndret', 'logg'
              ])
              && d.status == 'ny'
@@ -71,7 +71,17 @@ service cloud.firestore {
              && d.kunde.postnr is string && d.kunde.postnr.size() == 4
              && d.kunde.kommentar.size() < 2000
              && d.distriktId is string
-             && d.produkt.id is string;
+             && d.produkt.id is string
+             // Skjemaet tek imot fleire produkt: `produkt` er det første av dei
+             // og held forma verktøyet ventar, `produkter` har alle.
+             //
+             // Feltet er valfritt med vilje. Det lyse designet under /lys/ har
+             // sitt eige skjema som enno sender berre `produkt`, og eit krav om
+             // `produkter` her ville stengt det ute — stille, for kunden ser
+             // berre at innsendinga feilar.
+             && (!d.keys().hasAny(['produkter'])
+                 || (d.produkter is list && d.produkter.size() >= 1
+                     && d.produkter.size() <= 12));
     }
 
     // Eit svar på ein bistandsførespurnad kjem frå daglig leder. Utan denne

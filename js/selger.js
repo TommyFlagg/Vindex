@@ -310,7 +310,9 @@ function teiknArbeidsliste(liste) {
         <span class="leadrad-namn">${k.navn || "Ukjent"}
           <span class="leadrad-merke">${bistand}</span></span>
         <span class="leadrad-stad">${k.poststed || ""}${k.telefon ? " · " + k.telefon : ""}</span>
-        <span class="leadrad-prod">${p.navn || "–"} · <span class="tag tag-${l.status}">${vindexStatusNavn(l.status)}</span></span>
+        <span class="leadrad-prod">${p.navn || "–"}${
+          (l.produkter || []).length > 1 ? ` <span class="hint">+${l.produkter.length - 1}</span>` : ""
+        } · <span class="tag tag-${l.status}">${vindexStatusNavn(l.status)}</span></span>
         <span class="leadrad-temp">${tempMerke(l, naa)}</span>
         <span class="leadrad-tid">${avtale ? "📅 " + datoTekst(avtale.start) : vindexTemperaturTekst(t.timar)}</span>
       </button>`;
@@ -805,6 +807,28 @@ async function opneLead(id) {
   teikn();
 }
 
+/**
+ * Produkta kunden bad om, alle saman.
+ *
+ * Skjemaet tek imot fleire produkt om gongen. `lead.produkt` er det første og
+ * styrer framleis filtrering, søk og ordreskjema; `lead.produkter` har heile
+ * lista. Eldre leads har berre `produkt`, og då blir det med éi rad — same
+ * biletet som før.
+ */
+function produktRader(lead) {
+  const liste = (lead.produkter || []).length ? lead.produkter : [lead.produkt || {}];
+  const eining = (e) => (e === "m2" ? "m²" : e || "");
+  return liste
+    .map((p, i) => {
+      const merke = liste.length > 1 ? `Produkt ${i + 1}` : "Produkt";
+      return (
+        `<dt>${merke}</dt><dd>${p.navn || "–"}${p.modellNavn ? " — " + p.modellNavn : ""}</dd>` +
+        `<dt>Omfang</dt><dd>${p.mengde || "–"} ${eining(p.enhet)}${p.farge ? ", farge " + p.farge : ""}</dd>`
+      );
+    })
+    .join("");
+}
+
 function visDetalj(id) {
   const l = app.leads.find((x) => x.id === id);
   if (!l) return;
@@ -948,8 +972,7 @@ function visDetalj(id) {
         <dt>Telefon</dt><dd>${k.telefon ? `<a href="tel:${String(k.telefon).replace(/\s/g, "")}">${k.telefon}</a>` : "–"}</dd>
         <dt>E-post</dt><dd>${k.epost ? `<a href="mailto:${k.epost}">${k.epost}</a>` : "–"}</dd>
         <dt>Adresse</dt><dd>${[k.adresse, k.postnr, k.poststed].filter(Boolean).join(", ") || "–"}</dd>
-        <dt>Produkt</dt><dd>${p.navn || "–"}${p.modellNavn ? " — " + p.modellNavn : ""}</dd>
-        <dt>Omfang</dt><dd>${p.mengde || "–"} ${p.enhet === "m2" ? "m²" : p.enhet || ""}${p.farge ? ", farge " + p.farge : ""}</dd>
+        ${produktRader(l)}
         ${tilvalg}
         <dt>Montering</dt><dd>${l.montering ? "Vindex monterer" : "Kunden monterer selv"}</dd>
         ${k.kommentar ? `<dt>Kommentar</dt><dd>${k.kommentar}</dd>` : ""}
