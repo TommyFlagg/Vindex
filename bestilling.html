@@ -7,7 +7,7 @@
 <meta name="description" content="Legg inn mål og ønsker, få et uforpliktende prisestimat med én gang, og bli satt i kontakt med selgeren i ditt distrikt.">
 <meta name="robots" content="index,follow">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="stylesheet" href="css/style.css?v=f157fc9c">
+<link rel="stylesheet" href="css/style.css?v=1a1ffcfb">
 <script>
   // Nettstaden er mørk som standard. Set temaet før sida teiknar, så den ikkje
   // blinkar i feil farge først.
@@ -24,8 +24,9 @@
   <div class="wrap">
     <p class="eyebrow">Gratis og uforpliktende</p>
     <h1>Be om tilbud</h1>
-    <p class="lead">Fire steg, omtrent to minutter. Du får et prisestimat med én gang,
-      og selgeren i ditt distrikt tar kontakt for befaring og endelig tilbud.</p>
+    <p class="lead">Fire steg, omtrent to minutter. Du trenger ikke ha bestemt deg for
+      alt — selgeren i ditt distrikt tar kontakt for befaring, oppmåling og et
+      endelig tilbud.</p>
   </div>
 </section>
 
@@ -38,21 +39,28 @@
       <div class="valgte-rad" id="valgteProdukt" aria-live="polite"
            aria-label="Produkter du har valgt"></div>
 
+      <div class="btn-row navrad-topp" id="navTopp">
+        <button type="button" class="btn btn-ghost hidden" data-nav="tilbake">Tilbake</button>
+        <button type="button" class="btn" data-nav="neste">Neste</button>
+      </div>
+
       <!-- Steg 1: produkt -->
       <div class="stegside" data-steg="1">
-        <h2>Hva skal du ha?</h2>
-        <p class="hint mb-2">Velg alt du vil ha pris på — du kan krysse av for flere.
-          Selgeren samler det i ett tilbud.</p>
+        <h2>Hva har du lyst på?</h2>
+        <p class="hint mb-2">Kryss av for alt du er nysgjerrig på — gjerne flere ting. Du
+          binder deg ikke til noe her. Selgeren samler det i ett tilbud, og hjelper deg
+          gjerne å velge underveis.</p>
         <div class="choices" id="produktValg"></div>
         <div id="kampanjeBanner" class="mt-1"></div>
       </div>
 
       <!-- Steg 2: modell, tilvalg, farge og mengde — ei blokk per valt produkt -->
       <div class="stegside hidden" data-steg="2">
-        <h2 id="steg2Tittel">Velg modell</h2>
+        <h2 id="steg2Tittel">Hvor mye?</h2>
         <p class="hint mb-2" id="fargeOpplysning">
-          Alle Vindex-produkter leveres i klassisk hvit PVC — fargen sitter i
-          materialet og skal aldri males.
+          Omtrentlige mål holder. Resten er frivillig — det du hopper over, tar
+          selgeren på befaringen. Alt leveres i klassisk hvit PVC, med fargen i
+          materialet.
         </p>
         <div id="steg2Blokker"></div>
       </div>
@@ -142,8 +150,8 @@
       </div>
 
       <div class="btn-row mt-2" id="navKnappar">
-        <button type="button" class="btn btn-ghost hidden" id="tilbake">Tilbake</button>
-        <button type="button" class="btn" id="neste">Neste</button>
+        <button type="button" class="btn btn-ghost hidden" id="tilbake" data-nav="tilbake">Tilbake</button>
+        <button type="button" class="btn" id="neste" data-nav="neste">Neste</button>
         <button type="submit" class="btn btn-accent hidden" id="send">Send forespørsel</button>
       </div>
       <p class="field-error hidden" id="skjemaFeil"></p>
@@ -156,11 +164,11 @@
 
 <script src="js/tekst.js?v=c6ce3e21"></script>
 <script src="js/modellfigur.js?v=fe37aedb"></script>
-<script src="js/produkter.js?v=b1e54e5e"></script>
+<script src="js/produkter.js?v=b5e0c4cb"></script>
 <script src="js/distrikt.js?v=577fba13"></script>
 <script src="js/firebase-config.js?v=81771b43"></script>
 <script src="js/app.js?v=31d656bf"></script>
 <script src="js/effekter.js?v=84d5e123"></script>
-<script type="module" src="js/bestilling.js?v=f96cb1ce"></script>
+<script type="module" src="js/bestilling.js?v=3a80027c"></script>
 </body>
 </html>

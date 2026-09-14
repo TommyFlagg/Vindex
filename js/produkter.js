@@ -136,7 +136,7 @@ function vindexTilval(id, navn, liste, hjelp, ekstra) {
       // rekkverk fyller ramma; ein stolpetopp er fotografert heil med luft
       // rundt, og må rommast eller misse spissen sin.
       biletklasse: "choice-bilde",
-      alternativ: [{ id: "", navn: "Ikke bestemt", sub: hjelp }].concat(
+      alternativ: [{ id: "", navn: "Vet ikke ennå", sub: hjelp }].concat(
         liste.map((x) => ({ id: x.id, navn: x.navn, sub: x.sub, bilde: x.bilde }))
       ),
     },
@@ -149,10 +149,8 @@ const vindexToppval = () =>
     biletklasse: "toppbilete",
     galleri: {
       merkelapp: "Stolpetopper",
-      tittel: "Og toppen på stolpen",
-      tekst:
-        "De samme toppene passer til rekkverk, gjerde og levegg — så du kan bruke den " +
-        "samme over hele tomten.",
+      tittel: "Velg topp",
+      tekst: "Samme topp passer til rekkverk, gjerde og levegg.",
       alt: (a) => "Stolpetopp " + a.navn + " fra Vindex",
     },
   });
@@ -162,9 +160,7 @@ const vindexModellval = () =>
     galleri: {
       merkelapp: "Modeller",
       tittel: "Velg modellen du liker",
-      tekst:
-        "Klikk på en modell, så følger valget med inn i tilbudsskjemaet. Er du usikker, " +
-        "hopper du bare videre — selgeren anbefaler ut fra terrassen din når han er på befaring.",
+      tekst: "Klikk, så følger valget med inn i tilbudet. Usikker? Selgeren anbefaler på befaringen.",
       alt: (a) => "Rekkverk modell " + a.navn + " fra Vindex",
     },
   });
@@ -174,6 +170,7 @@ const VINDEX_PRODUKT = [
   {
     id: "rekkverk",
     navn: "Rekkverk",
+    tittel: "Sterkt, stabilt og vedlikeholdsfritt",
     bilde: "assets/bilder/rekkverk.jpg",
     enhet: "lm",
     enhetNavn: "løpemeter",
@@ -195,12 +192,14 @@ const VINDEX_PRODUKT = [
     valg: [vindexModellval(), vindexToppval()],
     minMengde: 1,
     standardMengde: 12,
+    relatert: ["gjerde", "gardsgjerde", "flyttbart-gjerde"],
     lenke: "produkter/rekkverk.html",
   },
 
   {
     id: "glassrekkverk",
     navn: "Glassrekkverk",
+    tittel: "Lys og utsikt, uten vinden",
     bilde: "assets/bilder/glassrekkverk.jpg",
     enhet: "lm",
     enhetNavn: "løpemeter",
@@ -230,6 +229,7 @@ const VINDEX_PRODUKT = [
   {
     id: "gjerde",
     navn: "Gjerde",
+    tittel: "Gjerdet som aldri skal males",
     bilde: "assets/bilder/gjerde.jpg",
     enhet: "lm",
     enhetNavn: "løpemeter",
@@ -251,12 +251,14 @@ const VINDEX_PRODUKT = [
     valg: [vindexToppval()],
     minMengde: 1,
     standardMengde: 20,
+    relatert: ["rekkverk", "glassrekkverk", "levegg"],
     lenke: "produkter/gjerde.html",
   },
 
   {
     id: "levegg",
     navn: "Levegg",
+    tittel: "Ly for innsyn, støy og vind",
     bilde: "assets/bilder/levegg.jpg",
     enhet: "lm",
     enhetNavn: "løpemeter",
@@ -278,12 +280,14 @@ const VINDEX_PRODUKT = [
     valg: [vindexToppval()],
     minMengde: 1,
     standardMengde: 6,
+    relatert: ["ledlys", "porter", "kystveggen"],
     lenke: "produkter/levegg.html",
   },
 
   {
     id: "sprosser",
     navn: "Sprosser",
+    tittel: "Rammesprosser til vindu og dører",
     bilde: "assets/bilder/sprosser.jpg",
     enhet: "stk",
     enhetNavn: "vinduer",
@@ -322,6 +326,7 @@ const VINDEX_PRODUKT = [
   {
     id: "ledlys",
     navn: "LED-lys",
+    tittel: "LED-lys til stolpene dine",
     bilde: "assets/bilder/ledlys.jpg",
     enhet: "stk",
     enhetNavn: "lys",
@@ -348,6 +353,7 @@ const VINDEX_PRODUKT = [
   {
     id: "terrassegulv",
     navn: "Terrassegulv",
+    tittel: "Terrassegulv i gjennomfarget UPVC",
     bilde: "assets/bilder/terrassegulv.jpg",
     enhet: "m2",
     enhetNavn: "kvadratmeter",
@@ -371,6 +377,7 @@ const VINDEX_PRODUKT = [
   {
     id: "porter",
     navn: "Porter",
+    tittel: "Porter til rekkverk og gjerde",
     bilde: "assets/bilder/porter.jpg",
     enhet: "stk",
     enhetNavn: "porter",
@@ -396,6 +403,7 @@ const VINDEX_PRODUKT = [
   {
     id: "flyttbart-gjerde",
     navn: "Flyttbart gjerde",
+    tittel: "Gjerdet du kan flytte",
     bilde: "assets/bilder/flyttbart-gjerde.jpg",
     enhet: "lm",
     enhetNavn: "løpemeter",
@@ -418,6 +426,7 @@ const VINDEX_PRODUKT = [
   {
     id: "gardsgjerde",
     navn: "Gardsgjerde",
+    tittel: "Gjerde for store eiendommer",
     bilde: "assets/bilder/gardsgjerde.jpg",
     enhet: "lm",
     enhetNavn: "løpemeter",
@@ -441,6 +450,7 @@ const VINDEX_PRODUKT = [
   {
     id: "kystveggen",
     navn: "Kystveggen",
+    tittel: "Vedlikeholdsfri spilevegg",
     bilde: "assets/bilder/kystveggen.jpg",
     enhet: "lm",
     enhetNavn: "løpemeter",
@@ -463,6 +473,7 @@ const VINDEX_PRODUKT = [
   {
     id: "varmepumpehus",
     navn: "Varmepumpehus",
+    tittel: "Ly for varmepumpen",
     bilde: "assets/bilder/varmepumpehus.jpg",
     enhet: "stk",
     enhetNavn: "hus",

@@ -165,7 +165,7 @@ function vindexTeiknNettverk(el, { rot = "" } = {}) {
         ${
           nett.ledigeFylke.length
             ? `<p class="nettverk-ledig"><strong>${ledigeNamn}</strong> står uten representant.
-                 Bor du der, er plassen din.</p>`
+                 Bor du der, kan muligheten bli din!</p>`
             : `<p class="nettverk-ledig"><strong>Hele landet er dekket i dag</strong> — men vi
                  tar gjerne en prat med flere. Nye områder åpner seg.</p>`
         }
@@ -180,9 +180,9 @@ function vindexTeiknNettverk(el, { rot = "" } = {}) {
         </ul>
 
         <h3 class="h3-versal mt-2">Dette ser vi etter</h3>
-        <p>Du kjenner distriktet ditt og folk i det. Du liker å møte kunder hjemme hos dem.
-          Bakgrunn fra bygg, anlegg, gjerde eller uterom hjelper, men er ikke et krav —
-          det viktigste er at du følger opp det du lover.</p>
+        <p>Du kjenner distriktet ditt og folk i det, og du liker å møte kunder hjemme hos
+          dem. <strong>Du trenger ingen byggfaglig bakgrunn</strong> — produktene lærer du hos
+          oss. Det viktigste er at du følger opp det du lover.</p>
 
         <div class="btn-row mt-2">
           <button class="btn btn-accent" type="button" id="opneRepSkjema">Meld interesse</button>

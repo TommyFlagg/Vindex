@@ -824,7 +824,7 @@ function produktRader(lead) {
     .map((p, i) => {
       const merke = liste.length > 1 ? `Produkt ${i + 1}` : "Produkt";
       return (
-        `<dt>${merke}</dt><dd>${vindexT(p.navn)}${p.modellNavn ? " — " + p.modellNavn : ""}</dd>` +
+        `<dt>${merke}</dt><dd>${vindexT(p.navn)}${p.modellNavn ? " — " + vindexT(p.modellNavn) : ""}</dd>` +
         `<dt>Omfang</dt><dd>${p.mengde || "–"} ${eining(p.enhet)}${p.farge ? ", farge " + p.farge : ""}</dd>`
       );
     })

@@ -104,7 +104,15 @@ function leggTilProdukt(id) {
   // sjølv om kunden berre klikkar seg vidare.
   const ekstra = {};
   (p.valg || []).forEach((v) => { ekstra[v.id] = v.alternativ[0].id; });
-  state.perProdukt[id] = { modellId: null, ekstra, mengde: p.standardMengde };
+  // Har produktet berre éi utføring, er det ikkje eit val. Terrassegulv,
+  // gårdsgjerde og Kystveggen hadde eitt kort kvar som sa det same som
+  // produktnamnet, og kunden måtte klikke på det for å kome vidare. Det er
+  // nettbutikk-seremoni, ikkje ein førespurnad.
+  state.perProdukt[id] = {
+    modellId: p.modeller.length === 1 ? p.modeller[0].id : "",
+    ekstra,
+    mengde: p.standardMengde,
+  };
   etterProduktendring();
 }
 
@@ -189,22 +197,28 @@ function byggSteg2() {
   const boks = $("#steg2Blokker");
   if (!boks) return;
   const valde = valdeProdukt();
-  $("#steg2Tittel").textContent =
-    valde.length > 1 ? "Velg modell og mål" : "Velg modell";
+  $("#steg2Tittel").textContent = valde.length > 1 ? "Hvor mye av hver?" : "Hvor mye?";
 
   boks.innerHTML = valde
     .map((p) => {
       const v = forProdukt(p.id);
-      const modellar = p.modeller
-        .map(
-          (m) => `<label class="choice">
-            <input type="radio" name="modell_${p.id}" value="${m.id}"${v.modellId === m.id ? " checked" : ""}>
+      // «Vet ikke ennå» står først og er valt frå start. Ingenting her er
+      // påkravd — og utan eit slikt kort kunne kunden heller ikkje angre eit
+      // klikk, for ein radioknapp slepp ikkje taket når den først er sett.
+      const modellar =
+        p.modeller.length < 2
+          ? ""
+          : [{ id: "", navn: "Vet ikke ennå", sub: "Selgeren anbefaler på befaringen" }]
+              .concat(p.modeller)
+              .map(
+                (m) => `<label class="choice">
+            <input type="radio" name="modell_${p.id}" value="${m.id}"${(v.modellId || "") === m.id ? " checked" : ""}>
             ${vindexModellfigur(p.id, m.id)}
             <span class="choice-title">${m.navn}</span>
             <span class="choice-sub">${m.sub || ""}${m.pris ? " · fra " + kr(m.pris) : ""}</span>
           </label>`
-        )
-        .join("");
+              )
+              .join("");
 
       const tilvalg = (p.valg || [])
         .map(
@@ -235,7 +249,7 @@ function byggSteg2() {
 
       return `<div class="produktblokk" data-produkt="${p.id}">
         ${valde.length > 1 ? `<h3>${p.navn}</h3>` : ""}
-        <div class="choices mb-2">${modellar}</div>
+        ${modellar ? `<div class="choices mb-2">${modellar}</div>` : ""}
         ${tilvalg}
         <div class="field">
           <label for="mengde_${p.id}">${mengdeTekst(p)}</label>
@@ -282,7 +296,7 @@ $("#postnr").addEventListener("input", (e) => {
 // ---------------------------------------------------------------------------
 // Stegnavigasjon
 // ---------------------------------------------------------------------------
-const STEG_NAVN = ["Produkt", "Mål og modell", "Montering", "Kontakt"];
+const STEG_NAVN = ["Produkt", "Mål", "Montering", "Kontakt"];
 
 function teiknSteg() {
   $("#steg").innerHTML = STEG_NAVN.map(
@@ -294,8 +308,10 @@ function teiknSteg() {
     el.classList.toggle("hidden", Number(el.dataset.steg) !== state.steg);
   });
 
-  $("#tilbake").classList.toggle("hidden", state.steg === 1);
-  $("#neste").classList.toggle("hidden", state.steg === SISTE_STEG);
+  // Nav-knappane finst to gonger — øvst og nedst. Dei er det same steget, så
+  // dei blir slått av og på under eitt.
+  $$('[data-nav="tilbake"]').forEach((b) => b.classList.toggle("hidden", state.steg === 1));
+  $$('[data-nav="neste"]').forEach((b) => b.classList.toggle("hidden", state.steg === SISTE_STEG));
   $("#send").classList.toggle("hidden", state.steg !== SISTE_STEG);
   if (state.steg === SISTE_STEG) {
     teiknOppsummering();
@@ -319,12 +335,14 @@ function stegErGyldig() {
     // Kvar blokk blir sjekka for seg, og alle feila blir ståande synlege
     // samtidig. Å rette éin ting om gongen når fire står feil, er ein måte å
     // få folk til å gi opp på.
-    let utanModell = null;
+    // Modellvalet stoppar ikkje nokon. Dette er ein førespurnad, ikkje ei
+    // handlekorg: den som ikkje veit kva VBC er, skal kome vidare og få ein
+    // seljar på døra — ikkje møte ein sperre og gjette. Talet på meter er det
+    // einaste vi treng, og det står eit forslag i feltet frå før.
     let mengdefeil = null;
     valdeProdukt().forEach((p) => {
       const v = forProdukt(p.id);
       const feil = document.querySelector(`[data-mengdefeil="${p.id}"]`);
-      if (!v.modellId && !utanModell) utanModell = p;
       if (!v.mengde || v.mengde < p.minMengde) {
         if (feil) {
           feil.textContent = `Oppgi minst ${p.minMengde}.`;
@@ -335,10 +353,6 @@ function stegErGyldig() {
         feil.classList.add("hidden");
       }
     });
-    if (utanModell)
-      return valdeProdukt().length > 1
-        ? `Velg en modell for ${utanModell.navn.toLowerCase()}.`
-        : "Velg en modell for å gå videre.";
     if (mengdefeil)
       return valdeProdukt().length > 1
         ? `Sjekk antallet for ${mengdefeil.navn.toLowerCase()}.`
@@ -348,17 +362,20 @@ function stegErGyldig() {
   return null;
 }
 
-$("#neste").addEventListener("click", () => {
-  const feil = stegErGyldig();
-  visFeil(feil);
-  if (feil) return;
-  state.steg = Math.min(state.steg + 1, SISTE_STEG);
-  teiknSteg();
-});
-
-$("#tilbake").addEventListener("click", () => {
-  visFeil("");
-  state.steg = Math.max(state.steg - 1, 1);
+// Éin lyttar for begge radene: knappane blir teikna på nytt kvar gong steget
+// skiftar, og då ville lyttarar per knapp hopa seg opp.
+document.addEventListener("click", (e) => {
+  const knapp = e.target.closest("[data-nav]");
+  if (!knapp) return;
+  if (knapp.dataset.nav === "neste") {
+    const feil = stegErGyldig();
+    visFeil(feil);
+    if (feil) return;
+    state.steg = Math.min(state.steg + 1, SISTE_STEG);
+  } else {
+    visFeil("");
+    state.steg = Math.max(state.steg - 1, 1);
+  }
   teiknSteg();
 });
 
@@ -403,14 +420,13 @@ function teiknOppsummering() {
   const produktDel = valde
     .map((p) => {
       const d = produktLinjer(p);
-      if (!d.modell) return "";
       const overskrift = fleire
         ? `<div class="summary-row" style="border-top:1px solid var(--border);margin-top:.5rem;padding-top:.6rem">
              <dt style="font-weight:700">${p.navn}</dt><dd></dd></div>`
         : rad("Produkt", p.navn);
       return (
         overskrift +
-        rad("Modell", d.modell.navn) +
+        (d.modell ? rad("Modell", d.modell.navn) : "") +
         d.tilvalg.map(([n, v]) => rad(n, v)).join("") +
         rad("Omfang", `${d.mengde} ${d.enhet}`)
       );
@@ -643,7 +659,7 @@ function visKvittering(lead, resultat) {
       oppmåling, og du får et endelig tilbud.</p>
     <div class="summary-box">
       <div class="summary-row"><dt>Referanse</dt><dd>${resultat.id}</dd></div>
-      <div class="summary-row"><dt>Produkt</dt><dd>${lead.produkt.navn} — ${lead.produkt.modellNavn}</dd></div>
+      <div class="summary-row"><dt>Produkt</dt><dd>${lead.produkt.navn}${lead.produkt.modellNavn ? " — " + lead.produkt.modellNavn : ""}</dd></div>
       <div class="summary-row"><dt>Omfang</dt><dd>${lead.produkt.mengde} ${lead.produkt.enhet === "m2" ? "m²" : lead.produkt.enhet}</dd></div>
       ${est && est.sum ? `<div class="summary-row"><dt>Estimat</dt><dd>${kr(est.sum)}</dd></div>` : ""}
     </div>

@@ -58,7 +58,7 @@ console.log("GALLERI OG KLIKK VIDARE");
 {
   // Klikk på VBC og gotisk topp skal vere hakka av når kunden kjem fram.
   const p = await side("/bestilling.html?produkt=rekkverk&vbmodell=vbc&topp=gotisk");
-  sjekk("startar på steg 2", (await p.$eval(".step-dot.current", (e) => e.textContent)) === "Mål og modell");
+  sjekk("startar på steg 2", (await p.$eval(".step-dot.current", (e) => e.textContent)) === "Mål");
   sjekk("VBC valt", await p.$eval('input[name="valg_rekkverk_vbmodell"][value="vbc"]', (e) => e.checked));
   sjekk("gotisk valt", await p.$eval('input[name="valg_rekkverk_topp"][value="gotisk"]', (e) => e.checked));
   sjekk("bilete på valkorta", (await p.$$(".produktblokk .choice-bilde")).length >= 9);
@@ -86,6 +86,53 @@ console.log("GALLERI OG KLIKK VIDARE");
   await p.close();
 }
 
+{
+  // «Kanskje du ser etter» — rekkverk peiker mot gjerdesortimentet, gjerde
+  // andre vegen, levegg mot lys og port. Lenkene skal gå til sider som finst.
+  const p = await side("/produkter/levegg.html");
+  const nabo = await p.$$eval(".nabokort", (a) =>
+    a.map((e) => ({ href: e.getAttribute("href"), tittel: e.querySelector(".kort-tittel").textContent })));
+  sjekk("tre naboprodukt på levegg", nabo.length === 3);
+  sjekk("lys og port blant dei", nabo.some((n) => /LED/.test(n.tittel)) && nabo.some((n) => /Porter/.test(n.tittel)));
+  const svar = await Promise.all(nabo.map((n) => p.evaluate((h) => fetch(h).then((r) => r.status), n.href)));
+  sjekk("alle nabolenker svarar", svar.every((s) => s === 200));
+  sjekk("ingen brotne bilete i rada",
+    (await p.$$eval(".naborad img", (a) => a.filter((i) => !i.complete || i.naturalWidth === 0).length)) === 0);
+  await p.close();
+}
+
+{
+  const p = await side("/produkter/rekkverk.html");
+  const nabo = await p.$$eval(".nabokort .kort-tittel", (a) => a.map((e) => e.textContent));
+  sjekk("rekkverk peiker mot gjerde", nabo.some((n) => /Gjerde/i.test(n)));
+  // Galleriet skal stå over fordelane, ikkje under dei.
+  const rekkje = await p.$$eval("section .merkelapp", (a) => a.map((e) => e.textContent));
+  sjekk("modellane før fordelane", rekkje.indexOf("Modeller") < rekkje.indexOf("Fordeler"));
+  sjekk("kort overskrift", (await p.$eval("h1", (e) => e.textContent)).length < 45);
+  await p.close();
+}
+
+console.log("FORENKLA STEG 2");
+{
+  const p = await side("/bestilling.html?produkt=terrassegulv");
+  const klikk = (s) => p.evaluate((x) => document.querySelector(x).click(), s);
+  sjekk("ingen modellrad når det berre finst éi utføring", (await p.$$('input[name="modell_terrassegulv"]')).length === 0);
+  sjekk("nav-knapp øvst", await p.$('#navTopp [data-nav="neste"]:not(.hidden)') !== null);
+  await klikk('#navTopp [data-nav="neste"]'); await p.waitForTimeout(400);
+  sjekk("kjem vidare frå toppen", (await p.$eval(".step-dot.current", (e) => e.textContent)) === "Montering");
+  await klikk('#navTopp [data-nav="tilbake"]'); await p.waitForTimeout(400);
+  sjekk("tilbake frå toppen", (await p.$eval(".step-dot.current", (e) => e.textContent)) === "Mål");
+  await p.close();
+}
+
+{
+  // Rekkverk har to utføringar, og då står «Vet ikke ennå» først og er valt.
+  const p = await side("/bestilling.html?produkt=rekkverk");
+  sjekk("«vet ikke» valt frå start", await p.$eval('input[name="modell_rekkverk"][value=""]', (e) => e.checked));
+  sjekk("tre kort på utføring", (await p.$$('input[name="modell_rekkverk"]')).length === 3);
+  await p.close();
+}
+
 console.log("BESTILLINGSSKJEMAET");
 {
   const p = await side("/bestilling.html");
@@ -98,11 +145,12 @@ console.log("BESTILLINGSSKJEMAET");
   await klikk("#neste"); await p.waitForTimeout(400);
   sjekk("to blokker på steg 2", (await p.$$(".produktblokk")).length === 2);
   sjekk("figurar teikna", (await p.$$(".modellfigur")).length >= 5);
-  await klikk("#neste"); await p.waitForTimeout(300);
-  sjekk("stoppar utan modellval", (await p.$eval("#skjemaFeil", (e) => e.textContent)).includes("modell"));
-  await p.evaluate(() => document.querySelectorAll(".produktblokk").forEach((b) => b.querySelector("input[type=radio]").click()));
-  await klikk("#neste"); await p.waitForTimeout(300);
-  await klikk("#neste"); await p.waitForTimeout(500);
+  // Ingenting på steg 2 er påkravd. Den som ikkje veit kva han vil ha, skal
+  // kome fram til seljaren — ikkje møte ei sperre.
+  await klikk("#neste"); await p.waitForTimeout(400);
+  sjekk("slepp vidare utan modellval", (await p.$eval(".step-dot.current", (e) => e.textContent)) === "Montering");
+  // Knappen øvst er den same navigasjonen som den nedst.
+  await klikk('#navTopp [data-nav="neste"]'); await p.waitForTimeout(500);
   sjekk("framme på kontakt", (await p.$eval(".step-dot.current", (e) => e.textContent)) === "Kontakt");
   for (const [k, v] of [["navn","Test Testesen"],["telefon","90000000"],["epost","t@t.no"],
                         ["adresse","Veg 1"],["postnr","6440"],["poststed","Elnesvågen"]]) await p.fill("#"+k, v);

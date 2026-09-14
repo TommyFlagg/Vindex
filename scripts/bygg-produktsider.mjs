@@ -19,7 +19,7 @@ const rot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const katalog = readFileSync(join(rot, "js/produkter.js"), "utf8");
 const hent = new Function(
   katalog +
-    "\nreturn { VINDEX_PRODUKT, VINDEX_FARGE, VINDEX_FIRMA, VINDEX_VIS_PRISESTIMAT, vindexFraPris, vindexKampanjeFor, vindexBiletHtml, kr };"
+    "\nreturn { VINDEX_PRODUKT, VINDEX_FARGE, VINDEX_FIRMA, VINDEX_VIS_PRISESTIMAT, vindexFraPris, vindexKampanjeFor, vindexBiletHtml, vindexProdukt, kr };"
 );
 const {
   VINDEX_PRODUKT,
@@ -29,6 +29,7 @@ const {
   vindexFraPris,
   vindexKampanjeFor,
   vindexBiletHtml,
+  vindexProdukt,
   kr,
 } = hent();
 
@@ -109,6 +110,23 @@ ${kort}
     )
     .join("\n");
 
+  // «Kanskje du ser etter» — ei rad ein dreg bortover. Den som ser på rekkverk
+  // har ofte ei tomt òg, og skal sleppe å gå via menyen for å finne gjerdet.
+  // Rada er lenker til produktsidene, ikkje til skjemaet: dette er nokon som
+  // framleis ser seg om.
+  const naboar = (p.relatert || [])
+    .map(vindexProdukt)
+    .filter(Boolean)
+    .map(
+      (n) => `      <a class="card nabokort" href="${n.id}.html">
+        ${vindexBiletHtml(n, "choice-bilde", "../")}
+        <span class="kort-tittel">${esc(n.navn)}</span>
+        <span class="kort-sub">${esc(n.kort)}</span>
+        <span class="kort-vel">Se ${esc(n.navn.toLowerCase())} →</span>
+      </a>`
+    )
+    .join("\n");
+
   const garantiTekst = p.garantiMerknad
     ? esc(p.garantiMerknad)
     : `${VINDEX_FIRMA.garantiAr} års garanti på ekstruderte PVC-produkter.`;
@@ -141,7 +159,7 @@ ${p.bilde ? `<meta property="og:image" content="https://vindex.no/${p.bilde}">` 
   <div class="wrap ${p.bilde ? "hero-grid" : ""}">
     <div>
       <span class="merkelapp">${esc(p.navn)}</span>
-      <h1>${esc(p.kort)}</h1>
+      <h1>${esc(p.tittel || p.kort)}</h1>
       <p class="lead">${esc(p.ingress)}</p>
       <div class="btn-row">
         <a class="btn btn-accent" href="../bestilling.html?produkt=${p.id}">Be om tilbud på ${esc(p.navn.toLowerCase())}</a>
@@ -163,6 +181,15 @@ ${
   </div>
 </section>`
     : ""
+}${
+  valgGalleri
+    ? `
+<section class="section-alt">
+  <div class="wrap">
+${valgGalleri}
+  </div>
+</section>`
+    : ""
 }
 <section>
   <div class="wrap">
@@ -177,16 +204,7 @@ ${p.fordeler
     </div>
   </div>
 </section>
-${
-  valgGalleri
-    ? `
-<section>
-  <div class="wrap">
-${valgGalleri}
-  </div>
-</section>`
-    : ""
-}
+
 <section class="section-alt">
   <div class="wrap">
     <div class="section-head">
@@ -224,9 +242,25 @@ ${galleri}
 </section>`
     : ""
 }
-<section class="section-alt">
+${
+  naboar
+    ? `
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <span class="merkelapp">Mer fra Vindex</span>
+      <h2>Kanskje du ser etter</h2>
+    </div>
+    <div class="naborad">
+${naboar}
+    </div>
+  </div>
+</section>
+`
+    : ""
+}<section class="section-alt">
   <div class="wrap-narrow center">
-    <h2>Få gratis forslag og pristilbud</h2>
+    <h2>Klar for et tilbud?</h2>
     <p class="lead" style="margin:0 auto 1.5rem">Basert på dine ønsker og mål lager vi et forslag
       med tegning og pristilbud — helt uforpliktende for deg.</p>
     <a class="btn btn-accent" href="../bestilling.html?produkt=${p.id}">Be om tilbud</a>
