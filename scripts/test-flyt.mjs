@@ -146,8 +146,12 @@ console.log("BESTILLINGSSKJEMAET");
   sjekk("to blokker på steg 2", (await p.$$(".produktblokk")).length === 2);
   sjekk("strekfigurar på utføringane", (await p.$$(".modellfigur")).length >= 2);
   // Sprossene blir valde frå teikningar: ti typar pluss «Rådfør med selger».
-  sjekk("elleve sprossekort", (await p.$$('.produktblokk[data-produkt="sprosser"] .typekort')).length === 11);
-  sjekk("ti sprosseteikningar", (await p.$$('.produktblokk[data-produkt="sprosser"] svg.sprossefigur')).length === 10);
+  sjekk("fjorten sprossekort", (await p.$$('.produktblokk[data-produkt="sprosser"] .typekort')).length === 14);
+  sjekk("tretten sprosseteikningar", (await p.$$('.produktblokk[data-produkt="sprosser"] svg.sprossefigur')).length === 13);
+  // Kunden skal sjå kva han ser på vindauget sitt, ikkje eit typenummer.
+  const stilnamn = await p.$$eval('.produktblokk[data-produkt="sprosser"] .typenamn', (a) => a.map((e) => e.textContent));
+  sjekk("kundenamn på stilane", stilnamn.includes("Ni ruter") && stilnamn.includes("Tolv ruter"));
+  sjekk("ingen «Type n» på nettsida", !stilnamn.some((n) => /^Type \d/.test(n)));
   sjekk("rådfør-kortet finst", await p.$('input[name="type_sprosser_raad"]') !== null);
   sjekk("ingen innfesting i skjemaet", (await p.$$('[data-valg="innfesting"]')).length === 0);
   // Ingenting på steg 2 er påkravd. Den som ikkje veit kva han vil ha, skal

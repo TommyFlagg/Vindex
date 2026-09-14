@@ -30,20 +30,20 @@
 // X som ei rute til i tabellen.
 
 const VINDEX_SPROSSETYPAR = [
-  { nr: 1, kort: "3 × 3", navn: "3 × 3 ruter", rb: 3, rh: 3 },
-  { nr: 2, kort: "2×3 + 2×3", navn: "Midtstolpe, 2 × 3 ruter i hver halvdel",
+  { nr: 1, kunde: "Ni ruter", kort: "3 × 3", navn: "3 × 3 ruter", rb: 3, rh: 3 },
+  { nr: 2, kunde: "To halvdeler", kort: "2×3 + 2×3", navn: "Midtstolpe, 2 × 3 ruter i hver halvdel",
     rb: 4, rh: 3, midtstolpe: true },
-  { nr: 3, kort: "2 × 2", navn: "2 × 2 ruter, grovt sprosseverk", rb: 2, rh: 2, grovt: true },
-  { nr: 4, kort: "2 × 3", navn: "2 × 3 ruter", rb: 2, rh: 3 },
-  { nr: 5, kort: "2 / 2", navn: "Losholt — 2 ruter over, 2 under",
+  { nr: 3, kunde: "Fire ruter", kort: "2 × 2", navn: "2 × 2 ruter, grovt sprosseverk", rb: 2, rh: 2, grovt: true },
+  { nr: 4, kunde: "Seks ruter", kort: "2 × 3", navn: "2 × 3 ruter", rb: 2, rh: 3 },
+  { nr: 5, kunde: "Toppfelt med to ruter", kort: "2 / 2", navn: "Losholt — 2 ruter over, 2 under",
     over: { rb: 2, rh: 1 }, under: { rb: 2, rh: 1 }, overDel: 0.38, losholt: true },
-  { nr: 6, kort: "4 / 2", navn: "Losholt — 4 ruter over, midtstolpe under",
+  { nr: 6, kunde: "Toppfelt med fire ruter", kort: "4 / 2", navn: "Losholt — 4 ruter over, midtstolpe under",
     over: { rb: 4, rh: 1 }, under: { rb: 2, rh: 1 }, overDel: 0.3, losholt: true, midtstolpe: true },
-  { nr: 7, kort: "6 / 2", navn: "Losholt — 6 ruter over, midtstolpe under",
+  { nr: 7, kunde: "Toppfelt med seks ruter", kort: "6 / 2", navn: "Losholt — 6 ruter over, midtstolpe under",
     over: { rb: 6, rh: 1 }, under: { rb: 2, rh: 1 }, overDel: 0.3, losholt: true, midtstolpe: true },
-  { nr: 8, kort: "4×2 / 2", navn: "Losholt — 4 × 2 ruter over, midtstolpe under",
+  { nr: 8, kunde: "Toppfelt i to rader", kort: "4×2 / 2", navn: "Losholt — 4 × 2 ruter over, midtstolpe under",
     over: { rb: 4, rh: 2 }, under: { rb: 2, rh: 1 }, overDel: 0.34, losholt: true, midtstolpe: true },
-  { nr: 9, kort: "X / 2", navn: "Losholt — 2 kryss over, midtstolpe under",
+  { nr: 9, kunde: "Toppfelt med kryss", kort: "X / 2", navn: "Losholt — 2 kryss over, midtstolpe under",
     over: { rb: 2, rh: 1, kryss: true }, under: { rb: 2, rh: 1 }, overDel: 0.32,
     losholt: true, midtstolpe: true },
 
@@ -54,13 +54,42 @@ const VINDEX_SPROSSETYPAR = [
   // Det som skil den frå type 5 er kva den tverrgåande profilen er: her er det
   // ei heilt vanleg sprosse, ikkje ein berande losholt, og den står ein
   // tredel nede i staden for midt på. Den loddrette går gjennom i eitt strekk.
-  { nr: "K", kort: "Kryss", etikett: "Kryss", navn: "Kryssprosse — tverrsprossen 1/3 ned fra toppen",
+  { nr: "K", kunde: "Kryssprosse", kort: "Kryss", etikett: "Kryss", navn: "Kryssprosse — tverrsprossen 1/3 ned fra toppen",
     over: { rb: 2, rh: 1 }, under: { rb: 2, rh: 1 }, overDel: 1 / 3,
     lettTverr: true, gjennomgaande: true },
+
+  // ------------------------------------------------------------------------
+  // Tre stilar til, frå bilderekkja Vindex bruker på nettsida
+  // ------------------------------------------------------------------------
+  // Dei står ikkje på papirskjemaet sine ni nummer, og skal difor ikkje ha eit
+  // tal som kan forvekslast med dei — dei har bokstavkode, som kryssprossa.
+  //
+  // Dei er snarvegar, ikkje nye produkt: kvar av dei er ein kombinasjon av
+  // ruter, losholt og midtstolpe som «Egen» alltid har kunna gi. Skilnaden er
+  // at kunden og seljaren kan peike på den i staden for å telje seg fram.
+  { nr: "R", kunde: "Tolv ruter", kort: "4 × 3", etikett: "4 × 3", navn: "4 × 3 ruter — tolv like ruter",
+    rb: 4, rh: 3 },
+
+  { nr: "L3", kunde: "Toppfelt, tre i bredden", kort: "3×2 / 2", etikett: "3×2", navn: "Losholt — 3 × 2 ruter over, midtstolpe under",
+    over: { rb: 3, rh: 2 }, under: { rb: 2, rh: 1 }, overDel: 0.34,
+    losholt: true, midtstolpe: true },
+
+  { nr: "L2", kunde: "Toppfelt, helt glass under", kort: "2 / helt", etikett: "2/1", navn: "Losholt — 2 ruter over, helt glass under",
+    over: { rb: 2, rh: 1 }, under: { rb: 1, rh: 1 }, overDel: 0.3, losholt: true },
 ];
 
-/** Det typen heiter i teksten. Dei ni er nummererte; kryssprossa har namn. */
+/** Det typen heiter i teksten. Dei ni er nummererte; dei andre har namn. */
 const vindexTypenamn = (type) => (type ? type.etikett || "Type " + type.nr : "");
+
+/**
+ * Det typen heiter for ein kunde.
+ *
+ * Seljaren og produksjonen brukar nummeret frå papirskjemaet — det er det som
+ * står på ordreseddelen, og det skal ikkje endrast. Men «Type 7» seier
+ * ingenting til nokon som sit heime og ser på vindauga sine, så på nettsida
+ * står det kva ein faktisk ser.
+ */
+const vindexTypenamnKunde = (type) => (type ? type.kunde || vindexTypenamn(type) : "");
 
 const vindexSprossetype = (nr) =>
   VINDEX_SPROSSETYPAR.find((t) => String(t.nr) === String(nr)) || null;

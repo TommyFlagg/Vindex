@@ -224,10 +224,10 @@ function byggTypeval(p, v) {
     kort(
       t.nr,
       vindexSprossegrafikk({ type_nr: t.nr }, { utanMaal: true, visMaal: false, bredde: 104, hogd: 88 }),
-      vindexTypenamn(t),
-      // Kryssprossa heiter «Kryss» begge stader. Same ordet to gonger under
-      // kvarandre les som ein feil.
-      t.kort === vindexTypenamn(t) ? "" : t.kort
+      // Kundenamnet øvst, rutetalet under. «Type 7» er rett på ordreseddelen,
+      // men det er ikkje eit namn nokon kjenner att vindauget sitt på.
+      vindexTypenamnKunde(t),
+      t.kort === vindexTypenamnKunde(t) ? "" : t.kort
     )
   ).join("");
 
@@ -506,8 +506,16 @@ document.addEventListener("click", (e) => {
 /** Dei valde typane som «Type 1 × 3»-linjer, i den rekkjefølgja dei står i. */
 function typeLinjer(p, v) {
   if (!p.typeval || typeof VINDEX_SPROSSETYPAR === "undefined") return [];
-  const namn = (nr) =>
-    nr === "raad" ? "Rådfør med selger" : vindexTypenamn(vindexSprossetype(nr)) || "Type " + nr;
+  const namn = (nr) => {
+    if (nr === "raad") return "Rådfør med selger";
+    const t = vindexSprossetype(nr);
+    // Kunden ser kundenamnet, seljaren treng nummeret for å slå det opp —
+    // difor står begge: «Toppfelt med seks ruter (Type 7)».
+    if (!t) return "Type " + nr;
+    const k = vindexTypenamnKunde(t);
+    const n = vindexTypenamn(t);
+    return k === n ? n : `${k} (${n})`;
+  };
   return VINDEX_SPROSSETYPAR.map((t) => String(t.nr))
     .concat("raad")
     .filter((nr) => (v.typar || {})[nr] > 0)
