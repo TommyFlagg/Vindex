@@ -272,7 +272,7 @@ const VINDEX_PRODUKT = [
   {
     id: "flyttbart-gjerde",
     navn: "Flyttbart gjerde",
-    bilde: "",
+    bilde: "assets/bilder/flyttbart-gjerde.jpg",
     enhet: "lm",
     enhetNavn: "løpemeter",
     kort: "Gjerd inn et område og tilpass det etter behov — campingplass, restaurant, festival.",
@@ -293,7 +293,7 @@ const VINDEX_PRODUKT = [
   {
     id: "gardsgjerde",
     navn: "Gardsgjerde",
-    bilde: "",
+    bilde: "assets/bilder/gardsgjerde.jpg",
     enhet: "lm",
     enhetNavn: "løpemeter",
     kort: "For større eiendommer, der det fort blir svært mange løpemeter.",
@@ -357,7 +357,7 @@ const VINDEX_PRODUKT = [
   {
     id: "ledlys",
     navn: "LED-lys",
-    bilde: "",
+    bilde: "assets/bilder/ledlys.jpg",
     enhet: "stk",
     enhetNavn: "lys",
     kort: "To typer LED-lys beregnet for våre stolper — innfellbare lamper og lys i stolpetopper.",
@@ -407,10 +407,21 @@ function vindexFraPris(produktId) {
  * bilete som held mål. Same hjelpar overalt, så plassholdaren ser lik ut på
  * forsida, i produktoversikta og i bestillingsskjemaet.
  */
+function vindexBiletFeila(img) {
+  // Fila er borte, eller kom aldri inn. Då skal kortet sjå ut som eit kort
+  // utan bilete — ikkje som eit bilete som er øydelagt. Brotne bilete gjer
+  // meir skade på inntrykket enn ein ærleg plassholdar.
+  const boks = document.createElement("div");
+  boks.className = img.className + " utan-bilete";
+  boks.setAttribute("aria-hidden", "true");
+  boks.innerHTML = "<span>VINDEX</span>";
+  img.replaceWith(boks);
+}
+
 function vindexBiletHtml(produkt, klasse, rot = "") {
   if (produkt.bilde) {
     return `<img class="${klasse}" src="${rot}${produkt.bilde}" alt="${produkt.navn} fra Vindex"
-      loading="lazy" width="480" height="320">`;
+      loading="lazy" width="480" height="320" onerror="vindexBiletFeila(this)">`;
   }
   // Ordmerket, ikkje produktnamnet: namnet står alt som overskrift rett under
   // kortet, og eit gjentak les som ein feil.
