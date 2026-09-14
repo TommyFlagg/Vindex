@@ -85,6 +85,90 @@ const VINDEX_FARGE = { id: "klassisk-hvit", navn: "Klassisk hvit", hex: "#f7f8f8
 // svakt bilete — eit uskarpt eller rotete foto skader inntrykket meir enn det
 // hjelper. Manglar eit produkt bilete, er det fordi vi ikkje har eit godt eit
 // enno, ikkje fordi feltet er gløymt.
+// ---------------------------------------------------------------------------
+// Stolpetoppar
+// ---------------------------------------------------------------------------
+// Toppen er den same delen anten den står på eit rekkverk, eit gjerde eller
+// ein levegg. Difor ligg lista eitt stad og blir delt av alle tre — står den
+// tre gonger, blir ein av dei gammal.
+//
+// Rekkjefølgja er alfabetisk. Kunden leitar etter eit namn han har sett, ikkje
+// etter eit artikkelnummer, og då er alfabetet den einaste rekkjefølgja han
+// kan gjette seg til. Prisane står ikkje her: dei ligg i prisboka bak
+// innlogging, og har ikkje noko på ei open side å gjere.
+const VINDEX_TOPPAR = [
+  { id: "flat", navn: "Flat utvendig", sub: "Lav og diskré", bilde: "assets/bilder/topp-flat.jpg" },
+  { id: "gotisk", navn: "Gotisk", sub: "Spiss topp, tradisjonelt uttrykk", bilde: "assets/bilder/topp-gotisk.jpg" },
+  { id: "newengland", navn: "New England", sub: "Klassisk profil — den vi leverer mest av", bilde: "assets/bilder/topp-newengland.jpg" },
+  { id: "newengland-lys", navn: "New England med LED-lys", sub: "Samme topp, med innfelt lys", bilde: "assets/bilder/topp-newengland-lys.jpg" },
+];
+
+// ---------------------------------------------------------------------------
+// Rekkverksmodellane i VB-serien
+// ---------------------------------------------------------------------------
+// Underteksten skildrar det kunden faktisk ser på biletet — ikkje profilmåla.
+// Måla står i prisboka, og eit mål i millimeter seier ein privatkunde lite.
+//
+// VBB og VBD står ikkje her. Vi har ikkje bilete av dei, og ein modell utan
+// bilete i eit bilete-galleri blir eit hol. Kjem bileta, kjem modellane.
+const VINDEX_VB_MODELLAR = [
+  { id: "vba", navn: "VBA", sub: "Tette, kvadratiske spiler", bilde: "assets/bilder/rekkverk-vba.jpg" },
+  { id: "vbc", navn: "VBC", sub: "Bredere spiler, større mellomrom", bilde: "assets/bilder/rekkverk-vbc.jpg" },
+  { id: "vbe", navn: "VBE", sub: "Kvadratiske spiler og tre tverrstag", bilde: "assets/bilder/rekkverk-vbe.jpg" },
+  { id: "vbf", navn: "VBF", sub: "Spiler parvis, med åpne felt imellom", bilde: "assets/bilder/rekkverk-vbf.jpg" },
+  { id: "vbg", navn: "VBG", sub: "Glassfelt i ramme", bilde: "assets/bilder/rekkverk-vbg.jpg" },
+];
+
+/**
+ * Tilvalet slik bestillingsskjemaet vil ha det.
+ *
+ * Første alternativet er standard i skjemaet, og difor er det «Ikke bestemt».
+ * Ville vi hatt VBA eller «New England» øvst, hadde kvar kunde som klikka seg
+ * rett gjennom sendt inn eit val han aldri tok — og seljaren hadde trudd han
+ * tok det.
+ */
+function vindexTilval(id, navn, liste, hjelp, ekstra) {
+  return Object.assign(
+    {
+      id,
+      navn,
+      // `biletklasse` styrer korleis biletet blir skore på produktsida. Eit
+      // rekkverk fyller ramma; ein stolpetopp er fotografert heil med luft
+      // rundt, og må rommast eller misse spissen sin.
+      biletklasse: "choice-bilde",
+      alternativ: [{ id: "", navn: "Ikke bestemt", sub: hjelp }].concat(
+        liste.map((x) => ({ id: x.id, navn: x.navn, sub: x.sub, bilde: x.bilde }))
+      ),
+    },
+    ekstra || {}
+  );
+}
+
+const vindexToppval = () =>
+  vindexTilval("topp", "Stolpetopp", VINDEX_TOPPAR, "Selgeren viser deg toppene på befaring", {
+    biletklasse: "toppbilete",
+    galleri: {
+      merkelapp: "Stolpetopper",
+      tittel: "Og toppen på stolpen",
+      tekst:
+        "De samme toppene passer til rekkverk, gjerde og levegg — så du kan bruke den " +
+        "samme over hele tomten.",
+      alt: (a) => "Stolpetopp " + a.navn + " fra Vindex",
+    },
+  });
+
+const vindexModellval = () =>
+  vindexTilval("vbmodell", "Modell", VINDEX_VB_MODELLAR, "Selgeren anbefaler ut fra terrassen din", {
+    galleri: {
+      merkelapp: "Modeller",
+      tittel: "Velg modellen du liker",
+      tekst:
+        "Klikk på en modell, så følger valget med inn i tilbudsskjemaet. Er du usikker, " +
+        "hopper du bare videre — selgeren anbefaler ut fra terrassen din når han er på befaring.",
+      alt: (a) => "Rekkverk modell " + a.navn + " fra Vindex",
+    },
+  });
+
 const VINDEX_PRODUKT = [
 
   {
@@ -108,7 +192,7 @@ const VINDEX_PRODUKT = [
       { id: "standardseksjon", navn: "Ferdig standardseksjon", pris: 0, sub: "1,8 eller 2,1 m — lagerført, kortest leveringstid" },
       { id: "standard", navn: "Rekkverk etter mål", pris: 0, sub: "Skreddersys til din terrasse eller veranda" },
     ],
-    valg: [],
+    valg: [vindexModellval(), vindexToppval()],
     minMengde: 1,
     standardMengde: 12,
     lenke: "produkter/rekkverk.html",
@@ -164,7 +248,7 @@ const VINDEX_PRODUKT = [
       { id: "standardseksjon", navn: "Ferdig standardseksjon", pris: 0, sub: "2,0 eller 2,3 m — lagerført, kortest leveringstid" },
       { id: "etter-mal", navn: "Gjerde etter mål", pris: 0, sub: "Skreddersys til tomten" },
     ],
-    valg: [],
+    valg: [vindexToppval()],
     minMengde: 1,
     standardMengde: 20,
     lenke: "produkter/gjerde.html",
@@ -191,7 +275,7 @@ const VINDEX_PRODUKT = [
       { id: "etter-mal", navn: "Levegg etter mål", pris: 0, sub: "Ditt eget design med våre profiler" },
       { id: "standardseksjon", navn: "Ferdig standardseksjon", pris: 0, sub: "1,8 m — lagerført, kortest leveringstid. Omfattet av kampanjen" },
     ],
-    valg: [],
+    valg: [vindexToppval()],
     minMengde: 1,
     standardMengde: 6,
     lenke: "produkter/levegg.html",
@@ -481,7 +565,7 @@ function vindexPrisEstimat(valg) {
 
   (produkt.valg || []).forEach((v) => {
     const alt = v.alternativ.find((a) => a.id === (valg.ekstra || {})[v.id]);
-    if (!alt) return;
+    if (!alt || !alt.tillegg) return;
     if (alt.engangs) engangstillegg += alt.tillegg;
     else enhetspris += alt.tillegg;
   });

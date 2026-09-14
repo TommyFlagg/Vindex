@@ -53,7 +53,13 @@ function side(p) {
     )
     .join("\n");
 
+  // Eit tilval med bilete er ei avgjerd kunden tek med auga. Då skal det stå
+  // som eit galleri han kan klikke i — ikkje som ei punktliste med namn han
+  // aldri har sett. Tilval utan bilete held fram som før.
+  const harBilete = (v) => v.alternativ.some((a) => a.bilde);
+
   const valgBlokker = (p.valg || [])
+    .filter((v) => !harBilete(v))
     .map(
       (v) => `      <div class="card">
         <h3>${esc(v.navn)}</h3>
@@ -63,6 +69,38 @@ ${v.alternativ.map((a) => `          <li>${esc(a.navn)}${a.sub ? " — " + esc(a
       </div>`
     )
     .join("\n");
+
+  // Alfabetisk. Kunden leitar etter eit namn, og alfabetet er den einaste
+  // rekkjefølgja han kan gjette seg til — ikkje den vi tilfeldigvis skreiv
+  // dei inn i. Difor blir det sortert her, ikkje i registeret.
+  const valgGalleri = (p.valg || [])
+    .filter(harBilete)
+    .map((v, i) => {
+      const g = v.galleri || {};
+      const alt = g.alt || ((a) => esc(p.navn) + " " + a.navn + " fra Vindex");
+      const kort = v.alternativ
+        .filter((a) => a.bilde)
+        .sort((a, b) => a.navn.localeCompare(b.navn, "nb"))
+        .map(
+          (a) => `      <a class="card valkort"
+        href="../bestilling.html?produkt=${p.id}&amp;${v.id}=${encodeURIComponent(a.id)}">
+        <img class="${v.biletklasse || "choice-bilde"}" src="../${a.bilde}" alt="${esc(alt(a))}"
+          loading="lazy" onerror="vindexBiletFeila(this)">
+        <span class="kort-tittel">${esc(a.navn)}</span>
+        <span class="kort-sub">${esc(a.sub || "")}</span>
+        <span class="kort-vel">Velg denne →</span>
+      </a>`
+        )
+        .join("\n");
+      return `    <div class="section-head${i ? " mt-2" : ""}">
+      <span class="merkelapp">${esc(g.merkelapp || v.navn)}</span>
+      <h2>${esc(g.tittel || v.navn)}</h2>
+${g.tekst ? `      <p class="lead">${esc(g.tekst)}</p>\n` : ""}    </div>
+    <div class="valgalleri">
+${kort}
+    </div>`;
+    })
+    .join("\n\n");
 
   const galleri = (p.bilder || [])
     .map(
@@ -87,8 +125,17 @@ ${v.alternativ.map((a) => `          <li>${esc(a.navn)}${a.sub ? " — " + esc(a
 ${p.bilde ? `<meta property="og:image" content="https://vindex.no/${p.bilde}">` : ""}
 <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
 <link rel="stylesheet" href="../css/style.css">
+<script>
+  // Nettstaden er mørk som standard. Set temaet før sida teiknar, så den ikkje
+  // blinkar i feil farge først.
+  try {
+    if (localStorage.getItem("vindex_tema") !== "lys") {
+      document.documentElement.classList.add("tema-mork-tidleg");
+    }
+  } catch (e) { /* privat vindauge: berre hopp over */ }
+</script>
 </head>
-<body class="tema-mork" data-rot="../" data-side="produkter">
+<body class="nettside" data-rot="../" data-side="produkter">
 
 <section class="hero">
   <div class="wrap ${p.bilde ? "hero-grid" : ""}">
@@ -130,7 +177,16 @@ ${p.fordeler
     </div>
   </div>
 </section>
-
+${
+  valgGalleri
+    ? `
+<section>
+  <div class="wrap">
+${valgGalleri}
+  </div>
+</section>`
+    : ""
+}
 <section class="section-alt">
   <div class="wrap">
     <div class="section-head">
@@ -179,6 +235,7 @@ ${galleri}
   </div>
 </section>
 
+<script src="../js/tekst.js"></script>
 <script src="../js/produkter.js"></script>
 <script src="../js/app.js"></script>
 <script src="../js/effekter.js"></script>

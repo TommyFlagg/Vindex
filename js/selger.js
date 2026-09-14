@@ -843,7 +843,7 @@ function visDetalj(id) {
   const ordrar = app.ordrar.filter((o) => o.leadId === l.id);
   const ordre = ordrar[0];
   const tilvalg = Object.entries(p.tilvalg || {})
-    .map(([n, v]) => `<dt>${n}</dt><dd>${v}</dd>`)
+    .map(([n, v]) => `<dt>${vindexT(n)}</dt><dd>${vindexT(v)}</dd>`)
     .join("");
 
   const seljarVal = erAdmin()

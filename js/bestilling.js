@@ -171,6 +171,20 @@ function mengdeTekst(p) {
   return p.enhet === "lm" ? "Antall løpemeter" : p.enhet === "m2" ? "Antall kvadratmeter" : "Antall";
 }
 
+/**
+ * Biletet til eit tilval — modellen eller stolpetoppen.
+ *
+ * Eit rekkverk er ei visuell avgjerd. «VBC» seier ingenting til nokon som ikkje
+ * har prislista framfor seg; biletet seier alt på eit augeblink. Manglar
+ * biletet, fell vi tilbake på strekteikninga, og har vi ikkje den heller, står
+ * berre namnet — eit tomt bilete er verre enn ingen.
+ */
+function vindexValgbilete(alt) {
+  if (!alt.bilde) return "";
+  return `<img class="choice-bilde" src="${alt.bilde}" alt="" loading="lazy"
+    width="480" height="320" onerror="vindexBiletFeila(this)">`;
+}
+
 function byggSteg2() {
   const boks = $("#steg2Blokker");
   if (!boks) return;
@@ -203,6 +217,7 @@ function byggSteg2() {
                     <input type="radio" name="valg_${p.id}_${val.id}" value="${a.id}"${
                       (v.ekstra || {})[val.id] === a.id ? " checked" : ""
                     }>
+                    ${vindexValgbilete(a)}
                     <span class="choice-title">${a.navn}</span>
                     <span class="choice-sub">${a.sub || (a.tillegg ? "+ " + kr(a.tillegg) : "Ingen tillegg")}</span>
                   </label>`
@@ -358,7 +373,7 @@ function produktLinjer(p) {
   const tilvalg = (p.valg || [])
     .map((val) => {
       const alt = val.alternativ.find((a) => a.id === (v.ekstra || {})[val.id]);
-      return alt ? [val.navn, alt.navn] : null;
+      return alt && alt.id ? [val.navn, alt.navn] : null;
     })
     .filter(Boolean);
   return { modell: m, enhet, tilvalg, mengde: v.mengde };
@@ -496,7 +511,7 @@ function produktNyttelast(p) {
   const tilvalg = {};
   (p.valg || []).forEach((val) => {
     const alt = val.alternativ.find((a) => a.id === (v.ekstra || {})[val.id]);
-    if (alt) tilvalg[val.navn] = alt.navn;
+    if (alt && alt.id) tilvalg[val.navn] = alt.navn;
   });
   return {
     id: p.id,
@@ -643,11 +658,28 @@ function visKvittering(lead, resultat) {
 // ---------------------------------------------------------------------------
 // Oppstart — respekter ?produkt=… frå produktsidene
 // ---------------------------------------------------------------------------
-const onskaProdukt = new URLSearchParams(location.search).get("produkt");
+const adresse = new URLSearchParams(location.search);
+const onskaProdukt = adresse.get("produkt");
 if (onskaProdukt && vindexProdukt(onskaProdukt)) {
   const input = document.querySelector(`input[name="produkt"][value="${onskaProdukt}"]`);
   if (input) input.checked = true;
-  velgProdukt(onskaProdukt);
+  leggTilProdukt(onskaProdukt);
+
+  // Klikka kunden på ein modell eller ein stolpetopp i galleriet på
+  // produktsida, er valet alt teke. Då skal det stå hakka av her — ikkje
+  // takast om att. Adressa ser slik ut:
+  //   bestilling.html?produkt=rekkverk&vbmodell=vbc&topp=gotisk
+  //
+  // Vi les berre verdiar som finst i registeret. Ei adresse er noko kven som
+  // helst kan skrive, og eit ukjent val skal falle tilbake til «Ikke bestemt»
+  // i staden for å bli med vidare som fritekst.
+  const per = state.perProdukt[onskaProdukt];
+  (vindexProdukt(onskaProdukt).valg || []).forEach((val) => {
+    const onska = adresse.get(val.id);
+    if (onska && val.alternativ.some((a) => a.id === onska)) per.ekstra[val.id] = onska;
+  });
+  byggSteg2();
+
   // Kunden kom frå ei produktside og har alt valt produkt — då startar vi på
   // steg 2 i staden for å be dei velje det same om att.
   state.steg = 2;

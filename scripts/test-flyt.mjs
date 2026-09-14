@@ -31,6 +31,61 @@ for (const s of ["/", "/produkter.html", "/om-oss.html", "/kontakt.html", "/gara
   await p.close();
 }
 
+console.log("GALLERI OG KLIKK VIDARE");
+{
+  // Galleriet på rekkverkssida: modellane og toppane, alfabetisk, og kvart
+  // kort ei lenke som tek valet med seg inn i skjemaet.
+  const p = await side("/produkter/rekkverk.html");
+  const kort = await p.$$eval(".valkort", (a) =>
+    a.map((e) => ({
+      tittel: e.querySelector(".kort-tittel").textContent,
+      href: e.getAttribute("href"),
+      bilete: e.querySelector("img") ? e.querySelector("img").getAttribute("src") : "",
+    }))
+  );
+  sjekk("fem modellar og fire toppar", kort.length === 9);
+  const modellar = kort.filter((k) => k.href.includes("vbmodell=")).map((k) => k.tittel);
+  const toppar = kort.filter((k) => k.href.includes("topp=")).map((k) => k.tittel);
+  sjekk("modellane alfabetisk", modellar.join() === [...modellar].sort((a, b) => a.localeCompare(b, "nb")).join());
+  sjekk("toppane alfabetisk", toppar.join() === [...toppar].sort((a, b) => a.localeCompare(b, "nb")).join());
+  // Eit kort med brote bilete er verre enn ingen kort: det er nettopp biletet
+  // kunden vel etter.
+  const brotne = await p.$$eval(".valkort img", (a) => a.filter((i) => !i.complete || i.naturalWidth === 0).length);
+  sjekk("alle bileta lasta", brotne === 0);
+  await p.close();
+}
+
+{
+  // Klikk på VBC og gotisk topp skal vere hakka av når kunden kjem fram.
+  const p = await side("/bestilling.html?produkt=rekkverk&vbmodell=vbc&topp=gotisk");
+  sjekk("startar på steg 2", (await p.$eval(".step-dot.current", (e) => e.textContent)) === "Mål og modell");
+  sjekk("VBC valt", await p.$eval('input[name="valg_rekkverk_vbmodell"][value="vbc"]', (e) => e.checked));
+  sjekk("gotisk valt", await p.$eval('input[name="valg_rekkverk_topp"][value="gotisk"]', (e) => e.checked));
+  sjekk("bilete på valkorta", (await p.$$(".produktblokk .choice-bilde")).length >= 9);
+  // Heilt fram til leadet: valet skal stå på saka seljaren opnar.
+  const klikk = (s) => p.evaluate((x) => document.querySelector(x).click(), s);
+  await p.evaluate(() => document.querySelector('input[name="modell_rekkverk"]').click());
+  await klikk("#neste"); await p.waitForTimeout(300);
+  await klikk("#neste"); await p.waitForTimeout(500);
+  for (const [k, v] of [["navn","Test Testesen"],["telefon","90000000"],["epost","t@t.no"],
+                        ["adresse","Veg 1"],["postnr","6440"],["poststed","Elnesvågen"]]) await p.fill("#"+k, v);
+  await klikk("#samtykke");
+  await klikk("#send"); await p.waitForTimeout(1200);
+  const lagra = await p.evaluate(() => JSON.parse(localStorage.getItem("vindex_demo_leads")||"[]")[0]);
+  sjekk("modellen med i leadet", lagra && lagra.produkt.tilvalg.Modell === "VBC");
+  sjekk("toppen med i leadet", lagra && lagra.produkt.tilvalg.Stolpetopp === "Gotisk");
+  await p.close();
+}
+
+{
+  // Adressa er noko kven som helst kan skrive. Eit val som ikkje finst skal
+  // falle tilbake til «Ikke bestemt», ikkje bli med vidare.
+  const p = await side("/bestilling.html?produkt=rekkverk&vbmodell=VBZ&topp=<img src=x>");
+  sjekk("ukjent modell ignorert", await p.$eval('input[name="valg_rekkverk_vbmodell"][value=""]', (e) => e.checked));
+  sjekk("ukjent topp ignorert", await p.$eval('input[name="valg_rekkverk_topp"][value=""]', (e) => e.checked));
+  await p.close();
+}
+
 console.log("BESTILLINGSSKJEMAET");
 {
   const p = await side("/bestilling.html");
