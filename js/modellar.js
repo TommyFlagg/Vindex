@@ -376,6 +376,61 @@ function vindexSprossepris(breddePlussHogd, ruter) {
 const VINDEX_SPROSSETILLEGG = [];
 
 // ---------------------------------------------------------------------------
+// Skodder
+// ---------------------------------------------------------------------------
+// Ei skodde blir bestilt på breidde × høgde, og prisen står i eit rutenett med
+// fire breidder og seksten høgder — 64 storleikar, kvar med sitt eige
+// artikkelnummer. Spesialmål blir prisa på nærmaste standardmål OPPOVER, pluss
+// eit programmeringstillegg. Det er arket sin regel, og den er viktig: rundar
+// vi nedover, sel vi ei skodde som ikkje dekkjer vindauget.
+//
+// MERK: skoddelista er frå 2024. Resten av prisboka er 2026. Difor står
+// `gjeldFra` på registeret, og verktøyet seier frå når det brukar den.
+const VINDEX_SKODDER = {};
+
+/**
+ * Prisen på ei skodde.
+ *
+ * Returnerer null når målet er større enn det største standardmålet — då finst
+ * det ikkje ein pris å runde opp til, og skodda må prisast manuelt.
+ */
+function vindexSkoddepris(breidde, hogd) {
+  const b = parseFloat(breidde) || 0;
+  const h = parseFloat(hogd) || 0;
+  if (!b || !h || !(VINDEX_SKODDER.rader || []).length) return null;
+
+  const breidder = VINDEX_SKODDER.breidder || [];
+  const valtBreidd = breidder.find((x) => b <= x);
+  const rad = VINDEX_SKODDER.rader.find((r) => h <= r.hogd);
+  if (valtBreidd === undefined || !rad) return null;
+
+  const treff = rad.prisar[String(valtBreidd)];
+  if (!treff) return null;
+
+  // Standard er «treffer nøyaktig»; alt anna er eit spesialmål som blir prisa
+  // på målet over, med programmeringstillegget i tillegg.
+  const standard = b === valtBreidd && h === rad.hogd;
+  const tillegg = standard ? 0 : (VINDEX_SKODDER.spesialtillegg || {}).pris || 0;
+  return {
+    kode: treff.kode,
+    grunnpris: treff.pris,
+    tillegg,
+    pris: treff.pris + tillegg,
+    breidde: valtBreidd,
+    hogd: rad.hogd,
+    standard,
+    gjeldFra: VINDEX_SKODDER.gjeldFra || "",
+  };
+}
+
+/** Frakt på skodder — same trappa som sprosser, men eigne tal. */
+function vindexFraktSkodder(tal) {
+  const n = parseInt(tal, 10) || 0;
+  if (!n) return null;
+  return (VINDEX_SKODDER.frakt || []).find((r) => n >= r.fra && n <= r.til) || null;
+}
+
+// ---------------------------------------------------------------------------
 // Oppslag
 // ---------------------------------------------------------------------------
 
@@ -558,6 +613,15 @@ function vindexPrisbok() {
   );
   VINDEX_PORTDELAR.forEach((p) => linjer.push({ gruppe: "Portdeler", kode: p.kode, navn: p.navn, pris: p.pris, enhet: "stk" }));
   VINDEX_TILLEGGSDELAR.forEach((d) => linjer.push({ gruppe: d.gruppe, kode: d.kode, navn: d.navn, pris: d.pris, enhet: d.enhet || "stk" }));
+  // Skoddene er 64 storleikar med kvar sitt artikkelnummer. Dei står i ei eiga
+  // gruppe nedst, så dei ikkje ligg og skvalpar mellom rekkverksdelane i ei
+  // liste seljaren brukar kvar dag — skodder blir selde sjeldan.
+  (VINDEX_SKODDER.rader || []).forEach((r) =>
+    (VINDEX_SKODDER.breidder || []).forEach((b) => {
+      const t = r.prisar[String(b)];
+      if (t) linjer.push({ gruppe: "Skodder", kode: t.kode, navn: `Skodde ${b} × ${r.hogd} mm`, pris: t.pris, enhet: "stk" });
+    })
+  );
   return linjer.filter((l) => l.pris != null);
 }
 
@@ -644,6 +708,7 @@ function vindexSettPrisbok(d) {
   vindexFyllListe(VINDEX_SPROSSE_RUTEKOLONNAR, d.sprosseRutekolonnar);
   vindexFyllObjekt(VINDEX_SPROSSEPRIS, d.sprossepris);
   vindexFyllListe(VINDEX_SPROSSETILLEGG, d.sprossetillegg);
+  vindexFyllObjekt(VINDEX_SKODDER, d.skodder);
   // Terrassegulvet har si eiga prisliste i js/terrasse.js, men same behovet
   // for å halde seg unna nettstaden. Registera der blir fylte herifrå.
   if (typeof VINDEX_TERRASSEDELAR !== "undefined") {

@@ -2,11 +2,11 @@
 import fs from "node:fs";
 import vm from "node:vm";
 const R = "" + process.cwd() + "";
-const les = (f) => fs.readFileSync(R + "/" + f, "utf8");
+const les = (f) => fs.readFileSync(R + "/" + f, "utf8").replace(/^export /gm, "");
 const filer = ["js/datafyll.js","js/modellar.js","js/provisjon.js","js/team.js","js/apparattal.js",
   "js/terrasse.js","js/sprosser.js","js/oppfolging.js","js/distrikt.js","js/fylke.js",
   "js/kalender.js","js/kampanje.js","js/anmeldingar.js","js/nokkeltal.js","js/apparat.js",
-  "js/modellfigur.js","js/produkter.js"];
+  "js/modellfigur.js","js/produkter.js","js/ordre.js"];
 const kjelde = filer.map(les).join("\n;\n") + `
 ;vindexSettPrisbok(${fs.readFileSync(R + "/data/prisbok.json","utf8")});
 vindexSettProvisjon(${fs.readFileSync(R + "/data/provisjon.json","utf8")});
@@ -27,7 +27,15 @@ const sjekk = (namn, uttrykk) => {
 };
 
 console.log("PRISBOK OG MODELLAR");
-p("prislinjer", () => G("vindexPrisbok")().length, 108);
+p("prislinjer", () => G("vindexPrisbok")().length, 172);   // 108 + 64 skoddemål
+p("skoddemål i prisboka", () => G("vindexPrisbok")().filter((l) => l.gruppe === "Skodder").length, 64);
+p("skodde 490×990", () => G("vindexSkoddepris")(490, 990).pris, 1381);
+// Spesialmål blir prisa på målet OVER, pluss programmering. Rundar vi nedover,
+// sel vi ei skodde som ikkje dekkjer vindauget.
+p("skodde 420×1250 rundar opp", () => G("vindexSkoddepris")(420, 1250).breidde, 490);
+p("skodde 420×1250 med tillegg", () => G("vindexSkoddepris")(420, 1250).pris, 1656 + 1152);
+p("skodde over største mål", () => G("vindexSkoddepris")(600, 2100), null);
+p("skoddefrakt 12 stk", () => G("vindexFraktSkodder")(12).inkl, 1496);
 p("modellar", () => G("vindexAlleModellar")().length, 30);
 p("prislinje 7407", () => G("vindexPrislinje")("7407").pris, 1248);
 // NB: to id-system. vindexModell/vindexStandardpris tek modellkoden (VBA-A14),
@@ -93,6 +101,54 @@ const pr = G("VINDEX_PRODUKT");
 let utanFigur = 0;
 pr.forEach((x) => x.modeller.forEach((m) => { if (!G("vindexHarModellfigur")(x.id, m.id)) utanFigur++; }));
 p("modellar utan figur", utanFigur, 0);
+
+console.log("ORDRESEDDEL OG SPROSSETILBOD");
+{
+  // Ein deleliste-linje per artikkel som har eit eige felt på ordreseddelen.
+  // Desse hamna i kommentarfeltet før — produksjonen las den, eller las den
+  // ikkje.
+  const kodar = ["7459","7478","7557","7376","4423","4434","4429","4433","4431","4426",
+                 "4427","4428","4400","4409","4402","4405","4404","4403","4406","4412","4413"];
+  const linjer = kodar.map((k) => ({ kode: k, navn: "art " + k, antall: 2, enhet: "stk" }))
+    .concat([{ kode: "4401", navn: "Strømforsyning 30 W", antall: 1, enhet: "stk" },
+             { kode: "4415", navn: "Strømforsyning 60 W", antall: 1, enhet: "stk" },
+             { kode: "7227", navn: "Spisse topper", antall: 1, enhet: "stk" }]);
+  ctx.g("globalThis").vindexRegnTilbod = () => ({ linjer });
+  const r = G("vindexTilbodTilOrdre")({}, "rekkverk");
+  p("tilleggsdelar finn feltet sitt", Object.keys(r.felt).length, 24);
+  p("hengsler sort", r.felt.hengsler_sort, 2);
+  p("veggfeste A19", r.felt.veggfeste_a19, 2);
+  p("kabel 10 m", r.felt.kabel_10m, 2);
+  p("ledlys i stolpetopp", r.felt.ledlys_stolpetopp, 2);
+  p("strømforsyning 1", r.felt.stromforsyning1, "30 W");
+  p("strømforsyning 2", r.felt.stromforsyning2, "60 W foto/timer");
+  p("stakittopp", r.felt.stakittopp, "7227");
+  p("ingenting havnar i kommentaren", r.uplassert.length, 0);
+}
+
+{
+  // Sprossesummen: tillegga skal vere med, rabatten skal gjelde sprossene og
+  // ikkje frakta, og talet skal vere det same her som i dialogen.
+  const rader = [
+    { type_nr: "1", antall: 4, fals_b: 1200, fals_h: 1000 },
+    { type_nr: "5", antall: 2, fals_b: 900, fals_h: 1200, midtstolpe: "64" },
+  ];
+  const utan = G("vindexSprossesum")(rader);
+  const med = G("vindexSprossesum")(rader, { rabatt: 15 });
+  sjekk("sprossesum reknar linjene", utan.grunnsum > 0);
+  p("rabatten tek berre sprossene", med.netto, utan.grunnsum - Math.round(utan.grunnsum * 0.15));
+  p("frakta er den same med rabatt", med.frakt, utan.frakt);
+  p("sum = netto + frakt", med.sum, med.netto + med.frakt);
+  const hentar = G("vindexSprossesum")(rader, { rabatt: 15, utanFrakt: true });
+  p("kunden hentar sjølv", hentar.frakt, 0);
+  p("tillegga er med", utan.linjer[1].tilleggsum > 0, true);
+  // Provisjonen skal følgje rabatten. Før stod den hardkoda på 0 %.
+  const seljar = { type: "ansatt" };
+  const pr0 = G("vindexSprosseprovisjon")({ rader }, seljar);
+  const pr15 = G("vindexSprosseprovisjon")({ rader, rabatt: 15 }, seljar);
+  sjekk("provisjonen fell med rabatten", pr15.prosent < pr0.prosent);
+  p("provisjon av netto", pr15.sum, Math.round((med.netto * pr15.prosent) / 100));
+}
 
 console.log("APPARATTAL");
 p("ordreinngang 2025", () => G("vindexOrdreinngangAar")(2025).total, 16408000);

@@ -308,7 +308,7 @@ const ORDRESEDDEL_SPROSSER = {
     tittel: "Mål og utførelse",
     hjelp: "Ett vindu per linje. Falsmål oppgis i mm.",
     krevMal: true,
-    maksRader: 24,
+    maksRader: 60,
     startRader: 4,
     kolonner: [
       { id: "lnr", navn: "L.nr", type: "tekst", bredde: "3.5rem" },
@@ -429,34 +429,55 @@ function vindexFelttekst(f, verdi, produktId) {
 // kroner. Ei sprosse på 5,4 meter kostar ikkje ingenting — den må prisast
 // manuelt, og då skal det stå.
 
-function vindexSprossesum(rader) {
+function vindexSprossesum(rader, val = {}) {
   const linjer = [];
-  let sum = 0;
+  let grunnsum = 0;
   let stk = 0;        // alle sprosser — frakta går på tal, ikkje på pris
   let uavklart = 0;
 
   (rader || []).forEach((r, i) => {
-    const antall = parseInt(r.antall, 10) || 0;
-    const b = parseFloat(r.fals_b) || 0;
-    const h = parseFloat(r.fals_h) || 0;
-    const ruter = (parseInt(r.ruter_b, 10) || 0) * (parseInt(r.ruter_h, 10) || 0);
-    if (!antall || !b || !h || !ruter) return;
-
+    // Éin stad reknar prisen på ei sprosselinje, og det er
+    // vindexSprosselinjepris. Denne funksjonen hadde si eiga, enklare utgåve —
+    // utan tillegga for midtstolpe, losholt, bue og kryss, og utan å la
+    // standardtypen bestemme rutetalet. Summen i dialogen og summen som blei
+    // lagra på saka var difor ikkje den same summen, og det var den lagra som
+    // gjekk vidare til provisjon og statistikk.
+    const pris = typeof vindexSprosselinjepris === "function" ? vindexSprosselinjepris(r) : null;
+    if (!pris) return;
     const nr = r.lnr || i + 1;
-    stk += antall;
-    const treff = typeof vindexSprossepris === "function" ? vindexSprossepris(b + h, ruter) : null;
-    if (!treff) {
+    stk += pris.antall;
+    if (pris.utanforTabellen) {
       uavklart++;
-      linjer.push({ nr, antall, ruter, utanforTabellen: true });
+      linjer.push({ nr, antall: pris.antall, ruter: pris.ruter, utanforTabellen: true });
       return;
     }
-    sum += treff.pris * antall;
-    linjer.push({ nr, antall, ruter, einingspris: treff.pris, sum: treff.pris * antall,
-                  rad: treff.rad, kolonne: treff.kolonne });
+    grunnsum += pris.sum;
+    linjer.push({
+      nr, antall: pris.antall, ruter: pris.ruter, einingspris: pris.einingspris,
+      tillegg: pris.tillegg, tilleggsum: pris.tilleggsum, sum: pris.sum,
+      rad: pris.rad, kolonne: pris.kolonne,
+    });
   });
 
-  const frakt = typeof vindexFraktSprosser === "function" ? vindexFraktSprosser(stk) : null;
-  return { linjer, sum, stk, uavklart, frakt: frakt ? frakt.inkl : null };
+  // Rabatten gjeld sprossene, ikkje frakta. Frakt er ein kostnad vi har hatt,
+  // ikkje ei vare med margin i.
+  const rabatt = Math.max(0, Math.min(100, parseFloat(val.rabatt) || 0));
+  const rabattKr = Math.round((grunnsum * rabatt) / 100);
+  const netto = grunnsum - rabattKr;
+
+  const tabell = typeof vindexFraktSprosser === "function" ? vindexFraktSprosser(stk) : null;
+  const frakt = val.utanFrakt ? 0 : tabell ? tabell.inkl : null;
+
+  return {
+    linjer, stk, uavklart,
+    grunnsum, rabatt, rabattKr, netto,
+    fraktTabell: tabell ? tabell.inkl : null,
+    frakt,
+    sum: netto + (frakt || 0),
+    // Gammalt namn, same tal: `sum` var før sprossene utan frakt. Kallar som
+    // ikkje er skrivne om skal ikkje plutseleg få eit anna tal.
+    sprosser: netto,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -561,6 +582,50 @@ function vindexStandardfelt(modell, lengdMm) {
   return (kart[modell.serie] || {})[lengdMm] || null;
 }
 
+// ---------------------------------------------------------------------------
+// Artikkel -> felt på ordreseddelen
+// ---------------------------------------------------------------------------
+// Ordreseddelen har eit eige felt for dei fleste tilleggsdelane — veggfeste,
+// hengsler, lås, LED-lys, kablar. Overføringa frå delelista kjende berre
+// modellar, stolpar, toppar, pyntekrans og portar, så alt det andre hamna i
+// kommentarfeltet i staden for i feltet sitt. Produksjonen las kommentaren,
+// eller las den ikkje.
+//
+// Tabellen står her, ved sida av skjemaet den skriv til, så dei to blir endra
+// saman. Kodane er artikkelnummer frå prislista.
+const VINDEX_ARTIKKEL_TIL_FELT = {
+  // Tillegg på seksjonen
+  7459: "ekstra_stakitt",
+  7478: "ekstra_alu_topp",          // A14/A19 rekkverk og stakitt
+  7477: "ekstra_alu_topp",          // levegg — same feltet på arket
+  // Veggfeste
+  7557: "veggfeste_a14",
+  7376: "veggfeste_a19",
+  // Portdelar
+  4423: "hengsler_sort",
+  4434: "hengsler_hvit",
+  4429: "las_sort",
+  4433: "las_hvit",
+  4431: "toveislas",
+  4426: "dodbolt",
+  4427: "handtak",
+  4428: "stopper",
+  // LED og strøm
+  4400: "ledlys_halvmane",
+  4409: "ledlys_stolpetopp",
+  4402: "fotocelle_stk",
+  4405: "dimmer_stk",
+  4404: "tkobling_stk",
+  4403: "kabel_3m",
+  4406: "kabel_5m",
+  4412: "kabel_10m",
+  4413: "kabel_20m",
+};
+
+// Strømforsyningane har to tekstfelt på arket, ikkje eit felt per type. Dei
+// får kvar sin plass, med effekt og tal — slik lageret kan plukke rett.
+const VINDEX_STROMFORSYNING = { 4401: "30 W", 4415: "60 W foto/timer", 4408: "150 W" };
+
 function vindexTilbodTilOrdre(tilbod, produktId) {
   const rekna = typeof vindexRegnTilbod === "function" ? vindexRegnTilbod(tilbod || {}) : { linjer: [] };
   const felt = {};
@@ -654,7 +719,31 @@ function vindexTilbodTilOrdre(tilbod, produktId) {
       return;
     }
 
-    // Alt anna — glas, lys, veggfeste, frittskrivne linjer. Dei finst det ikkje
+    // Stakittoppen er eit nedtrekksfelt på arket, med artikkelnummeret som
+    // verdi.
+    if (typeof VINDEX_STAKITTOPPAR !== "undefined" && VINDEX_STAKITTOPPAR.some((t) => t.kode === kode)) {
+      if (!felt.stakittopp) { felt.stakittopp = kode; return; }
+      // To ulike stakittoppar på same ordren får ikkje plass i feltet.
+      if (felt.stakittopp === kode) return;
+      return uplassert.push(l);
+    }
+
+    // Strømforsyning — to plassar, kvar sin tekst.
+    if (VINDEX_STROMFORSYNING[kode]) {
+      const tekst = VINDEX_STROMFORSYNING[kode] + (antall > 1 ? " × " + antall : "");
+      if (!felt.stromforsyning1) { felt.stromforsyning1 = tekst; return; }
+      if (!felt.stromforsyning2) { felt.stromforsyning2 = tekst; return; }
+      return uplassert.push(l);
+    }
+
+    // Tilleggsdelane med eit eige tal-felt på arket.
+    const talfelt = VINDEX_ARTIKKEL_TIL_FELT[kode];
+    if (talfelt) {
+      felt[talfelt] = (felt[talfelt] || 0) + antall;
+      return;
+    }
+
+    // Alt anna — glas, spesialfeste, frittskrivne linjer. Dei finst det ikkje
     // eit sikkert felt for, og skal difor synast, ikkje gøymast.
     uplassert.push(l);
   });

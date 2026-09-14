@@ -496,6 +496,33 @@ const VINDEX_PRODUKT = [
     standardMengde: 1,
     lenke: "produkter/varmepumpehus.html",
   },
+
+  // Skodder blir selde sjeldan, og står difor sist. Dei har eiga prisliste med
+  // 64 standardmål, og spesialmål blir prisa på målet over.
+  {
+    id: "skodder",
+    navn: "Skodder",
+    tittel: "Skodder som aldri skal males",
+    bilde: "",
+    enhet: "stk",
+    enhetNavn: "skodder",
+    kort: "Skodder i vedlikeholdsfri PVC, i 64 standardmål — eller etter dine mål.",
+    ingress:
+      "Skodder gir huset karakter og vinduet ly. Våre er i samme vedlikeholdsfrie PVC som " +
+      "resten av sortimentet: fargen sitter i materialet, og de skal verken skrapes, beises " +
+      "eller males. Standard syrefaste festeskruer følger med.",
+    fordeler: [
+      "Vedlikeholdsfritt — ingen skraping, ingen maling",
+      "64 standardmål fra 290 × 590 mm til 590 × 2090 mm",
+      "Spesialmål produseres etter dine mål",
+      "Syrefaste festeskruer følger med",
+    ],
+    modeller: [{ id: "standard", navn: "Skodder", pris: 0, sub: "Standardmål eller etter mål" }],
+    valg: [],
+    minMengde: 1,
+    standardMengde: 2,
+    lenke: "produkter/skodder.html",
+  },
 ];
 
 // ---------------------------------------------------------------------------

@@ -489,6 +489,24 @@ footer.site h4 { color: #fff; margin: 0 0 0.6rem; font-size: 0.95rem; }
 }
 .biletkort-fjern:hover { background: #a02b2b; }
 
+/* Eit ark som kjem ut av ein skrivar skal kunne leggast på eit bord og framleis
+   seie kven det gjeld. Difor får kvar utskrift eit hovud med firma, kunde og
+   dato — synleg berre på papiret. */
+.utskriftshovud { display: none; }
+@media print {
+  .utskriftshovud {
+    border-bottom: 2px solid #333; padding-bottom: 0.6rem; margin-bottom: 1rem;
+  }
+  .utskriftshovud h1 { font-size: 1.3rem; margin: 0 0 0.2rem; }
+  .utskriftshovud p { margin: 0; font-size: 0.85rem; }
+}
+
+/* Knappane på ei sprosselinje: dupliser står først, fordi den blir brukt
+   femten gonger på ein ordre og slett éin gong. */
+.sprosselinjeknappar { display: flex; gap: 0.3rem; flex-wrap: wrap; justify-content: flex-end; }
+.sprosselinjeknappar .btn { white-space: nowrap; }
+.figurmerknad { display: block; margin-top: 0.3rem; text-align: center; font-size: 0.75rem; }
+
 /* ---------- kundebileta, slik seljaren ser dei ---------- */
 .kundebilete {
   display: grid; gap: 0.7rem; margin: 0.6rem 0 0;
@@ -659,8 +677,35 @@ table.maltabell tr:nth-child(even) td { background: rgba(0,0,0,0.015); }
 .tag-avslatt { background: var(--bad-soft); color: #7d241e; }
 
 @media print {
-  .fanerad, .modal, .kpi-row { display: none !important; }
+  .fanerad, .kpi-row { display: none !important; }
   .ordrekort { break-inside: avoid; border-color: #999; }
+
+  /* Ein lukka dialog er framleis i dokumentet, og skal ikkje på papiret. Den
+     opne skal — heile poenget med «Skriv ut» i ein dialog er dialogen. Før sto
+     det `.modal { display: none !important }` her, og då kom det ut eit blankt
+     ark uansett kva ein prøvde å skrive ut. */
+  .modal.hidden { display: none !important; }
+  .modal:not(.hidden) {
+    display: block !important;
+    position: static; background: none; padding: 0; overflow: visible;
+  }
+  .modal:not(.hidden) .modal-kort {
+    box-shadow: none; max-height: none; border: 0; width: 100%; max-width: none;
+  }
+  .modal:not(.hidden) .modal-innhald { overflow: visible !important; padding: 0; }
+  /* Tittelrada og knapperada er skjerm, ikkje papir. Overskrifta blir skriven
+     inn på arket av utskriftshovudet i staden. */
+  .modal:not(.hidden) .modal-topp,
+  .modal:not(.hidden) .modal-botn { display: none !important; }
+  /* Resten av verktøyet ligg bak dialogen og skal ikkje følgje med. */
+  body:has(.modal:not(.hidden)) .app-shell { display: none !important; }
+  .utskriftshovud { display: block !important; }
+  /* Skjermens verktøy skal ikkje på papiret: typeveljaren er ei rad knappar
+     ein trykkjer på, og ei sprosselinje som ikkje er fylt ut er ein tom plass
+     — ikkje ei linje kunden skal lese. */
+  .typeveljar, .sprosselinjeknappar, .typeetikett { display: none !important; }
+  .sprosselinje.linje-tom { display: none !important; }
+  .sprosselinje { break-inside: avoid; }
 }
 
 /* Kort tilbakemelding — ligg fast nedst, så den aldri flyttar innhaldet under seg. */

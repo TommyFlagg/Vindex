@@ -216,6 +216,20 @@ const VINDEX_MODELLFIGUR = {
     `<path d="M30 26 L80 12 L130 26 Z"/>` +
     `<path class="figur-glans" d="M44 40 L116 40 M44 52 L116 52 M44 64 L116 64 M44 76 L116 76"/>`,
 
+  // Skodde: eit vindauge med ei skodde på kvar side. Lamellane skrår, slik dei
+  // gjer på ei ekte skodde — ein loddrett strek ville vore ein sprosse.
+  "skodder/standard": () =>
+    `<rect x="52" y="16" width="56" height="74" rx="2"/>` +
+    `<path class="figur-glans" d="M80 16 L80 90 M52 53 L108 53"/>` +
+    `<rect x="24" y="16" width="24" height="74" rx="2"/>` +
+    `<rect x="112" y="16" width="24" height="74" rx="2"/>` +
+    `<path class="figur-glans" d="${[0, 1, 2, 3, 4, 5, 6, 7, 8]
+      .map((n) => {
+        const y = 23 + n * 8;
+        return `M27 ${y + 3} L45 ${y} M115 ${y + 3} L133 ${y}`;
+      })
+      .join(" ")}"/>`,
+
   // LED: kva som lyser, og kvar.
   "ledlys/innfellbar": () =>
     figBakke() +

@@ -91,6 +91,9 @@ function vindexProvisjonsgruppe(kode, gruppe, utforing) {
   if (!g) return null;
 
   if (/sprosse/i.test(g)) return "sprosser";
+  // Skodder har eigen kolonne i provisjonsarket, og ein eigen merknad: satsen
+  // er ikkje heilt rett på alle storleikar, fordi kostprisdelen varierer.
+  if (/skodde/i.test(g)) return "skodder";
   if (/terrassegulv|terrasse/i.test(g)) return "terrassegulv";
   if (/lys|strøm|strom/i.test(g)) return "ledlys";
   if (/varmepumpe/i.test(g)) return "varmepumpehus";
@@ -234,16 +237,26 @@ function vindexSettProvisjon(d) {
 function vindexSprosseprovisjon(sprossetilbod, seljar) {
   if (!sprossetilbod || !(sprossetilbod.rader || []).length) return null;
   if (typeof vindexSprossesum !== "function") return null;
-  const r = vindexSprossesum(sprossetilbod.rader);
-  if (!r || !r.sum) return null;
+  const r = vindexSprossesum(sprossetilbod.rader, {
+    rabatt: sprossetilbod.rabatt,
+    utanFrakt: sprossetilbod.utanFrakt,
+  });
+  if (!r || !r.netto) return null;
 
-  const sats = vindexProvisjonssats("sprosser", 0, vindexErSjolvstendig(seljar));
-  if (!sats) return { netto: r.sum, manglarSats: true, sum: 0 };
+  // Rabatten stod hardkoda som 0 her. Då rekna verktøyet full provisjon på eit
+  // tilbod som var gitt med rabatt — akkurat den feilen seljaren merkar først
+  // når lønna kjem. Frakta er ikkje med i grunnlaget: den er ein kostnad vi
+  // har hatt, ikkje ei vare med margin i.
+  const rabatt = Math.max(0, parseFloat(sprossetilbod.rabatt) || 0);
+  const sats = vindexProvisjonssats("sprosser", rabatt, vindexErSjolvstendig(seljar));
+  if (!sats) return { netto: r.netto, rabatt, manglarSats: true, sum: 0 };
   return {
-    netto: r.sum,
+    netto: r.netto,
+    rabatt,
     prosent: sats.prosent,
     trinn: sats.trinn,
+    overTabellen: !!sats.overTabellen,
     stk: r.stk,
-    sum: Math.round((r.sum * sats.prosent) / 100),
+    sum: Math.round((r.netto * sats.prosent) / 100),
   };
 }

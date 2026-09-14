@@ -137,7 +137,7 @@ console.log("BESTILLINGSSKJEMAET");
 {
   const p = await side("/bestilling.html");
   const klikk = (s) => p.evaluate((x) => document.querySelector(x).click(), s);
-  sjekk("12 produkt", (await p.$$("#produktValg .choice")).length === 12);
+  sjekk("13 produkt", (await p.$$("#produktValg .choice")).length === 13);   // skodder kom til
   await klikk('#produktValg input[value="rekkverk"]');
   await klikk('#produktValg input[value="sprosser"]');
   await p.waitForTimeout(300);
@@ -261,6 +261,88 @@ console.log("SELJARVERKTØYET");
   await p.close();
 }
 
+console.log("ORDRESEDLAR OG UTSKRIFT");
+{
+  const p = await side("/selger.html", "selger");
+  // window.print() opnar ein dialog vi ikkje kan lukke i ein test. Vi byter den
+  // ut, og sjekkar i staden at arket blir gjort klart.
+  await p.evaluate(() => { window.__prenta = 0; window.print = () => { window.__prenta++; }; });
+
+  const opneLead = (monster) =>
+    p.evaluate((m) => {
+      const alle = [...document.querySelectorAll(".leadrad")];
+      (alle.find((e) => new RegExp(m).test(e.textContent)) || alle[0]).click();
+    }, monster);
+
+  // --- Ordreseddel for rekkverk/levegg/gjerde/port ---
+  await opneLead("Gjerde"); await p.waitForTimeout(700);
+  await p.evaluate(() => document.querySelector("#apneSkjema").click());
+  await p.waitForTimeout(800);
+  const felt = await p.$$eval("#ordreskjema input, #ordreskjema select, #ordreskjema textarea",
+    (a) => a.length);
+  sjekk("ordreseddelen har felta sine", felt > 60);
+  sjekk("alle seksjonane er teikna", (await p.$$("#ordreskjema .ordreseksjon, #ordreskjema fieldset, #ordreskjema h3")).length >= 5);
+  // «Ordre undefined» sto i foten på ein ordre som ikkje var sendt enno.
+  const fot = await p.$eval(".modal-botn", (e) => e.innerText);
+  sjekk("ingen «undefined» i foten", !/undefined/i.test(fot));
+
+  // Utskrift: dialogen var skjult i utskriftsreglane, så det kom ut eit blankt ark.
+  await p.evaluate(() => document.querySelector("#ofSkrivUt").click());
+  await p.waitForTimeout(200);
+  sjekk("utskrifta blei starta", (await p.evaluate(() => window.__prenta)) === 1);
+  sjekk("arket har eit hovud", await p.$(".utskriftshovud") !== null);
+  sjekk("filnamnet er ordreseddelen", /^Ordreseddel .+\d{4}$/.test(await p.title()));
+  await p.emulateMedia({ media: "print" });
+  const synleg = await p.$eval("#modal", (e) => getComputedStyle(e).display);
+  const bak = await p.$eval(".app-shell", (e) => getComputedStyle(e).display);
+  sjekk("dialogen står på papiret", synleg !== "none");
+  sjekk("verktøyet bak er borte", bak === "none");
+  await p.emulateMedia({ media: "screen" });
+  await p.evaluate(() => document.querySelector("#modalLukk").click());
+  await p.waitForTimeout(300);
+
+  // --- Måltabellen for sprosser ---
+  await opneLead("Sprosser"); await p.waitForTimeout(700);
+  await p.evaluate(() => document.querySelector("#opneSprosser").click());
+  await p.waitForTimeout(700);
+  sjekk("tre linjer frå start", (await p.$$(".sprosselinje")).length === 3);
+  // Teikninga skal kome med ein gong typen er valt — ikkje vente på falsmål.
+  for (const i of [0, 1, 2]) {
+    await p.evaluate((i) => document.querySelector(`[data-sprad="${i}"][data-sptype="1"]`).click(), i);
+    await p.waitForTimeout(250);
+  }
+  sjekk("alle linjene er teikna", (await p.$$(".sprossefigurboks svg")).length === 3);
+
+  await p.fill("#sp_0_antall", "4");
+  await p.fill("#sp_0_fals_b", "1200");
+  await p.fill("#sp_0_fals_h", "1000");
+  await p.waitForTimeout(400);
+  sjekk("målsett teikning når måla står", await p.$(".sprosselinje .sp-maaltekst") !== null);
+
+  // Dupliser: ein ordre har femten til tjuefem vindauge, ofte nesten like.
+  await p.evaluate(() => document.querySelector('[data-spkopi="0"]').click());
+  await p.waitForTimeout(500);
+  sjekk("kopien kom", (await p.$$(".sprosselinje")).length === 4);
+  sjekk("kopien har med måla", await p.$eval("#sp_1_fals_b", (e) => e.value) === "1200");
+
+  const sumTekst = () => p.$eval("#sprosseSum", (e) => e.innerText);
+  const utan = await sumTekst();
+  await p.fill("#spRabatt", "15");
+  await p.waitForTimeout(400);
+  const med = await sumTekst();
+  sjekk("rabattlinja kjem fram", /Rabatt 15 %/.test(med) && !/Rabatt/.test(utan));
+  sjekk("provisjonen står der", /provisjon/i.test(med));
+  await p.selectOption("#spUtanFrakt", "ja");
+  await p.waitForTimeout(400);
+  sjekk("kunden kan hente sjølv", /henter selv/i.test(await sumTekst()));
+
+  await p.evaluate(() => document.querySelector("#spSkrivUt").click());
+  await p.waitForTimeout(200);
+  sjekk("sprossetilbodet blir skrive ut", (await p.evaluate(() => window.__prenta)) === 2);
+  sjekk("filnamnet er sprossetilbodet", /^Sprossetilbud /.test(await p.title()));
+  await p.close();
+}
+
 console.log("HOVUDKONTORET");
 {
   const p = await side("/admin.html", "admin");
@@ -281,7 +363,7 @@ console.log("HOVUDKONTORET");
   sjekk("arkiv", await p.$("#arkivListe") !== null);
   sjekk("kampanjar", await p.$("#kampanjar") !== null);
   sjekk("representantar", await p.$("#representantListe") !== null);
-  sjekk("prisdata lasta", (await p.$eval("#prisdata", (e) => e.innerText)).includes("108 varelinjer"));
+  sjekk("prisdata lasta", (await p.$eval("#prisdata", (e) => e.innerText)).includes("172 varelinjer"));
   sjekk("omtalebrytarar", (await p.$$("[data-anmvis]")).length === 10);
   sjekk("kart", await p.$("#adminKart svg") !== null);
   await p.close();

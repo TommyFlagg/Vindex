@@ -17,9 +17,9 @@ import {
   fb, $, $$, app, erAdmin, erLager,
   settTeiknar, settOppstart, teikn, visDemohint,
   lastData, startDemo, tid, datoTekst, nesteAvtale,
-  lagreLead, melding, opneModal, lukkModal, demoLagreOrdre, demoNullstill,
+  lagreLead, melding, opneModal, lukkModal, skrivUtDialog, demoLagreOrdre, demoNullstill,
   lagreKladd, hentKladd, slettKladd, kladdlagrar, sidanTekst,
-} from "./verktoy-felles.js?v=62946fe5";
+} from "./verktoy-felles.js?v=4d23d744";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visVerktoy());
@@ -1707,7 +1707,7 @@ function sprosseprisHtml(rader) {
   return `<div class="notice notice-info">
     <strong>Veiledende pris etter ${VINDEX_PRISLISTE.namn}</strong>
     <ul class="plukk-linjer mt-1">${r.linjer.map(rad).join("")}</ul>
-    <p class="mb-0"><strong>Sum sprosser: ${vindexPrisTekst(r.sum)}</strong>${
+    <p class="mb-0"><strong>Sum sprosser: ${vindexPrisTekst(r.netto)}</strong>${
       r.frakt ? ` · frakt ${r.stk} sprosser: ${vindexPrisTekst(r.frakt)}` : ""
     }${r.uavklart ? ` · ${r.uavklart} linje${r.uavklart > 1 ? "r" : ""} må prises manuelt` : ""}</p>
     <p class="hint mb-0">Prisen er veiledende — det er tilbudet som gjelder.</p>
@@ -1860,7 +1860,11 @@ function opneOrdreskjema(lead, eksisterande) {
     </div>`;
 
   opneModal(skjema.navn, innhald, `
-    <span class="spacer hint">${eksisterande ? "Ordre " + eksisterande.id : "Ikke sendt til bestilling ennå"}</span>
+    <span class="spacer hint">${
+       eksisterande && eksisterande.id
+         ? "Ordre " + vindexT(eksisterande.id)
+         : "Ikke sendt til bestilling ennå"
+     }</span>
     <button class="btn btn-ghost" id="ofLukk">Lukk</button>
     <button class="btn" id="ofSkrivUt">Skriv ut</button>
     <button class="btn btn-accent" id="ofBekreft">Kontroller og send til bestilling</button>`);
@@ -1987,7 +1991,8 @@ function opneOrdreskjema(lead, eksisterande) {
 
   // Som i tilbodet: å lukke vinduet kastar ingenting.
   $("#ofLukk").addEventListener("click", lukkModal);
-  $("#ofSkrivUt").addEventListener("click", () => window.print());
+  $("#ofSkrivUt").addEventListener("click", () =>
+    skrivUtDialog("Ordreseddel", lead.kunde || {}, skjema.kort));
   $("#ofBekreft").addEventListener("click", () => bekreftOrdre(lead, skjema, eksisterande, produktId));
 }
 
@@ -3007,7 +3012,8 @@ function teiknTerrassedialog(lead, fraKladd) {
   });
 
   $("#terrAvbryt").addEventListener("click", lukkModal);
-  $("#terrSkrivUt").addEventListener("click", () => window.print());
+  $("#terrSkrivUt").addEventListener("click", () =>
+    skrivUtDialog("Tilbud terrassegulv", lead.kunde || {}));
   $("#terrLagre").addEventListener("click", async () => {
     les();
     const ff = terrasseframlegg(terrasseutkast);
@@ -3056,6 +3062,8 @@ function opneSprossetilbod(lead) {
     rader: (lagra.rader || []).map((r) => ({ ...r })),
     merknader: lagra.merknader || "",
     onsketLevering: lagra.onsketLevering || "",
+    rabatt: lagra.rabatt || 0,
+    utanFrakt: !!lagra.utanFrakt,
   };
   const kladd = hentKladd(sprossekladdnokkel(lead));
   let fraKladd = null;
@@ -3099,6 +3107,30 @@ function typeveljarHtml(i, valtType) {
   </div>`;
 }
 
+/**
+ * Figuren på ei linje.
+ *
+ * Før kom teikninga først når både falsbreidd og falshøgd var skrivne inn. Vel
+ * ein seljar ein standardtype og går vidare til neste vindauge, sat han igjen
+ * med «Velg type, eller fyll inn mål og ruter» på ei linje han nettopp hadde
+ * valt type på — og på ein ordre med tjue vindauge såg det ut som om
+ * teikninga hadde slutta å virke etter dei par første.
+ *
+ * Difor: har vi måla, teiknar vi etter måla. Har vi dei ikkje, teiknar vi
+ * typen i normalproporsjon og seier tydeleg at målet manglar. Eit mål vi har
+ * funne på er verre enn ingen — så målsettinga blir ståande av.
+ */
+function sprossefigurHtml(rad) {
+  const harMaal = parseFloat(rad.fals_b) > 0 && parseFloat(rad.fals_h) > 0;
+  if (harMaal) {
+    const teikning = vindexSprossegrafikk(rad);
+    if (teikning) return teikning;
+  }
+  const utanMaal = vindexSprossegrafikk(rad, { utanMaal: true, visMaal: false });
+  if (!utanMaal) return '<span class="hint">Velg type, eller fyll inn mål og ruter</span>';
+  return utanMaal + '<span class="hint figurmerknad">Tegningen viser typen — fyll inn falsmål</span>';
+}
+
 function sprosseradHtml(rad, i) {
   const kol = SPROSSEKOLONNAR();
   const felt = (k) => {
@@ -3114,8 +3146,12 @@ function sprosseradHtml(rad, i) {
   };
 
   const pris = vindexSprosselinjepris(rad);
-  return `<div class="sprosselinje">
-    <div class="sprossefigurboks">${vindexSprossegrafikk(rad) || '<span class="hint">Velg type, eller fyll inn mål og ruter</span>'}</div>
+  // Ei linje som ikkje er fylt ut er ein tom plass på skjermen — på papiret er
+  // den berre «Velg type, eller fyll inn mål og ruter» i ei rute kunden ikkje
+  // skal lese.
+  const tom = !Object.values(rad).some((v) => v !== "" && v !== undefined && v !== null);
+  return `<div class="sprosselinje${tom ? " linje-tom" : ""}">
+    <div class="sprossefigurboks">${sprossefigurHtml(rad)}</div>
     <div class="sprossefelt">
       <div class="brei">
         <span class="typeetikett">Standardtype</span>
@@ -3138,25 +3174,68 @@ function sprosseradHtml(rad, i) {
                pris.tilleggsum ? "<br>+ tillegg " + kr(pris.tilleggsum) : ""
              }</span>`
       }
-      <button class="btn btn-ghost btn-sm" data-spslett="${i}" aria-label="Slett linje ${i + 1}">✕</button>
+      <div class="sprosselinjeknappar">
+        <button class="btn btn-ghost btn-sm" data-spkopi="${i}"
+          title="Lag en kopi av denne linjen" aria-label="Dupliser linje ${i + 1}">Dupliser</button>
+        <button class="btn btn-ghost btn-sm" data-spslett="${i}" aria-label="Slett linje ${i + 1}">✕</button>
+      </div>
     </div>
   </div>`;
 }
 
+/**
+ * Kor mykje rabatt sprosser toler.
+ *
+ * Kvar sprosse blir laga etter mål, og høyrer difor til den produserte gruppa
+ * i rabattarket — ikkje til lagervarene. Grensa står i prisboka, så den følgjer
+ * med når arket blir endra.
+ */
+const SPROSSE_MAKSRABATT = () =>
+  (VINDEX_RABATTGRUPPER.find((g) => g.id === "produsert") || { maks: 0 }).maks;
+
 function sprossesumHtml(u) {
-  const linjer = u.rader.map(vindexSprosselinjepris).filter(Boolean);
-  const sum = linjer.reduce((n, l) => n + (l.sum || 0), 0);
-  const stk = linjer.reduce((n, l) => n + (l.antall || 0), 0);
-  const uavklart = linjer.filter((l) => l.utanforTabellen).length;
-  const frakt = vindexFraktSprosser(stk);
+  const r = vindexSprossesum(u.rader, { rabatt: u.rabatt, utanFrakt: u.utanFrakt });
+  const maks = SPROSSE_MAKSRABATT();
+  const overMaks = r.rabatt > maks;
+  const pr = vindexSprosseprovisjon(
+    { rader: u.rader, rabatt: u.rabatt, utanFrakt: u.utanFrakt },
+    app.brukar
+  );
 
   return `<div class="tilbodsum mt-1" id="sprosseSum">
-    <div><span>Antall sprosser</span><span>${stk || "–"}</span></div>
-    <div><span>Sprosser</span><span class="linjesum">${kr(sum)}</span></div>
-    ${frakt ? `<div><span>Frakt (${stk} sprosser)</span><span class="linjesum">${kr(frakt.inkl)}</span></div>` : ""}
-    <div class="total"><span>Sum</span><span class="linjesum">${kr(sum + (frakt ? frakt.inkl : 0))}</span></div>
-    <div><span class="hint">Herav uten mva</span><span class="hint">${kr(vindexEksMva(sum + (frakt ? frakt.inkl : 0)))}</span></div>
-    ${uavklart ? `<div><span class="hint">${uavklart} linje${uavklart > 1 ? "r" : ""} må prises manuelt</span><span></span></div>` : ""}
+    <div><span>Antall sprosser</span><span>${r.stk || "–"}</span></div>
+    <div><span>Sprosser</span><span class="linjesum">${kr(r.grunnsum)}</span></div>
+    ${
+      r.rabattKr
+        ? `<div><span>Rabatt ${r.rabatt} %</span><span class="linjesum">− ${kr(r.rabattKr)}</span></div>`
+        : ""
+    }
+    ${
+      r.frakt
+        ? `<div><span>Frakt (${r.stk} sprosser)</span><span class="linjesum">${kr(r.frakt)}</span></div>`
+        : u.utanFrakt
+        ? `<div><span>Frakt</span><span class="hint">Kunden henter selv</span></div>`
+        : ""
+    }
+    <div class="total"><span>Sum</span><span class="linjesum">${kr(r.sum)}</span></div>
+    <div><span class="hint">Herav uten mva</span><span class="hint">${kr(vindexEksMva(r.sum))}</span></div>
+    ${
+      r.uavklart
+        ? `<div><span class="hint">${r.uavklart} linje${r.uavklart > 1 ? "r" : ""} må prises manuelt</span><span></span></div>`
+        : ""
+    }
+    ${
+      overMaks
+        ? `<div><span class="tekst-varsel">Over ${maks} % — sprosser lages etter mål</span><span></span></div>`
+        : ""
+    }
+    ${
+      pr && !pr.manglarSats
+        ? `<div><span class="hint">Din provisjon${pr.trinn !== null && pr.trinn !== undefined ? " (" + String(pr.prosent).replace(".", ",") + " % på " + pr.trinn + " % rabatt)" : ""}</span><span class="hint">${kr(pr.sum)}</span></div>`
+        : pr
+        ? `<div><span class="hint">Provisjonssats mangler for dette rabattnivået</span><span></span></div>`
+        : ""
+    }
   </div>`;
 }
 
@@ -3181,6 +3260,15 @@ function teiknSprossedialog(lead, fraKladd) {
       <div class="feltrutenett mt-2">
         <div class="field"><label for="spLevering">Ønsket levering</label>
           <input id="spLevering" value="${(u.onsketLevering || "").replace(/"/g, "&quot;")}"></div>
+        <div class="field"><label for="spRabatt">Rabatt (%)</label>
+          <input id="spRabatt" type="number" min="0" max="100" step="1" value="${u.rabatt || 0}">
+          <p class="hint">Veiledende grense ${SPROSSE_MAKSRABATT()} % — sprosser lages etter mål.
+            Rabatten gjelder sprossene, ikke frakten.</p></div>
+        <div class="field"><label for="spUtanFrakt">Frakt</label>
+          <select id="spUtanFrakt">
+            <option value="">Frakt etter prisliste</option>
+            <option value="ja"${u.utanFrakt ? " selected" : ""}>Kunden henter selv — ingen frakt</option>
+          </select></div>
         <div class="field brei"><label for="spMerknader">Merknader</label>
           <textarea id="spMerknader" style="min-height:60px">${u.merknader || ""}</textarea></div>
       </div>
@@ -3199,11 +3287,10 @@ function teiknSprossedialog(lead, fraKladd) {
   const oppdaterLinje = (i) => {
     const boks = document.querySelectorAll(".sprosselinje")[i];
     if (!boks) return;
-    boks.querySelector(".sprossefigurboks").innerHTML =
-      vindexSprossegrafikk(u.rader[i]) || '<span class="hint">Fyll inn mål og ruter</span>';
+    boks.querySelector(".sprossefigurboks").innerHTML = sprossefigurHtml(u.rader[i]);
     const pris = vindexSprosselinjepris(u.rader[i]);
     const prisboks = boks.querySelector(".sprossepris");
-    const knapp = prisboks.querySelector("[data-spslett]").outerHTML;
+    const knapp = prisboks.querySelector(".sprosselinjeknappar").outerHTML;
     prisboks.innerHTML =
       `<span class="hint">Linje ${i + 1}</span>` +
       (!pris
@@ -3241,7 +3328,7 @@ function teiknSprossedialog(lead, fraKladd) {
     );
   kopleType();
 
-  const kopleSlett = () =>
+  const kopleSlett = () => {
     $$("#sprosselinjer [data-spslett]").forEach((b) =>
       b.addEventListener("click", () => {
         u.rader.splice(parseInt(b.dataset.spslett, 10), 1);
@@ -3250,6 +3337,25 @@ function teiknSprossedialog(lead, fraKladd) {
         teiknSprossedialog(lead, null);
       })
     );
+    // Ein ordre har gjerne femten til tjuefem vindauge, og dei er ofte like
+    // på alt anna enn eit par millimeter. Å skrive inn alle felta på nytt for
+    // kvar linje er den jobben ingen orkar å gjere nøyaktig.
+    $$("#sprosselinjer [data-spkopi]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const i = parseInt(b.dataset.spkopi, 10);
+        // Kopien blir lagd rett under originalen, ikkje nedst. Linjene står i
+        // den rekkjefølgja vindauga står i huset.
+        const kopi = { ...u.rader[i] };
+        delete kopi.lnr;              // linjenummeret følgjer plasseringa
+        u.rader.splice(i + 1, 0, kopi);
+        lagreKladd(sprossekladdnokkel(lead), u);
+        teiknSprossedialog(lead, null);
+        // Markøren rett i falsbreidda på kopien: det er nesten alltid målet
+        // som skal endrast.
+        setTimeout(() => document.querySelector(`#sp_${i + 1}_fals_b`)?.focus(), 30);
+      })
+    );
+  };
   kopleSlett();
 
   $("#sprosseskjema").addEventListener("input", (e) => {
@@ -3261,6 +3367,17 @@ function teiknSprossedialog(lead, fraKladd) {
     }
     u.merknader = ($("#spMerknader") || {}).value || "";
     u.onsketLevering = ($("#spLevering") || {}).value || "";
+    if (e.target.id === "spRabatt") {
+      u.rabatt = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+      $("#sprosseSumBoks").innerHTML = sprossesumHtml(u);
+    }
+    lagreKladden();
+  });
+
+  $("#sprosseskjema").addEventListener("change", (e) => {
+    if (e.target.id !== "spUtanFrakt") return;
+    u.utanFrakt = e.target.value === "ja";
+    $("#sprosseSumBoks").innerHTML = sprossesumHtml(u);
     lagreKladden();
   });
 
@@ -3271,29 +3388,35 @@ function teiknSprossedialog(lead, fraKladd) {
   });
 
   $("#spAvbryt").addEventListener("click", lukkModal);
-  $("#spSkrivUt").addEventListener("click", () => window.print());
+  $("#spSkrivUt").addEventListener("click", () =>
+    skrivUtDialog("Sprossetilbud", lead.kunde || {}));
   $("#spLagre").addEventListener("click", async () => {
-    const linjer = u.rader.map(vindexSprosselinjepris).filter(Boolean);
-    if (!linjer.length) return melding("Fyll inn minst ett vindu med mål og ruter.", "warn");
-
-    const stk = linjer.reduce((n, l) => n + (l.antall || 0), 0);
-    const sum = linjer.reduce((n, l) => n + (l.sum || 0), 0);
-    const frakt = vindexFraktSprosser(stk);
+    const r = vindexSprossesum(u.rader, { rabatt: u.rabatt, utanFrakt: u.utanFrakt });
+    if (!r.linjer.length) return melding("Fyll inn minst ett vindu med mål og ruter.", "warn");
 
     await lagreLead(
       lead,
       {
         sprossetilbod: {
-          rader: u.rader.filter((r) => Object.values(r).some((v) => v !== "" && v !== undefined)),
+          rader: u.rader.filter((x) => Object.values(x).some((v) => v !== "" && v !== undefined)),
           merknader: u.merknader,
           onsketLevering: u.onsketLevering,
-          antall: stk,
-          sum: sum + (frakt ? frakt.inkl : 0),
+          rabatt: r.rabatt,
+          utanFrakt: !!u.utanFrakt,
+          antall: r.stk,
+          // Same tal som står i dialogen. Summen blir rekna ein stad, i
+          // vindexSprossesum — tillegga og rabatten med.
+          sprosser: r.netto,
+          frakt: r.frakt || 0,
+          sum: r.sum,
           dato: new Date().toISOString(),
           av: app.brukar.navn,
         },
       },
-      [`Sprossetilbud satt opp: ${stk} sprosser, ${kr(sum + (frakt ? frakt.inkl : 0))}.`]
+      [
+        `Sprossetilbud satt opp: ${r.stk} sprosser, ${kr(r.sum)}` +
+          (r.rabattKr ? ` (etter ${r.rabatt} % rabatt)` : "") + ".",
+      ]
     );
     slettKladd(sprossekladdnokkel(lead));
     lukkModal();
@@ -4028,14 +4151,22 @@ function samlaDelar(lead) {
 
   const sp = lead.sprossetilbod || {};
   if ((sp.rader || []).length) {
-    const s = vindexSprossesum(sp.rader);
-    const frakt = vindexFraktSprosser(s.stk);
+    const s = vindexSprossesum(sp.rader, { rabatt: sp.rabatt, utanFrakt: sp.utanFrakt });
     delar.push({
       id: "sprosser",
       tittel: "Sprosser",
-      linjer: [{ navn: `Sprosser etter måleskjema`, antall: s.stk, enhet: "stk", sum: s.sum }],
-      materiell: s.sum,
-      frakt: frakt ? frakt.inkl : 0,
+      linjer: [
+        { navn: "Sprosser etter måleskjema", antall: s.stk, enhet: "stk", sum: s.grunnsum },
+      ].concat(
+        s.rabattKr
+          ? [{ navn: `Rabatt ${s.rabatt} %`, antall: 1, enhet: "", sum: -s.rabattKr }]
+          : []
+      ),
+      // `materiell` er grunnlaget for rabatt og provisjon lenger ute, og frakt
+      // står for seg. Før blei frakta lagd til to gonger her: ein gong inne i
+      // summen og ein gong i fraktfeltet.
+      materiell: s.netto,
+      frakt: s.frakt || 0,
       uavklart: s.uavklart,
       visLinjeprisar: true,
     });
@@ -4149,7 +4280,7 @@ function visSamlaTilbod(lead) {
      <button class="btn" id="stSkrivUt">Skriv ut / lagre som PDF</button>`
   );
   $("#stLukk").addEventListener("click", lukkModal);
-  $("#stSkrivUt").addEventListener("click", () => window.print());
+  $("#stSkrivUt").addEventListener("click", () => skrivUtDialog("Tilbud", lead.kunde || {}));
 }
 
 function visTilbodsvindu(lead) {
@@ -4163,7 +4294,7 @@ function visTilbodsvindu(lead) {
      <button class="btn" id="tvSkrivUt">Skriv ut / lagre som PDF</button>`
   );
   $("#tvLukk").addEventListener("click", lukkModal);
-  $("#tvSkrivUt").addEventListener("click", () => window.print());
+  $("#tvSkrivUt").addEventListener("click", () => skrivUtDialog("Tilbud", lead.kunde || {}));
 }
 
 /**

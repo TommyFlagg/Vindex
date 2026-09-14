@@ -738,6 +738,61 @@ export function opneModal(tittel, innhald, botn) {
   $("#modal").classList.remove("hidden");
   document.body.style.overflow = "hidden";
 }
+/**
+ * Skriv ut det som står i dialogen.
+ *
+ * To ting var gale før. Utskrifta var blank, fordi `.modal` sto med
+ * `display: none !important` i utskriftsreglane — alt som blei skrive ut frå
+ * ein dialog kom ut som eit tomt ark. Og fila heitte «Salgsverktøy — Vindex»,
+ * fordi nettlesaren namngir PDF-en etter sidetittelen. Eit arkiv med tjue
+ * filer som heiter det same er eit arkiv ingen finn noko i.
+ *
+ * Difor: eit hovud på arket med kva det er og kven det gjeld, og ein tittel
+ * som blir filnamnet — «Tilbud Lund 15.09.2026». Begge blir rydda bort att
+ * etterpå, så skjermen ser ut som før.
+ *
+ * @param {string} slag     «Tilbud», «Ordreseddel», «Sprossetilbud» …
+ * @param {object} kunde    kundeobjektet frå leadet
+ * @param {string} undertittel  valfri linje under overskrifta
+ */
+export function skrivUtDialog(slag, kunde = {}, undertittel = "") {
+  const dato = new Date();
+  const datotekst = dato.toLocaleDateString("nb-NO", { day: "2-digit", month: "2-digit", year: "numeric" });
+  // Etternamnet er det ein leitar etter i ei filliste. Har kunden berre eitt
+  // namn, er det namnet.
+  const namn = String(kunde.navn || "").trim();
+  const etternamn = namn ? namn.split(/\s+/).slice(-1)[0] : "";
+  const filnamn = [slag, etternamn, datotekst].filter(Boolean).join(" ");
+
+  const innhald = $("#modalInnhald");
+  const hovud = document.createElement("div");
+  hovud.className = "utskriftshovud";
+  const linjer = [
+    namn,
+    [kunde.adresse, kunde.postnr, kunde.poststed].filter(Boolean).join(", "),
+    kunde.telefon,
+  ].filter(Boolean);
+  hovud.innerHTML =
+    `<h1>${vindexT(slag)}${namn ? " — " + vindexT(namn) : ""}</h1>` +
+    `<p>${vindexT(linjer.slice(1).join(" · "))}</p>` +
+    `<p>${vindexT(undertittel ? undertittel + " · " : "")}${datotekst} · Vindex AS</p>`;
+  innhald.prepend(hovud);
+
+  const gammalTittel = document.title;
+  document.title = filnamn;
+
+  const rydd = () => {
+    document.title = gammalTittel;
+    hovud.remove();
+    window.removeEventListener("afterprint", rydd);
+  };
+  window.addEventListener("afterprint", rydd);
+  window.print();
+  // Safari og eldre nettlesarar fyrer ikkje alltid `afterprint`. Då ryddar vi
+  // sjølve, litt etter — arket er uansett teikna på det tidspunktet.
+  setTimeout(rydd, 1500);
+}
+
 export function lukkModal() {
   $("#modal").classList.add("hidden");
   document.body.style.overflow = "";
