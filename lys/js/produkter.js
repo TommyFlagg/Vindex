@@ -70,6 +70,7 @@ const VINDEX_FARGE = { id: "klassisk-hvit", navn: "Klassisk hvit", hex: "#f7f8f8
 // hjelper. Manglar eit produkt bilete, er det fordi vi ikkje har eit godt eit
 // enno, ikkje fordi feltet er gløymt.
 const VINDEX_PRODUKT = [
+
   {
     id: "rekkverk",
     navn: "Rekkverk",
@@ -96,6 +97,7 @@ const VINDEX_PRODUKT = [
     standardMengde: 12,
     lenke: "produkter/rekkverk.html",
   },
+
   {
     id: "glassrekkverk",
     navn: "Glassrekkverk",
@@ -124,6 +126,34 @@ const VINDEX_PRODUKT = [
     garantiMerknad: "5 års garanti på glass med tilbehør.",
     lenke: "produkter/glassrekkverk.html",
   },
+
+  {
+    id: "gjerde",
+    navn: "Gjerde",
+    bilde: "assets/bilder/gjerde.jpg",
+    enhet: "lm",
+    enhetNavn: "løpemeter",
+    kort: "Helt vedlikeholdsfritt, og påvirkes ikke av vær, vind eller sol.",
+    ingress:
+      "Vindex gjerder og porter i PVC er helt vedlikeholdsfrie og påvirkes ikke av vær, vind " +
+      "eller sol. Vi skreddersyr gjerdet til tomten din, og kombinerer det gjerne med port i " +
+      "samme utførelse.",
+    fordeler: [
+      "Ingen råte, ingen beis, ingen etterstramming",
+      "Tilpasses skrånende terreng",
+      "Kombineres med port, levegg og rekkverk",
+      "Brannhemmende og miljøvennlig PVC",
+    ],
+    modeller: [
+      { id: "standardseksjon", navn: "Ferdig standardseksjon", pris: 0, sub: "2,0 eller 2,3 m — lagerført, kortest leveringstid" },
+      { id: "etter-mal", navn: "Gjerde etter mål", pris: 0, sub: "Skreddersys til tomten" },
+    ],
+    valg: [],
+    minMengde: 1,
+    standardMengde: 20,
+    lenke: "produkter/gjerde.html",
+  },
+
   {
     id: "levegg",
     navn: "Levegg",
@@ -150,28 +180,7 @@ const VINDEX_PRODUKT = [
     standardMengde: 6,
     lenke: "produkter/levegg.html",
   },
-  {
-    id: "terrassegulv",
-    navn: "Terrassegulv",
-    bilde: "assets/bilder/terrassegulv.jpg",
-    enhet: "m2",
-    enhetNavn: "kvadratmeter",
-    kort: "Egenutviklet gulv i gjennomfarget UPVC med tilnærmet sklifri overflate.",
-    ingress:
-      "Vindex har utviklet et eget terrassegulv som er laget av gjennomfarget UPVC og har en " +
-      "tilnærmet sklifri overflate. Ingen oljing, ingen sliping, ingen splinter.",
-    fordeler: [
-      "Gjennomfarget UPVC — fargen sitter i materialet",
-      "Tilnærmet sklifri overflate",
-      "Ingen oljing, beising eller sliping",
-      "Passer sammen med våre rekkverk og levegger",
-    ],
-    modeller: [{ id: "standard", navn: "Terrassegulv", pris: 0, sub: "Beregnes etter areal" }],
-    valg: [],
-    minMengde: 1,
-    standardMengde: 25,
-    lenke: "produkter/terrassegulv.html",
-  },
+
   {
     id: "sprosser",
     navn: "Sprosser",
@@ -209,141 +218,7 @@ const VINDEX_PRODUKT = [
     standardMengde: 8,
     lenke: "produkter/sprosser.html",
   },
-  {
-    id: "porter",
-    navn: "Porter",
-    bilde: "assets/bilder/porter.jpg",
-    enhet: "stk",
-    enhetNavn: "porter",
-    kort: "Porter tilpasset våre rekkverk og gjerder — eller på mål, til å montere hvor som helst.",
-    ingress:
-      "Vindex produserer også porter som er tilpasset våre rekkverk og gjerder. Du kan også " +
-      "bare bestille en port på mål som du kan montere hvor som helst.",
-    fordeler: [
-      "Samme uttrykk som gjerdet og rekkverket ditt",
-      "Produseres på mål — også som frittstående port",
-      "Vedlikeholdsfri, påvirkes ikke av vær, vind eller sol",
-    ],
-    modeller: [
-      { id: "gangport", navn: "Gangport", pris: 0, sub: "Enkel port" },
-      { id: "kjoreport", navn: "Kjøreport", pris: 0, sub: "Dobbel port for innkjørsel" },
-    ],
-    valg: [],
-    minMengde: 1,
-    standardMengde: 1,
-    lenke: "produkter/porter.html",
-  },
-  {
-    id: "gjerde",
-    navn: "Gjerde",
-    bilde: "assets/bilder/gjerde.jpg",
-    enhet: "lm",
-    enhetNavn: "løpemeter",
-    kort: "Helt vedlikeholdsfritt, og påvirkes ikke av vær, vind eller sol.",
-    ingress:
-      "Vindex gjerder og porter i PVC er helt vedlikeholdsfrie og påvirkes ikke av vær, vind " +
-      "eller sol. Vi skreddersyr gjerdet til tomten din, og kombinerer det gjerne med port i " +
-      "samme utførelse.",
-    fordeler: [
-      "Ingen råte, ingen beis, ingen etterstramming",
-      "Tilpasses skrånende terreng",
-      "Kombineres med port, levegg og rekkverk",
-      "Brannhemmende og miljøvennlig PVC",
-    ],
-    modeller: [
-      { id: "standardseksjon", navn: "Ferdig standardseksjon", pris: 0, sub: "2,0 eller 2,3 m — lagerført, kortest leveringstid" },
-      { id: "etter-mal", navn: "Gjerde etter mål", pris: 0, sub: "Skreddersys til tomten" },
-    ],
-    valg: [],
-    minMengde: 1,
-    standardMengde: 20,
-    lenke: "produkter/gjerde.html",
-  },
-  {
-    id: "flyttbart-gjerde",
-    navn: "Flyttbart gjerde",
-    bilde: "../assets/bilder/flyttbart-gjerde.jpg",
-    enhet: "lm",
-    enhetNavn: "løpemeter",
-    kort: "Gjerd inn et område og tilpass det etter behov — campingplass, restaurant, festival.",
-    ingress:
-      "Med Vindex flyttbart gjerde i vedlikeholdsfri PVC kan du lett gjerde inn et område og " +
-      "tilpasse det etter behov. Campingplass, restauranter, festivaler og arrangementer.",
-    fordeler: [
-      "Settes opp og flyttes uten graving eller støping",
-      "Samme vedlikeholdsfrie kvalitet som fastmonterte gjerder",
-      "Skaleres opp og ned etter sesong og behov",
-    ],
-    modeller: [{ id: "standard", navn: "Flyttbart gjerde", pris: 0, sub: "Seksjonsvis" }],
-    valg: [],
-    minMengde: 1,
-    standardMengde: 30,
-    lenke: "produkter/flyttbart-gjerde.html",
-  },
-  {
-    id: "gardsgjerde",
-    navn: "Gardsgjerde",
-    bilde: "../assets/bilder/gardsgjerde.jpg",
-    enhet: "lm",
-    enhetNavn: "løpemeter",
-    kort: "For større eiendommer, der det fort blir svært mange løpemeter.",
-    ingress:
-      "Vindex gardsgjerde i vedlikeholdsfri PVC. På mange større eiendommer er det av ulike " +
-      "grunner behov for å gjerde inn områder — og da blir det fort svært mange løpemeter " +
-      "gjerde. Vedlikeholdsfritt monner mest når arealet er stort.",
-    fordeler: [
-      "Ingen årlig vedlikeholdsjobb på flere hundre meter gjerde",
-      "Tåler beitedyr, vær og vind",
-      "Produseres i lange serier etter dine mål",
-    ],
-    modeller: [{ id: "standard", navn: "Gardsgjerde", pris: 0, sub: "Etter mål og antall løpemeter" }],
-    valg: [],
-    minMengde: 1,
-    standardMengde: 100,
-    lenke: "produkter/gardsgjerde.html",
-  },
-  {
-    id: "kystveggen",
-    navn: "Kystveggen",
-    bilde: "assets/bilder/kystveggen.jpg",
-    enhet: "lm",
-    enhetNavn: "løpemeter",
-    kort: "Vedlikeholdsfri spilevegg med stilfullt og moderne uttrykk.",
-    ingress:
-      "Kystveggen er en vedlikeholdsfri spilevegg med et stilfullt og moderne uttrykk som gir " +
-      "et uterom i hagen du garantert blir fornøyd med.",
-    fordeler: [
-      "Moderne spileuttrykk uten vedlikehold",
-      "Demper vind uten å stenge helt av",
-      "Kombineres med rekkverk og terrassegulv",
-    ],
-    modeller: [{ id: "standard", navn: "Kystveggen", pris: 0, sub: "Etter mål" }],
-    valg: [],
-    minMengde: 1,
-    standardMengde: 6,
-    lenke: "produkter/kystveggen.html",
-  },
-  {
-    id: "varmepumpehus",
-    navn: "Varmepumpehus",
-    bilde: "assets/bilder/varmepumpehus.jpg",
-    enhet: "stk",
-    enhetNavn: "hus",
-    kort: "Beskytter varmepumpen mot regn, vind, sludd, is og snø — og ser bra ut.",
-    ingress:
-      "Vindex vedlikeholdsfrie varmepumpehus har et elegant utseende og beskytter varmepumpen " +
-      "mot regn, vind, sludd, is og snø.",
-    fordeler: [
-      "Skjermer utedelen mot vær og snø",
-      "Elegant utseende i stedet for en grå boks på veggen",
-      "Vedlikeholdsfritt, i samme materiale som resten",
-    ],
-    modeller: [{ id: "standard", navn: "Varmepumpehus", pris: 0, sub: "Tilpasses din utedel" }],
-    valg: [],
-    minMengde: 1,
-    standardMengde: 1,
-    lenke: "produkter/varmepumpehus.html",
-  },
+
   {
     id: "ledlys",
     navn: "LED-lys",
@@ -368,6 +243,143 @@ const VINDEX_PRODUKT = [
     standardMengde: 4,
     garantiMerknad: "5 års garanti på LED-lys med tilbehør.",
     lenke: "produkter/ledlys.html",
+  },
+
+  {
+    id: "terrassegulv",
+    navn: "Terrassegulv",
+    bilde: "assets/bilder/terrassegulv.jpg",
+    enhet: "m2",
+    enhetNavn: "kvadratmeter",
+    kort: "Egenutviklet gulv i gjennomfarget UPVC med tilnærmet sklifri overflate.",
+    ingress:
+      "Vindex har utviklet et eget terrassegulv som er laget av gjennomfarget UPVC og har en " +
+      "tilnærmet sklifri overflate. Ingen oljing, ingen sliping, ingen splinter.",
+    fordeler: [
+      "Gjennomfarget UPVC — fargen sitter i materialet",
+      "Tilnærmet sklifri overflate",
+      "Ingen oljing, beising eller sliping",
+      "Passer sammen med våre rekkverk og levegger",
+    ],
+    modeller: [{ id: "standard", navn: "Terrassegulv", pris: 0, sub: "Beregnes etter areal" }],
+    valg: [],
+    minMengde: 1,
+    standardMengde: 25,
+    lenke: "produkter/terrassegulv.html",
+  },
+
+  {
+    id: "porter",
+    navn: "Porter",
+    bilde: "assets/bilder/porter.jpg",
+    enhet: "stk",
+    enhetNavn: "porter",
+    kort: "Porter tilpasset våre rekkverk og gjerder — eller på mål, til å montere hvor som helst.",
+    ingress:
+      "Vindex produserer også porter som er tilpasset våre rekkverk og gjerder. Du kan også " +
+      "bare bestille en port på mål som du kan montere hvor som helst.",
+    fordeler: [
+      "Samme uttrykk som gjerdet og rekkverket ditt",
+      "Produseres på mål — også som frittstående port",
+      "Vedlikeholdsfri, påvirkes ikke av vær, vind eller sol",
+    ],
+    modeller: [
+      { id: "gangport", navn: "Gangport", pris: 0, sub: "Enkel port" },
+      { id: "kjoreport", navn: "Kjøreport", pris: 0, sub: "Dobbel port for innkjørsel" },
+    ],
+    valg: [],
+    minMengde: 1,
+    standardMengde: 1,
+    lenke: "produkter/porter.html",
+  },
+
+  {
+    id: "flyttbart-gjerde",
+    navn: "Flyttbart gjerde",
+    bilde: "../assets/bilder/flyttbart-gjerde.jpg",
+    enhet: "lm",
+    enhetNavn: "løpemeter",
+    kort: "Gjerd inn et område og tilpass det etter behov — campingplass, restaurant, festival.",
+    ingress:
+      "Med Vindex flyttbart gjerde i vedlikeholdsfri PVC kan du lett gjerde inn et område og " +
+      "tilpasse det etter behov. Campingplass, restauranter, festivaler og arrangementer.",
+    fordeler: [
+      "Settes opp og flyttes uten graving eller støping",
+      "Samme vedlikeholdsfrie kvalitet som fastmonterte gjerder",
+      "Skaleres opp og ned etter sesong og behov",
+    ],
+    modeller: [{ id: "standard", navn: "Flyttbart gjerde", pris: 0, sub: "Seksjonsvis" }],
+    valg: [],
+    minMengde: 1,
+    standardMengde: 30,
+    lenke: "produkter/flyttbart-gjerde.html",
+  },
+
+  {
+    id: "gardsgjerde",
+    navn: "Gardsgjerde",
+    bilde: "../assets/bilder/gardsgjerde.jpg",
+    enhet: "lm",
+    enhetNavn: "løpemeter",
+    kort: "For større eiendommer, der det fort blir svært mange løpemeter.",
+    ingress:
+      "Vindex gardsgjerde i vedlikeholdsfri PVC. På mange større eiendommer er det av ulike " +
+      "grunner behov for å gjerde inn områder — og da blir det fort svært mange løpemeter " +
+      "gjerde. Vedlikeholdsfritt monner mest når arealet er stort.",
+    fordeler: [
+      "Ingen årlig vedlikeholdsjobb på flere hundre meter gjerde",
+      "Tåler beitedyr, vær og vind",
+      "Produseres i lange serier etter dine mål",
+    ],
+    modeller: [{ id: "standard", navn: "Gardsgjerde", pris: 0, sub: "Etter mål og antall løpemeter" }],
+    valg: [],
+    minMengde: 1,
+    standardMengde: 100,
+    lenke: "produkter/gardsgjerde.html",
+  },
+
+  {
+    id: "kystveggen",
+    navn: "Kystveggen",
+    bilde: "assets/bilder/kystveggen.jpg",
+    enhet: "lm",
+    enhetNavn: "løpemeter",
+    kort: "Vedlikeholdsfri spilevegg med stilfullt og moderne uttrykk.",
+    ingress:
+      "Kystveggen er en vedlikeholdsfri spilevegg med et stilfullt og moderne uttrykk som gir " +
+      "et uterom i hagen du garantert blir fornøyd med.",
+    fordeler: [
+      "Moderne spileuttrykk uten vedlikehold",
+      "Demper vind uten å stenge helt av",
+      "Kombineres med rekkverk og terrassegulv",
+    ],
+    modeller: [{ id: "standard", navn: "Kystveggen", pris: 0, sub: "Etter mål" }],
+    valg: [],
+    minMengde: 1,
+    standardMengde: 6,
+    lenke: "produkter/kystveggen.html",
+  },
+
+  {
+    id: "varmepumpehus",
+    navn: "Varmepumpehus",
+    bilde: "assets/bilder/varmepumpehus.jpg",
+    enhet: "stk",
+    enhetNavn: "hus",
+    kort: "Beskytter varmepumpen mot regn, vind, sludd, is og snø — og ser bra ut.",
+    ingress:
+      "Vindex vedlikeholdsfrie varmepumpehus har et elegant utseende og beskytter varmepumpen " +
+      "mot regn, vind, sludd, is og snø.",
+    fordeler: [
+      "Skjermer utedelen mot vær og snø",
+      "Elegant utseende i stedet for en grå boks på veggen",
+      "Vedlikeholdsfritt, i samme materiale som resten",
+    ],
+    modeller: [{ id: "standard", navn: "Varmepumpehus", pris: 0, sub: "Tilpasses din utedel" }],
+    valg: [],
+    minMengde: 1,
+    standardMengde: 1,
+    lenke: "produkter/varmepumpehus.html",
   },
 ];
 
