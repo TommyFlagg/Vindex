@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Personvern — Vindex</title>
+<meta name="description" content="Hva Vindex lagrer om deg når du ber om tilbud, hvorfor, hvor lenge, hvem som ser det — og hvordan du får det slettet.">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="css/style.css?v=fe84d8db">
+<script>
+  // Nettstaden er mørk som standard. Set temaet før sida teiknar, så den ikkje
+  // blinkar i feil farge først.
+  try {
+    if (localStorage.getItem("vindex_tema") !== "lys") {
+      document.documentElement.classList.add("tema-mork-tidleg");
+    }
+  } catch (e) { /* privat vindauge: berre hopp over */ }
+</script>
+</head>
+<body class="nettside" data-rot="" data-side="personvern">
+
+<section class="hero" style="padding:2.75rem 0 3rem">
+  <div class="wrap">
+    <p class="eyebrow">Personvern</p>
+    <h1>Hva vi lagrer om deg</h1>
+    <p class="lead">Ber du om tilbud, trenger vi noen opplysninger for å kunne gi deg ett.
+      Her står det nøyaktig hvilke, hvorfor vi har dem, hvem som ser dem, hvor lenge de blir
+      liggende — og hvordan du får dem slettet.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap-narrow">
+
+    <h2>Hvem er ansvarlig</h2>
+    <p><strong id="firmanavn">Vindex AS</strong>, <span id="firmaadresse"></span>.
+      Organisasjonsnummer <span id="firmaorgnr"></span>.</p>
+    <p>Vi er behandlingsansvarlig for opplysningene som samles inn gjennom denne nettsiden.
+      Spørsmål om personvern går til <a id="firmaepost" href="#"></a> eller
+      <span id="firmatelefon"></span>.</p>
+
+    <h2>Hva vi samler inn, og når</h2>
+
+    <h3>Når du ber om tilbud</h3>
+    <p>Skjemaet på <a href="bestilling.html">Be om tilbud</a> lagrer:</p>
+    <ul>
+      <li><strong>Kontaktopplysninger:</strong> navn, telefon, e-post, adresse, postnummer
+        og poststed.</li>
+      <li><strong>Hva du ber om:</strong> produkt, modell, farge, mengde, tilvalg, om du
+        ønsker montering, og når det passer.</li>
+      <li><strong>Din egen kommentar,</strong> hvis du skriver en.</li>
+      <li><strong>Et prisestimat</strong> regnet ut fra valgene dine.</li>
+      <li><strong>Hvilket distrikt</strong> postnummeret ditt hører til, og hvilken selger
+        forespørselen ble sendt til.</li>
+      <li><strong>Tidspunkt</strong> for når forespørselen kom inn og når den sist ble endret.</li>
+    </ul>
+    <p>Alt dette er opplysninger du selv skriver inn eller velger. Vi henter ingenting om deg
+      fra andre kilder, og vi kjøper ingen lister.</p>
+
+    <h3>Når du søker om å bli representant</h3>
+    <p>Boksen «Bli representant» på forsiden lagrer navn, telefon, e-post, postnummer,
+      eventuelt firmanavn og det du skriver om deg selv. Søknadene leses bare av
+      hovedkontoret.</p>
+
+    <h3>Videre i saken</h3>
+    <p>Blir det en befaring og et tilbud, legger selgeren til det som hører til: avtalte
+      tidspunkter, mål fra befaringen, tilbudslinjer og notater om oppfølgingen. Blir det en
+      ordre, lagres ordreseddelen med målene og leveringsadressen.</p>
+
+    <h2>Hvorfor, og med hvilken rett</h2>
+    <p>Vi bruker opplysningene til å svare deg, regne ut et tilbud, avtale befaring, og — hvis
+      du bestiller — produsere og levere. Ingenting annet.</p>
+    <p>Det rettslige grunnlaget er ditt <strong>samtykke</strong> (personvernforordningen
+      artikkel 6 nr. 1 bokstav a), som du gir ved å krysse av i skjemaet, og
+      <strong>tiltak før avtaleinngåelse</strong> på din anmodning (bokstav b). Blir det en
+      ordre, har vi i tillegg <strong>rettslig plikt</strong> til å ta vare på
+      salgsdokumentasjon etter bokføringsloven (bokstav c).</p>
+    <p><strong>Vi driver ikke markedsføring på disse opplysningene.</strong> Du får ikke
+      nyhetsbrev, og vi selger ikke navnet ditt videre. Ber du om tilbud, hører du fra en
+      selger om den saken — ikke om noe annet.</p>
+
+    <h2>Hvem ser opplysningene</h2>
+    <p>Tre grupper, og ikke flere:</p>
+    <ul>
+      <li><strong>Selgeren eller forhandleren som dekker ditt distrikt.</strong>
+        Forespørselen går dit automatisk ut fra postnummeret ditt. Han ser bare sine egne
+        saker — ikke andre selgeres kunder.</li>
+      <li><strong>Hovedkontoret på Farstad,</strong> som ser alle saker og kan flytte en sak
+        til en annen selger hvis det trengs.</li>
+      <li><strong>Lageret og produksjonen,</strong> når det er blitt en ordre, og da bare det
+        de trenger for å plukke og lage riktig.</li>
+    </ul>
+    <p>Flere av forhandlerne våre er selvstendige firmaer. Når saken din går til en av dem,
+      behandler de opplysningene dine på våre vegne og etter avtale med oss.</p>
+
+    <h2>Hvor opplysningene ligger</h2>
+    <p>Nettsiden og salgsverktøyet bruker <strong>Google Firebase</strong> til database og
+      innlogging. Google er databehandler for oss, under Googles databehandleravtale. Skjer
+      det overføring ut av EØS, er den dekket av EU-kommisjonens standard personvernbestemmelser
+      (SCC).</p>
+    <p>Vi bruker ingen andre tredjeparter. Det finnes ingen analyseverktøy, ingen
+      annonsenettverk, ingen sporingspiksler og ingen knapper fra sosiale medier på sidene
+      våre.</p>
+
+    <h2>Informasjonskapsler og lagring i nettleseren</h2>
+    <p><strong>Vi bruker ingen informasjonskapsler til sporing, statistikk eller
+      markedsføring.</strong> Derfor møter du heller ingen samtykkebanner her — det er
+      ingenting å samtykke til.</p>
+    <p>Det eneste vi lagrer i nettleseren din på de åpne sidene er dette:</p>
+    <table class="tabell">
+      <thead><tr><th>Navn</th><th>Hva det er</th><th>Hvor lenge</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>vindex_tema</code></td>
+          <td>Om du valgte lyst eller mørkt utseende, så siden husker det til neste gang.</td>
+          <td>Til du sletter det</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="hint">Dette er ikke en informasjonskapsel, men lokal lagring — den sendes aldri
+      til oss eller noen andre, og ligger bare på din egen maskin. Du fjerner den ved å slette
+      nettleserdata for denne siden.</p>
+    <p>Logger du inn i salgsverktøyet, setter Google Firebase i tillegg en innloggingsøkt som
+      holder deg innlogget. Den er nødvendig for at innloggingen skal virke, og gjelder bare
+      ansatte og forhandlere — ikke kunder.</p>
+
+    <h2>Hvor lenge vi beholder det</h2>
+    <table class="tabell">
+      <thead><tr><th>Hva</th><th>Hvor lenge</th><th>Hvorfor</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Forespørsel som ikke ble til noe</td>
+          <td>2 år</td>
+          <td>Folk kommer tilbake. Utsatte du prosjektet et år, slipper du å forklare alt på
+            nytt.</td>
+        </tr>
+        <tr>
+          <td>Tilbud som ikke ble akseptert</td>
+          <td>2 år</td>
+          <td>Samme grunn, og vi lærer av hvorfor vi taper saker.</td>
+        </tr>
+        <tr>
+          <td>Ordre og leveranse</td>
+          <td>5 år etter regnskapsårets slutt</td>
+          <td>Bokføringsloven krever det.</td>
+        </tr>
+        <tr>
+          <td>Saker med 30 års garanti</td>
+          <td>Så lenge garantien løper</td>
+          <td>Skal vi svare på et garantikrav i 2050, må vi vite hva vi leverte og til hvem.</td>
+        </tr>
+        <tr>
+          <td>Søknad om å bli representant</td>
+          <td>1 år</td>
+          <td>Blir det ikke noe av, er det ingen grunn til å beholde den lenger.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>Ber du om sletting før fristen, sletter vi — med unntak av det bokføringsloven og en
+      løpende garanti krever at vi beholder.</p>
+
+    <h2>Rettighetene dine</h2>
+    <p>Du har rett til å:</p>
+    <ul>
+      <li><strong>få vite</strong> hva vi har lagret om deg, og få en kopi</li>
+      <li><strong>få rettet</strong> noe som er feil</li>
+      <li><strong>få slettet</strong> opplysningene dine</li>
+      <li><strong>trekke tilbake samtykket</strong> når som helst — det stopper videre
+        behandling, men gjør ikke det som allerede er gjort ulovlig</li>
+      <li><strong>protestere</strong> mot behandlingen, eller be om at den begrenses</li>
+      <li><strong>få opplysningene utlevert</strong> i et vanlig filformat</li>
+    </ul>
+    <p>Send en e-post til <a id="firmaepost2" href="#"></a>, eller ring
+      <span id="firmatelefon2"></span>. Vi svarer innen 30 dager, og det koster ingenting.</p>
+
+    <h2>Hvis du mener vi gjør noe galt</h2>
+    <p>Si først fra til oss — som regel er det en misforståelse vi kan rydde opp i samme dag.
+      Blir du ikke fornøyd, kan du klage til Datatilsynet,
+      <a href="https://www.datatilsynet.no" rel="noopener">datatilsynet.no</a>.</p>
+
+    <h2>Endringer</h2>
+    <p>Endrer vi denne siden, oppdaterer vi datoen nederst. Er endringen av betydning for deg,
+      sier vi fra direkte.</p>
+
+    <p class="hint mt-2" id="versjon"></p>
+  </div>
+</section>
+
+<section class="section-alt">
+  <div class="wrap-narrow center">
+    <h2>Spørsmål?</h2>
+    <p class="lead" style="margin:0 auto 1.5rem">Ring oss. Det går som regel fortere enn å
+      skrive.</p>
+    <div class="btn-row" style="justify-content:center">
+      <a class="btn btn-accent" href="kontakt.html">Kontakt oss</a>
+      <a class="btn btn-ghost" href="garanti.html">Garanti og salgsbetingelser</a>
+    </div>
+  </div>
+</section>
+
+<script src="js/produkter.js?v=e3314b0d"></script>
+<script src="js/app.js?v=31d656bf"></script>
+<script src="js/effekter.js?v=84d5e123"></script>
+<script>
+  // Firmaopplysningane står eitt stad, i js/produkter.js. Skriv vi dei inn her
+  // òg, blir det to sanningar og ei av dei blir gammal.
+  (function () {
+    const f = VINDEX_FIRMA;
+    const sett = (id, tekst) => { const e = document.getElementById(id); if (e) e.textContent = tekst; };
+    sett("firmanavn", f.navn);
+    sett("firmaadresse", f.adresse);
+    sett("firmaorgnr", f.orgnr);
+    sett("firmatelefon", f.telefon);
+    sett("firmatelefon2", f.telefon);
+    ["firmaepost", "firmaepost2"].forEach((id) => {
+      const e = document.getElementById(id);
+      if (!e) return;
+      e.textContent = f.epost;
+      e.href = "mailto:" + f.epost + "?subject=" + encodeURIComponent("Personvern");
+    });
+    sett("versjon", "Personvernerklæring for " + f.navn + ", versjon 14.09.2026.");
+  })();
+</script>
+</body>
+</html>

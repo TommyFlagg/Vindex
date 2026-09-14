@@ -16,7 +16,7 @@
 /* Oswald er display-fonten i det mørke temaet: kondensert, laga for
    versalar, og med ein fallback (Arial Narrow) som held same rytme.
    Source Serif og Inter held fram i salsverktøyet. */
-@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600;700;800&family=Oswald:wght@400;500;600;700&display=swap');
+@import url('skrifter.css?v=be346f1f');
 
 /* ---------- 1. Designtokens ---------- */
 :root {

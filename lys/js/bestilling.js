@@ -11,8 +11,35 @@
 // ============================================================================
 
 let fb = null;
-if (!VINDEX_DEMOMODUS) {
-  fb = await import("./firebase-init.js");
+let fbLasta = false;
+
+/**
+ * Hentar Firebase — men ikkje før kunden faktisk skal bruke skjemaet.
+ *
+ * Biblioteket ligg på Google sin CDN, og berre det å hente det sender
+ * IP-adressa til den besøkande til Google. Låg importen på toppen av fila,
+ * skjedde det for kvar person som kika innom, før dei hadde trykt på noko.
+ * No skjer det ved kontaktsteget — etter at kunden er tydeleg i gang, og før
+ * han skriv namn og telefon.
+ */
+async function sikreFirebase() {
+  if (VINDEX_DEMOMODUS || fbLasta) return fb;
+  fbLasta = true;
+  try {
+    fb = await import("./firebase-init.js");
+  } catch (err) {
+    console.error("Fekk ikkje lasta Firebase:", err);
+    const boks = document.querySelector("#skjema") || document.body;
+    const varsel = document.createElement("div");
+    varsel.className = "notice notice-warn";
+    varsel.innerHTML =
+      "<strong>Skjemaet er midlertidig utilgjengelig.</strong> Vi får ikke kontakt med " +
+      "serveren akkurat nå. Ring oss på <a href=\"tel:" +
+      VINDEX_FIRMA.telefon.replace(/\s/g, "") +
+      "\">" + VINDEX_FIRMA.telefon + "</a>, så tar vi bestillingen over telefon.";
+    boks.prepend(varsel);
+  }
+  return fb;
 }
 
 const SISTE_STEG = 4;
@@ -155,7 +182,10 @@ function teiknSteg() {
   $("#tilbake").classList.toggle("hidden", state.steg === 1);
   $("#neste").classList.toggle("hidden", state.steg === SISTE_STEG);
   $("#send").classList.toggle("hidden", state.steg !== SISTE_STEG);
-  if (state.steg === SISTE_STEG) teiknOppsummering();
+  if (state.steg === SISTE_STEG) {
+    teiknOppsummering();
+    sikreFirebase();          // medvite utan await: skjemaet skal teikne med ein gong
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -371,6 +401,8 @@ async function finnSeljar(distriktId) {
 }
 
 async function lagreFirestore(lead) {
+  await sikreFirebase();
+  if (!fb) throw new Error("Får ikke kontakt med serveren.");
   const seljarId = await finnSeljar(lead.distriktId);
   const doc = {
     ...lead,

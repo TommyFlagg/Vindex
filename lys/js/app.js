@@ -114,6 +114,7 @@
             <li>${f.adresse}</li>
             <li>Org.nr. ${f.orgnr}</li>
             ${f.facebook ? `<li class="mt-1"><a href="${f.facebook}" rel="noopener">Følg oss på Facebook</a></li>` : ""}
+            <li><a href="${rot}../personvern.html">Personvern</a></li>
             <li><a href="${rot}../selger.html">Innlogging for selgere</a></li>
             <li class="mt-1"><a href="${rot}../index.html">Se mørkt designforslag</a></li>
           </ul>

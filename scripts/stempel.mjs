@@ -78,6 +78,12 @@ const HTML_ADRESSE = /(\s(?:href|src)=")([^"?#:]+\.(?:css|js))(\?v=[0-9a-f]+)?("
 // Desse ligg inni JS-en og ikkje i HTML-en, og blir hurtiglagra på same vis.
 const JS_IMPORT = /((?:from|import\()\s*")(\.\/[^"?#]+\.js)(\?v=[0-9a-f]+)?(")/g;
 
+// @import url('skrifter.css') — eit stilark som hentar eit anna. Utan denne
+// ville skriftfila liggje ustempla: nettlesaren hentar style.css på nytt fordi
+// HTML-en peikar på ein ny sum, men den gamle skrifta blir ståande i mellom-
+// lageret. Same kaskaden som for modulane under.
+const CSS_IMPORT = /(@import\s+url\(')([^')?#]+\.css)(\?v=[0-9a-f]+)?('\))/g;
+
 // Stemplar ein modul, endrar summen hans seg, og dei som hentar han må
 // stemplast på nytt. Difor går vi runde etter runde til ingenting rører seg.
 const jsFiler = (await readdir(join(ROT, "js"))).filter((f) => f.endsWith(".js")).map((f) => join(ROT, "js", f));
@@ -85,6 +91,14 @@ for (let runde = 0; runde < 10; runde++) {
   summar = new Map();
   let rørt = false;
   for (const js of jsFiler) rørt = (await stemplaFil(js, JS_IMPORT)).endra || rørt;
+  if (!rørt) break;
+}
+
+const cssFiler = ["css/style.css", "lys/css/style.css"].map((f) => join(ROT, f));
+for (let runde = 0; runde < 10; runde++) {
+  summar = new Map();
+  let rørt = false;
+  for (const css of cssFiler) rørt = (await stemplaFil(css, CSS_IMPORT)).endra || rørt;
   if (!rørt) break;
 }
 

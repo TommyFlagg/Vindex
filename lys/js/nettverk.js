@@ -211,7 +211,9 @@ function vindexTeiknNettverk(el, { rot = "" } = {}) {
           </div>
           <label class="avkryssrad mt-1">
             <input type="checkbox" id="repSamtykke" required>
-            <span>Vindex kan lagre opplysningene og kontakte meg om dette.</span>
+            <span>Vindex kan lagre opplysningene og kontakte meg om dette.
+              <a href="${rot}../personvern.html" target="_blank" rel="noopener">Slik behandler
+              vi opplysningene dine</a>.</span>
           </label>
           <p class="field-error hidden mt-1" id="repFeil"></p>
           <div class="btn-row mt-2">

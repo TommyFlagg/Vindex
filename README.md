@@ -1543,3 +1543,35 @@ js/tilbakemeldingar.js   Kundesitater (tom — fylles med ekte sitater)
 firestore.rules          Tilgangsregler
 scripts/                 Generering av produktsider og versjonsstempling
 ```
+
+## Personvern
+
+Kort om hva som er gjort, og hvorfor det ser ut som det gjør.
+
+**Skriftene ligger hos oss selv.** `css/skrifter.css` og `assets/fonts/`. De lå
+som en `@import` fra fonts.googleapis.com, og da hentet nettleseren til hver
+besøkende skriften fra Google — altså gikk IP-adressen deres til en server i USA
+før de hadde trykt på noe. Bare latin og latin-ext er med; det er alt norsk
+trenger, og de fem andre subsettene ville firedoblet vekten. Alle tre skriftene
+er under SIL Open Font License, som tillater videredistribusjon.
+
+**Firebase lastes først ved kontaktsteget.** Biblioteket ligger på Googles CDN,
+så selve nedlastingen er også en overføring. `sikreFirebase()` i
+`js/bestilling.js` henter det når kunden kommer til steg 4 — etter at han er
+tydelig i gang, og før han skriver navn og telefon, slik at feilmeldingen med
+telefonnummeret fortsatt rekker fram mens skjemaet er tomt. En besøkende som
+bare ser seg om, rører aldri Google.
+
+`selger.html` laster det fortsatt ved sidelasting. Det må den: uten Firebase
+oppe kan ikke `onAuthStateChanged` gjenopprette en innlogging, og selgeren ville
+måtte logge inn på nytt hver gang.
+
+**Ingen informasjonskapsler, og derfor ingen banner.** Det eneste som lagres i
+nettleseren på de åpne sidene er `vindex_tema` — lyst eller mørkt utseende. Det
+er en innstilling brukeren selv slår på, den forlater aldri maskinen hans, og
+den utløser ikke krav om samtykke. Kommer det analyseverktøy inn senere, endrer
+det seg, og da må banneret på plass før verktøyet.
+
+**`personvern.html`** beskriver det systemet faktisk gjør — hvilke felt skjemaet
+lagrer, hvem som ser dem, hvor lenge. Endrer du datamodellen, hører den siden med
+i endringen.
