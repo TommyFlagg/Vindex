@@ -302,22 +302,26 @@ const VINDEX_PRODUKT = [
       "Passer vindu i plast, tre og aluminium",
       "Snart 40 års erfaring med avtagbare vinyl-sprosser",
     ],
+    // Éi utføring: alt blir spesiallaga. Sjølve stilen vel kunden i
+    // teikningsrutenettet under, som er eit rikare val enn tre ord her.
     modeller: [
-      { id: "kryss", navn: "Kryssprosse", pris: 0, sub: "Klassisk rutedeling" },
-      { id: "losholt", navn: "Losholt", pris: 0, sub: "Vannrett deling" },
-      { id: "etter-onske", navn: "Etter ditt ønske", pris: 0, sub: "Vi produserer etter mål og hustype" },
+      { id: "etter-onske", navn: "Sprosser etter mål", pris: 0, sub: "Hver sprosse spesiallages" },
     ],
-    valg: [
-      {
-        id: "innfesting",
-        navn: "Innfesting",
-        alternativ: [
-          { id: "plugg", navn: "Plugg", tillegg: 0, sub: "Løftes av ved rengjøring" },
-          { id: "hengsler", navn: "Hengsler", tillegg: 0, sub: "Svinges ut ved rengjøring" },
-          { id: "vetikke", navn: "Vet ikke", tillegg: 0, sub: "Selger anbefaler" },
-        ],
-      },
-    ],
+    // Innfestinga — plugg eller hengsler — er teken bort. Det er eit val
+    // seljaren tek saman med kunden når vindaugstypen er kjend, og på eit ope
+    // skjema skapte det berre tvil hos ein som ikkje veit kva det er.
+    valg: [],
+    // Kunden vel typar frå teikningane og skriv kor mange vindauge han har av
+    // kvar. Det er den same teiknemotoren som i salsverktøyet — figuren er
+    // laga av tala, så den kan ikkje vise noko anna enn det som blir bestilt.
+    typeval: {
+      navn: "Hvilke sprosser?",
+      hjelp:
+        "Tegningene er sett rett forfra. Velg de typene du kjenner igjen fra husets vinduer, " +
+        "og skriv hvor mange vinduer du har av hver. Er du usikker, velger du «Rådfør med " +
+        "selger» — da tar vi det på befaringen.",
+      teljenamn: "vinduer",
+    },
     minMengde: 1,
     standardMengde: 8,
     lenke: "produkter/sprosser.html",

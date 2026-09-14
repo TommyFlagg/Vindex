@@ -424,6 +424,115 @@ footer.site h4 { color: #fff; margin: 0 0 0.6rem; font-size: 0.95rem; }
   border-radius: 8px; margin-bottom: 0.55rem; background: var(--surface-alt);
 }
 
+/* ---------- sprossetypar i bestillingsskjemaet ----------
+   Teikninga er valet. Talfeltet ligg i same kortet, så «kva slags» og «kor
+   mange» er ei handling og ikkje to. Heile kortet er ein <label>, så eit trykk
+   kvar som helst set markøren i feltet. */
+.typerutenett {
+  display: grid; gap: 0.7rem; margin-top: 0.6rem;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+}
+.typerutenett .typekort {
+  display: grid; justify-items: center; gap: 0.15rem;
+  padding: 0.7rem 0.6rem 0.6rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.typerutenett .typekort:hover { border-color: var(--accent); }
+.typerutenett .typekort:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(184, 134, 47, 0.22); }
+.typerutenett .typekort.har-tal { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.typerutenett .typekort .typefigur { display: block; line-height: 0; }
+.typerutenett .typekort .typefigur svg { width: 100%; height: auto; max-width: 104px; }
+.typerutenett .typefigur-tom {
+  display: grid; place-items: center; width: 74px; height: 62px;
+  border: 1px dashed var(--border); border-radius: 6px;
+  font-size: 1.6rem; font-weight: 700; color: var(--muted);
+}
+.typerutenett .typekort .typenamn { font-weight: 700; font-size: 0.9rem; margin-top: 0.3rem; }
+.typerutenett .typekort .typesub { color: var(--muted); font-size: 0.8rem; text-align: center; }
+.typerutenett .typekort input {
+  width: 100%; margin-top: 0.45rem; text-align: center;
+  font-weight: 700; padding: 0.4rem;
+}
+
+/* ---------- bilete kunden legg ved ---------- */
+.biletvelger { margin-top: 0.7rem; }
+.biletfelt .biletvelger label.btn { display: inline-flex; margin-bottom: 0; }
+.biletvelger input[type=file] {
+  position: absolute; width: 1px; height: 1px; opacity: 0;
+  overflow: hidden; clip: rect(0 0 0 0);
+}
+/* Fokus frå tastatur må sjå ut som fokus, sjølv om feltet sjølv er gøymt. */
+.biletvelger input[type=file]:focus-visible + label { box-shadow: 0 0 0 3px rgba(184, 134, 47, 0.35); }
+.biletliste {
+  display: grid; gap: 0.6rem; margin-top: 0.7rem;
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+}
+.biletliste:empty { display: none; }
+.biletkort {
+  position: relative; margin: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  overflow: hidden; background: var(--surface-alt);
+}
+.biletkort img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+.biletkort figcaption {
+  padding: 0.35rem 0.45rem; font-size: 0.74rem; line-height: 1.25;
+  word-break: break-word; color: var(--muted);
+}
+.biletkort figcaption span { display: block; opacity: 0.75; }
+.biletkort-fjern {
+  position: absolute; top: 4px; right: 4px;
+  width: 26px; height: 26px; border-radius: 50%; border: 0;
+  background: rgba(10, 26, 36, 0.78); color: #fff;
+  font-size: 1.1rem; line-height: 1; cursor: pointer;
+}
+.biletkort-fjern:hover { background: #a02b2b; }
+
+/* ---------- kundebileta, slik seljaren ser dei ---------- */
+.kundebilete {
+  display: grid; gap: 0.7rem; margin: 0.6rem 0 0;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.kundebilete-kort {
+  display: block; text-decoration: none; color: var(--muted);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  overflow: hidden; background: var(--surface-alt);
+}
+.kundebilete-kort img {
+  width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block;
+  background: var(--surface-alt);
+}
+.kundebilete-kort span {
+  display: block; padding: 0.35rem 0.5rem; font-size: 0.78rem; word-break: break-word;
+}
+.kundebilete-kort.manglar { border-color: #c0392b; }
+
+/* ---------- samtykket ----------
+   Det blei oversett kvar gong. Ei avkryssingsrute i brødtekst ser ut som meir
+   brødtekst; her er den ein boks med eigen botn og ei rute ein ser. */
+.samtykkeboks {
+  margin: 1.5rem 0 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border); border-left: 4px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt);
+}
+.samtykkerad {
+  display: flex; gap: 0.85rem; align-items: flex-start;
+  font-weight: 500; cursor: pointer; margin: 0;
+}
+.samtykkerad input[type=checkbox] {
+  width: 22px; height: 22px; flex: 0 0 22px; margin: 0.1rem 0 0;
+  accent-color: var(--accent); cursor: pointer;
+}
+/* Går kunden vidare utan å hake av, skal boksen seie frå med meir enn ei linje
+   grå tekst under. */
+.samtykkeboks.manglar {
+  border-color: #c0392b; border-left-color: #c0392b;
+  background: rgba(192, 57, 43, 0.08);
+}
+
 /* ---------- salgsverktøy: faner, dialog, agenda, ordreskjema ---------- */
 .fanerad { display: flex; gap: 0.3rem; flex-wrap: wrap; }
 .fane {

@@ -825,10 +825,56 @@ function produktRader(lead) {
       const merke = liste.length > 1 ? `Produkt ${i + 1}` : "Produkt";
       return (
         `<dt>${merke}</dt><dd>${vindexT(p.navn)}${p.modellNavn ? " — " + vindexT(p.modellNavn) : ""}</dd>` +
+        // Sprossetypane kunden peika på i skjemaet. Står dei her, veit seljaren
+        // kva han skal sjå etter før han ringjer.
+        (p.typar || [])
+          .map((t) => `<dt>${vindexT(t.navn)}</dt><dd>${Number(t.antall) || 0} stk</dd>`)
+          .join("") +
         `<dt>Omfang</dt><dd>${p.mengde || "–"} ${eining(p.enhet)}${p.farge ? ", farge " + p.farge : ""}</dd>`
       );
     })
     .join("");
+}
+
+/**
+ * Bileta kunden la ved då han bad om tilbod.
+ *
+ * Leadet ber stien, ikkje ei lenke. Ei nedlastingslenke til biletet av nokon
+ * sitt hus er open for alle som har ho, uansett kor tilfeldig ho ser ut —
+ * difor blir ho henta her, med seljaren si innlogging, og lever berre så lenge
+ * fana står open.
+ */
+function kundebiletBoks(l) {
+  const liste = l.vedlegg || [];
+  if (!liste.length) return "";
+  return `<h3 class="mt-2">Bilder fra kunden</h3>
+    <div class="kundebilete" data-kundebilete="${vindexT(l.id)}">
+      ${liste
+        .map(
+          (v) => `<a class="kundebilete-kort" data-sti="${vindexT(v.sti)}" target="_blank" rel="noopener">
+          <img alt="${vindexT(v.namn)}" loading="lazy">
+          <span>${vindexT(v.namn)}</span>
+        </a>`
+        )
+        .join("")}
+    </div>`;
+}
+
+async function hentKundebilete(l) {
+  const kort = [...document.querySelectorAll(`[data-kundebilete="${CSS.escape(l.id)}"] .kundebilete-kort`)];
+  if (!kort.length) return;
+  for (const el of kort) {
+    try {
+      const url = await fb.getDownloadURL(fb.storageRef(fb.storage, el.dataset.sti));
+      el.href = url;
+      el.querySelector("img").src = url;
+    } catch (e) {
+      // Eit bilete som ikkje kjem fram skal seie frå. Ei tom rute ser ut som
+      // om kunden ikkje la ved noko.
+      el.classList.add("manglar");
+      el.querySelector("span").textContent = "Fikk ikke hentet dette bildet";
+    }
+  }
 }
 
 function visDetalj(id) {
@@ -980,6 +1026,8 @@ function visDetalj(id) {
         ${k.kommentar ? `<dt>Kommentar</dt><dd>${vindexT(k.kommentar)}</dd>` : ""}
       </dl>
 
+      ${kundebiletBoks(l)}
+
       <h3>Tilbud</h3>
       ${
         rekna.gyldig
@@ -1087,6 +1135,7 @@ function visDetalj(id) {
     </div>`;
 
   koplaDetalj(l);
+  hentKundebilete(l);          // medvite utan await: resten skal stå med ein gong
 }
 
 function koplaDetalj(l) {

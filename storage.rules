@@ -63,6 +63,32 @@ service firebase.storage {
       allow delete: if erAdmin();
     }
 
+    // Bilete kunden la ved då han bad om tilbod.
+    //
+    // Her er den som lastar opp IKKJE innlogga — skjemaet er ope, det er heile
+    // poenget. Difor er dette den einaste staden i reglane der ein framand kan
+    // skrive, og den er snevra inn så langt det går:
+    //
+    //   · berre nye filer (`resource == null`), så ingen kan byte ut eit bilete
+    //     som alt ligg der, og ingen kan overskrive noko dei ikkje la sjølv
+    //   · berre bilete, og under 6 MB — vår eigen kode krympar til ~300 kB, så
+    //     taket er ein grense mot misbruk, ikkje mot vanleg bruk
+    //   · ingen lesing. Nettlesaren som lasta opp får aldri ei lenke tilbake;
+    //     stien står på leadet, og seljaren hentar biletet med si innlogging
+    //   · mappenamnet er tilfeldig, så ein annan kunde sine bilete kan ikkje
+    //     gjettast fram
+    //
+    // Merk: reglar kan ikkje hindre at nokon lastar opp mange gonger. Skru på
+    // Firebase App Check på Storage — det er det som stengjer ute skript som
+    // ikkje kjem frå nettsida vår.
+    match /kundebilete/{mappe}/{fil} {
+      allow read: if erSeljar();
+      allow create: if resource == null
+                    && request.resource.size < 6 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+      allow update, delete: if erAdmin();
+    }
+
     // Alt anna er stengt. Nye mappar må leggast inn her med vilje.
     match /{alle=**} {
       allow read, write: if false;

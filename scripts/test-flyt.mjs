@@ -144,7 +144,12 @@ console.log("BESTILLINGSSKJEMAET");
   sjekk("to merkelappar", (await p.$$(".valgte-merkelapp")).length === 2);
   await klikk("#neste"); await p.waitForTimeout(400);
   sjekk("to blokker på steg 2", (await p.$$(".produktblokk")).length === 2);
-  sjekk("figurar teikna", (await p.$$(".modellfigur")).length >= 5);
+  sjekk("strekfigurar på utføringane", (await p.$$(".modellfigur")).length >= 2);
+  // Sprossene blir valde frå teikningar: ti typar pluss «Rådfør med selger».
+  sjekk("elleve sprossekort", (await p.$$('.produktblokk[data-produkt="sprosser"] .typekort')).length === 11);
+  sjekk("ti sprosseteikningar", (await p.$$('.produktblokk[data-produkt="sprosser"] svg.sprossefigur')).length === 10);
+  sjekk("rådfør-kortet finst", await p.$('input[name="type_sprosser_raad"]') !== null);
+  sjekk("ingen innfesting i skjemaet", (await p.$$('[data-valg="innfesting"]')).length === 0);
   // Ingenting på steg 2 er påkravd. Den som ikkje veit kva han vil ha, skal
   // kome fram til seljaren — ikkje møte ei sperre.
   await klikk("#neste"); await p.waitForTimeout(400);
@@ -160,6 +165,70 @@ console.log("BESTILLINGSSKJEMAET");
   sjekk("lead lagra", !!lagra);
   sjekk("begge produkta med", (lagra.produkter || []).length === 2);
   sjekk("distrikt sett", lagra.distriktId === "more-romsdal");
+  await p.close();
+}
+
+console.log("SPROSSER OG BILETE");
+{
+  const p = await side("/bestilling.html?produkt=sprosser");
+  const klikk = (s) => p.evaluate((x) => document.querySelector(x).click(), s);
+  sjekk("ingen antall-felt ved sida av rutenettet", await p.$("#mengde_sprosser") === null);
+  sjekk("teksten under seier at ingenting er valt",
+    (await p.$eval('[data-typesum="sprosser"]', (e) => e.textContent)).includes("Ingenting valgt"));
+
+  await p.fill('input[name="type_sprosser_1"]', "3");
+  await p.fill('input[name="type_sprosser_K"]', "2");
+  await p.waitForTimeout(250);
+  const sum = await p.$eval('[data-typesum="sprosser"]', (e) => e.textContent);
+  sjekk("summerer på tvers av typar", /5 vinduer/.test(sum) && /2 typer/.test(sum));
+  sjekk("valt kort er merkt", (await p.$$(".typekort.har-tal")).length === 2);
+
+  // Eit bilete av staden. Filen blir krympa i nettlesaren før den blir send.
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAGElEQVR4nGP8//8/AzbAxIAD" +
+    "jEqMSgAAAP//AwB0hQNhV0d5HgAAAABJRU5ErkJggg==", "base64");
+  await p.setInputFiles("#biletvelger", { name: "terrasse.png", mimeType: "image/png", buffer: png });
+  await p.waitForTimeout(600);
+  sjekk("biletet ligg i lista", (await p.$$("#kundebilete .biletkort")).length === 1);
+
+  await klikk("#neste"); await p.waitForTimeout(300);
+  await klikk("#neste"); await p.waitForTimeout(500);
+  for (const [k, v] of [["navn","Test Testesen"],["telefon","90000000"],["epost","t@t.no"],
+                        ["adresse","Veg 1"],["postnr","6440"],["poststed","Elnesvågen"]]) await p.fill("#"+k, v);
+
+  // Samtykket blir oversett. Går ein vidare utan det, skal heile boksen seie frå.
+  await klikk("#send"); await p.waitForTimeout(400);
+  sjekk("samtykkeboksen lyser raudt", await p.$("#samtykkeboks.manglar") !== null);
+  await klikk("#samtykke"); await p.waitForTimeout(150);
+  sjekk("raudfargen slepp når det blir haka av", await p.$("#samtykkeboks.manglar") === null);
+  await klikk("#send"); await p.waitForTimeout(1500);
+
+  const lagra = await p.evaluate(() => JSON.parse(localStorage.getItem("vindex_demo_leads")||"[]")[0]);
+  sjekk("typane følgjer leadet", lagra && lagra.produkt.typar.length === 2);
+  sjekk("rett tal på type 1", lagra && lagra.produkt.typar.some((t) => t.nr === "1" && t.antall === 3));
+  sjekk("kryssprossa er med", lagra && lagra.produkt.typar.some((t) => /Kryss/.test(t.navn) && t.antall === 2));
+  sjekk("mengda er summen", lagra && lagra.produkt.mengde === 5);
+  sjekk("biletet er med på leadet", lagra && (lagra.vedlegg || []).length === 1);
+  await p.close();
+}
+
+{
+  // «Rådfør med selger» åleine, utan eit einaste tal elles: terskelen skal
+  // vere låg nok til at ein som ikkje veit noko kjem heilt fram.
+  const p = await side("/bestilling.html?produkt=sprosser");
+  const klikk = (s) => p.evaluate((x) => document.querySelector(x).click(), s);
+  await p.fill('input[name="type_sprosser_raad"]', "4");
+  await klikk("#neste"); await p.waitForTimeout(300);
+  sjekk("kjem vidare med berre «rådfør»", (await p.$eval(".step-dot.current", (e) => e.textContent)) === "Montering");
+  await p.close();
+}
+
+{
+  // Heilt tomt skjema skal òg sleppe gjennom steg 2.
+  const p = await side("/bestilling.html?produkt=sprosser");
+  await p.evaluate(() => document.querySelector("#neste").click());
+  await p.waitForTimeout(300);
+  sjekk("tomt rutenett stoppar ingen", (await p.$eval(".step-dot.current", (e) => e.textContent)) === "Montering");
   await p.close();
 }
 

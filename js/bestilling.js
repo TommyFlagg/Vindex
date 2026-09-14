@@ -111,6 +111,9 @@ function leggTilProdukt(id) {
   state.perProdukt[id] = {
     modellId: p.modeller.length === 1 ? p.modeller[0].id : "",
     ekstra,
+    // { typeNr: tal } for produkt som blir valde frå teikningar. Berre dei
+    // kunden faktisk har skrive eit tal på blir ståande.
+    typar: {},
     mengde: p.standardMengde,
   };
   etterProduktendring();
@@ -193,6 +196,69 @@ function vindexValgbilete(alt) {
     width="480" height="320" onerror="vindexBiletFeila(this)">`;
 }
 
+/**
+ * Rutenettet med sprosseteikningar.
+ *
+ * Teikningane er dei same som seljaren ser i verktøyet, laga av den same
+ * motoren: figuren er bygd av tala, så den kan ikkje vise noko anna enn det
+ * som blir bestilt. Ei sprosse er vanskeleg å snakke om og lett å teikne —
+ * «to ruter over, midtstolpe under» seier lite, streken seier alt.
+ *
+ * Kunden kan velje fleire typar og skrive kor mange vindauge han har av kvar.
+ * Ingen av dei er påkravde: den som ikkje kjenner att noko, vel «Rådfør med
+ * selger» eller lar heile rutenettet stå tomt og sender inn likevel.
+ */
+function byggTypeval(p, v) {
+  if (!p.typeval || typeof VINDEX_SPROSSETYPAR === "undefined") return "";
+  const tal = (nr) => (v.typar || {})[String(nr)] || "";
+  const kort = (nr, figur, tittel, sub) => `<label class="typekort${tal(nr) ? " har-tal" : ""}">
+      <span class="typefigur">${figur}</span>
+      <span class="typenamn">${tittel}</span>
+      <span class="typesub">${sub}</span>
+      <input type="number" min="0" max="999" step="1" inputmode="numeric" placeholder="0"
+        name="type_${p.id}_${nr}" value="${tal(nr)}"
+        aria-label="Antall ${p.typeval.teljenamn} med ${tittel}">
+    </label>`;
+
+  const teikna = VINDEX_SPROSSETYPAR.map((t) =>
+    kort(
+      t.nr,
+      vindexSprossegrafikk({ type_nr: t.nr }, { utanMaal: true, visMaal: false, bredde: 104, hogd: 88 }),
+      vindexTypenamn(t),
+      // Kryssprossa heiter «Kryss» begge stader. Same ordet to gonger under
+      // kvarandre les som ein feil.
+      t.kort === vindexTypenamn(t) ? "" : t.kort
+    )
+  ).join("");
+
+  // Står sist, med vilje: den som kjenner att ein av teikningane skal sjå dei
+  // først. Den som ikkje gjer det, finn utvegen i enden i staden for å bli
+  // møtt av den.
+  const raadfoer = kort(
+    "raad",
+    `<span class="typefigur-tom" aria-hidden="true">?</span>`,
+    "Rådfør med selger",
+    "Vet ikke hvilken stil"
+  );
+
+  return `<div class="field">
+      <span class="field-label">${p.typeval.navn}</span>
+      <p class="hint">${p.typeval.hjelp}</p>
+      <div class="typerutenett">${teikna}${raadfoer}</div>
+      <p class="hint" data-typesum="${p.id}"></p>
+    </div>`;
+}
+
+/** «4 vinduer fordelt på 2 typer», eller ei oppmoding når ingenting er valt. */
+function typesumTekst(p, v) {
+  const rader = Object.entries(v.typar || {}).filter(([, n]) => n > 0);
+  if (!rader.length)
+    return "Ingenting valgt ennå — det går helt fint. Da tar selgeren det på befaringen.";
+  const sum = rader.reduce((n, [, x]) => n + x, 0);
+  return `${sum} ${p.typeval.teljenamn} fordelt på ${rader.length} ` +
+    (rader.length === 1 ? "type" : "typer") + ".";
+}
+
 function byggSteg2() {
   const boks = $("#steg2Blokker");
   if (!boks) return;
@@ -247,20 +313,36 @@ function byggSteg2() {
           ? `Omtrentlig antall holder. Minimum ${p.minMengde}.`
           : `Omtrentlig mål holder i denne omgang — selgeren måler nøyaktig på befaring. Minimum ${p.minMengde}.`;
 
-      return `<div class="produktblokk" data-produkt="${p.id}">
-        ${valde.length > 1 ? `<h3>${p.navn}</h3>` : ""}
-        ${modellar ? `<div class="choices mb-2">${modellar}</div>` : ""}
-        ${tilvalg}
-        <div class="field">
+      // Talet står per type i rutenettet. Eit eige «antall»-felt ved sida av
+      // ville vore det same talet ein gong til, og to felt som kan seie kvar
+      // sitt er verre enn eitt.
+      const mengdefelt = p.typeval
+        ? ""
+        : `<div class="field">
           <label for="mengde_${p.id}">${mengdeTekst(p)}</label>
           <input type="number" id="mengde_${p.id}" name="mengde_${p.id}"
             min="${p.minMengde}" step="0.5" inputmode="decimal" value="${v.mengde ?? p.standardMengde}">
           <p class="hint">${hjelp}</p>
           <p class="field-error hidden" data-mengdefeil="${p.id}"></p>
-        </div>
+        </div>`;
+
+      return `<div class="produktblokk" data-produkt="${p.id}">
+        ${valde.length > 1 ? `<h3>${p.navn}</h3>` : ""}
+        ${modellar ? `<div class="choices mb-2">${modellar}</div>` : ""}
+        ${tilvalg}
+        ${byggTypeval(p, v)}
+        ${mengdefelt}
       </div>`;
     })
     .join("");
+
+  // Teksten under rutenettet blir skriven her ved første teikning òg, ikkje
+  // berre når nokon skriv eit tal — elles stod den tom heilt til ein tok på
+  // eit felt, og det er akkurat når ein treng ho mest.
+  valde.filter((p) => p.typeval).forEach((p) => {
+    const el = boks.querySelector(`[data-typesum="${p.id}"]`);
+    if (el) el.textContent = typesumTekst(p, forProdukt(p.id));
+  });
 }
 
 skjema.addEventListener("change", (e) => {
@@ -282,9 +364,45 @@ skjema.addEventListener("change", (e) => {
 
 skjema.addEventListener("input", (e) => {
   const n = e.target.name || "";
-  if (!n.startsWith("mengde_")) return;
-  const id = n.slice(7);
-  if (state.perProdukt[id]) state.perProdukt[id].mengde = parseFloat(e.target.value);
+  if (n.startsWith("mengde_")) {
+    const id = n.slice(7);
+    if (state.perProdukt[id]) state.perProdukt[id].mengde = parseFloat(e.target.value);
+    return;
+  }
+  if (!n.startsWith("type_")) return;
+  // type_<produktId>_<typeNr>. Produkt-id-ane har bindestrek i seg, så skiljet
+  // blir funne ved å prøve kvart valt produkt — same grepet som for tilvala.
+  const rest = n.slice(5);
+  const pid = state.produktIdar.find((x) => rest.startsWith(x + "_"));
+  const p = vindexProdukt(pid);
+  const v = state.perProdukt[pid];
+  if (!p || !v) return;
+  const nr = rest.slice(pid.length + 1);
+  const tal = Math.max(0, Math.min(999, parseInt(e.target.value, 10) || 0));
+  if (tal) v.typar[nr] = tal;
+  else delete v.typar[nr];
+  // Mengda er summen. Eit produkt som blir valt frå teikningar har ikkje eit
+  // eige antall-felt, og då må summen vere talet leadet ber.
+  v.mengde = Object.values(v.typar).reduce((n2, x) => n2 + x, 0);
+  e.target.closest(".typekort")?.classList.toggle("har-tal", tal > 0);
+  // Berre teksten under blir oppdatert. Å teikne heile blokka på nytt ville
+  // bytta ut feltet under fingeren midt i innskrivinga.
+  const sum = document.querySelector(`[data-typesum="${pid}"]`);
+  if (sum) sum.textContent = typesumTekst(p, v);
+});
+
+// Bileta kunden legg ved. Dei blir liggande i nettlesaren til skjemaet blir
+// sendt — den som ombestemmer seg og lukkar fana, skal ikkje ha lagt att foto
+// av huset sitt hos oss.
+const bilete = typeof vindexKundebilete === "function" ? vindexKundebilete("#kundebilete") : null;
+
+// Raudfargen på samtykkeboksen skal sleppe med ein gong kunden hakar av —
+// ikkje stå til han prøver å sende ein gong til.
+$("#samtykke")?.addEventListener("change", (e) => {
+  if (e.target.checked) {
+    $("#samtykkeboks")?.classList.remove("manglar");
+    settFeltfeil("samtykke", false);
+  }
 });
 
 // Postnummer -> distrikt, vist med ein gong kunden skriv det inn.
@@ -343,6 +461,9 @@ function stegErGyldig() {
     valdeProdukt().forEach((p) => {
       const v = forProdukt(p.id);
       const feil = document.querySelector(`[data-mengdefeil="${p.id}"]`);
+      // Blir produktet valt frå teikningar, er det heilt greitt å sende inn
+      // utan eit einaste tal. Terskelen for å be om tilbod skal vere låg.
+      if (p.typeval) return;
       if (!v.mengde || v.mengde < p.minMengde) {
         if (feil) {
           feil.textContent = `Oppgi minst ${p.minMengde}.`;
@@ -382,6 +503,17 @@ document.addEventListener("click", (e) => {
 // ---------------------------------------------------------------------------
 // Oppsummering og prisestimat
 // ---------------------------------------------------------------------------
+/** Dei valde typane som «Type 1 × 3»-linjer, i den rekkjefølgja dei står i. */
+function typeLinjer(p, v) {
+  if (!p.typeval || typeof VINDEX_SPROSSETYPAR === "undefined") return [];
+  const namn = (nr) =>
+    nr === "raad" ? "Rådfør med selger" : vindexTypenamn(vindexSprossetype(nr)) || "Type " + nr;
+  return VINDEX_SPROSSETYPAR.map((t) => String(t.nr))
+    .concat("raad")
+    .filter((nr) => (v.typar || {})[nr] > 0)
+    .map((nr) => ({ nr, navn: namn(nr), antall: v.typar[nr] }));
+}
+
 /** Kva eitt produkt er valt som, samla på ein stad. */
 function produktLinjer(p) {
   const v = forProdukt(p.id);
@@ -393,7 +525,7 @@ function produktLinjer(p) {
       return alt && alt.id ? [val.navn, alt.navn] : null;
     })
     .filter(Boolean);
-  return { modell: m, enhet, tilvalg, mengde: v.mengde };
+  return { modell: m, enhet, tilvalg, mengde: v.mengde, typar: typeLinjer(p, v) };
 }
 
 function teiknOppsummering() {
@@ -428,7 +560,8 @@ function teiknOppsummering() {
         overskrift +
         (d.modell ? rad("Modell", d.modell.navn) : "") +
         d.tilvalg.map(([n, v]) => rad(n, v)).join("") +
-        rad("Omfang", `${d.mengde} ${d.enhet}`)
+        d.typar.map((t) => rad(t.navn, `${t.antall} ${p.typeval.teljenamn}`)).join("") +
+        (d.mengde > 0 ? rad("Omfang", `${d.mengde} ${d.enhet}`) : "")
       );
     })
     .join("");
@@ -486,7 +619,11 @@ function kontaktErGyldig() {
   ok = settFeltfeil("telefon", !(telefonSiffer.length === 8 || (telefonSiffer.length >= 10 && telefonSiffer.length <= 12))) && ok;
   ok = settFeltfeil("epost", !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(epost)) && ok;
   ok = settFeltfeil("postnr", !vindexFinnDistrikt(postnr)) && ok;
-  ok = settFeltfeil("samtykke", !$("#samtykke").checked) && ok;
+  const utanSamtykke = !$("#samtykke").checked;
+  ok = settFeltfeil("samtykke", utanSamtykke) && ok;
+  // Heile boksen skifter farge, ikkje berre feilteksten under. Ei grå linje
+  // tekst blir oversett like lett som ruta sjølv.
+  $("#samtykkeboks")?.classList.toggle("manglar", utanSamtykke);
   return ok;
 }
 
@@ -506,7 +643,15 @@ skjema.addEventListener("submit", async (e) => {
   knapp.textContent = "Sender …";
 
   try {
-    const lead = byggLead();
+    // Bileta først: leadet ber stiane til dei, og eit lead som peikar på filer
+    // som ikkje finst er verre enn eit lead utan bilete. Går ei opplasting i
+    // stå, held vi fram med resten — kunden har skrive inn alt, og skal ikkje
+    // miste innsendinga fordi eit foto ikkje kom fram.
+    if (bilete && bilete.tal()) knapp.textContent = "Sender bilder …";
+    const vedlegg = bilete ? await bilete.lastOpp(VINDEX_DEMOMODUS ? null : await sikreFirebase()) : [];
+    knapp.textContent = "Sender …";
+
+    const lead = byggLead(vedlegg);
     const resultat = VINDEX_DEMOMODUS ? await lagreDemo(lead) : await lagreFirestore(lead);
     visKvittering(lead, resultat);
   } catch (feil) {
@@ -538,10 +683,13 @@ function produktNyttelast(p) {
     mengde: v.mengde,
     enhet: p.enhet,
     tilvalg,
+    // Tom liste for alle andre produkt. Feltet skal finnast uansett, så
+    // verktøyet slepp å sjekke om det er der før det les.
+    typar: typeLinjer(p, v),
   };
 }
 
-function byggLead() {
+function byggLead(vedlegg = []) {
   const valde = valdeProdukt();
   const p = valde[0];
   const est = vindexPrisEstimat({
@@ -562,6 +710,10 @@ function byggLead() {
     // hugse å slå dei saman.
     produkt: produktNyttelast(p),
     produkter: valde.map(produktNyttelast),
+    // Stiane til bileta, ikkje lenker til dei. Seljaren er innlogga og hentar
+    // dei sjølv; ei open lenke til biletet av nokon sitt hus er open uansett
+    // kor tilfeldig den ser ut.
+    vedlegg,
     montering: state.montering,
     tidspunkt: state.tidspunkt,
     estimat: est
