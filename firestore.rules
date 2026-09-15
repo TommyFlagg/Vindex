@@ -120,7 +120,17 @@ service cloud.firestore {
                  && exists(/databases/$(database)/documents/settings/ruting)
                  && d.distriktId in rutingdata()
                  && rutingdata()[d.distriktId] is list
-                 && d.seljarId in rutingdata()[d.distriktId]);
+                 && d.seljarId in rutingdata()[d.distriktId]
+                 // Ein Firebase-uid er 28 teikn. Ein seljarrad som er oppretta
+                 // i verktøyet og ikkje enno flytta til ein uid, har ein
+                 // auto-ID på 20 — og ein slik rad kan ingen logge inn som.
+                 // Blir eit lead tildelt den, blir det lagra og deretter
+                 // usynleg: seljarverktøyet hentar på «seljarId == min uid»,
+                 // og den uid-en finst ikkje. Feilen skjedde i drift, med
+                 // Innlandet, og reglane her er den siste staden ho kan
+                 // stoppast uansett kva klienten finn på.
+                 && d.seljarId is string
+                 && d.seljarId.size() == 28);
     }
 
     // Eit svar på ein bistandsførespurnad kjem frå daglig leder. Utan denne

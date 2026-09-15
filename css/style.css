@@ -312,6 +312,9 @@ table.data tr.overdue td:first-child { box-shadow: inset 3px 0 0 var(--bad); }
 .tag-vunnet { background: var(--good-soft); color: #12583f; }
 .tag-tapt { background: var(--bad-soft); color: #7d241e; }
 .tag-muted { background: var(--surface-alt); color: var(--muted); }
+/* Ein person uten Firebase-bruker. Same farge som «tapt», fordi det er same
+   slag beskjed: noko står oppført som om det virkar, og gjer det ikkje. */
+.tag-bad { background: var(--bad-soft); color: #7d241e; }
 
 /* detaljpanel (slår ut under valgt rad / eige kort) */
 .detail { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.35rem; margin-top: 1.2rem; box-shadow: var(--shadow-sm); }

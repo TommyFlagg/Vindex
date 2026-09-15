@@ -258,21 +258,42 @@ export async function lastData() {
   app.anmeldingar = (await fb.getDocs(fb.reviewsCol())).docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
+// Namn til demoapparatet.
+//
+// js/team.js hadde ein gong dei verkelege namna, og fila er open — ei komplett
+// bemanningsliste låg dermed nedlastbar på nettet utan at nokon hadde meint
+// det. No står det berre stad, type og distrikt der, som er alt kartet på
+// framsida treng.
+//
+// Demoen må framleis ha nokon å vise fram, så den låner namn herifrå. Dei er
+// oppdikta, og med vilje tydeleg oppdikta: ingen skal kunne tru at dette er
+// apparatet. Det verkelege ligg i Firestore under `sellers/`.
+const VINDEX_DEMONAMN = [
+  "Ola Kvalheim", "Marit Sørbø", "Trygve Aakre", "Ingunn Fjelltun", "Halvor Beite",
+  "Aslaug Rimstad", "Sverre Lyngås", "Gudrun Havik", "Brynjar Selvik", "Torhild Aune",
+  "Eivind Rasdal", "Solfrid Berge", "Kåre Vesterlid", "Nora Hjelseth", "Vidar Stokkeland",
+  "Åshild Brekkhus", "Leif Tørresdal", "Randi Kolstø", "Sigurd Eikrem", "Bergljot Sandvik",
+  "Njål Fosseide", "Turid Myklebost", "Olav Rennesund", "Kjersti Vangsnes", "Arnfinn Lødøen",
+];
+const vindexDemonamn = (i) => VINDEX_DEMONAMN[i % VINDEX_DEMONAMN.length];
+
 export function startDemo(rolle) {
   // Fann demoen ingen ekte omsetningstal, får apparatet oppdikta tal her — før
   // seljarlista blir bygd, sidan kvar seljar les sitt eige tal med det same.
-  fyllDemoteamtal(VINDEX_TEAM);
+  fyllDemoteamtal(VINDEX_TEAM.map((t, i) => ({ navn: vindexDemonamn(i) })));
 
-  // Demoen brukar det verkelege apparatet frå js/team.js, så namn, stader og
-  // distrikt er dei same som i drift. Innlogga brukar overtek den første
+  // Stader og distrikt er dei verkelege, så kartet og fordelinga oppfører seg
+  // som i drift. Namna er oppdikta. Innlogga brukar overtek den første
   // seljaren sin plass.
   app.seljarar = VINDEX_TEAM.map((t, i) => ({
     id: "demo-" + (i + 1),
-    navn: t.navn,
+    navn: vindexDemonamn(i),
     sted: t.sted,
     type: t.type,
-    y2024: vindexTeamtal(t.navn),
-    epost: t.navn.toLowerCase().replace(/[^a-zæøå]+/g, ".").replace(/^\.|\.$/g, "") + "@vindex.no",
+    y2024: vindexTeamtal(vindexDemonamn(i)),
+    epost:
+      vindexDemonamn(i).toLowerCase().replace(/[^a-zæøå]+/g, ".").replace(/^\.|\.$/g, "") +
+      "@vindex.example",
     telefon: "900 00 " + String(i + 10).padStart(3, "0"),
     rolle: "selger",
     distrikt: t.distrikt,
@@ -606,7 +627,7 @@ export function demoOrdrar() {
       status: "til_plukk",
       opprettet: new Date(Date.now() - 4 * 86400000).toISOString(),
       seljarId: "demo-3",
-      seljarNavn: (VINDEX_TEAM[2] || {}).navn || "Selger",
+      seljarNavn: vindexDemonamn(2),
       kunde: { navn: "Silje Berg", telefon: "91000068", epost: "silje@eksempel.no", adresse: "Eksempelvegen 8", postnr: "4020", poststed: "Stavanger" },
       felt: {
         std_levegg_18m: 4,
@@ -621,7 +642,7 @@ export function demoOrdrar() {
         pris_total: 41900,
       },
       rader: [],
-      bekrefta: { av: (VINDEX_TEAM[2] || {}).navn || "Selger", tid: new Date(Date.now() - 4 * 86400000).toISOString(), kundeOppgittMal: "ja" },
+      bekrefta: { av: vindexDemonamn(2), tid: new Date(Date.now() - 4 * 86400000).toISOString(), kundeOppgittMal: "ja" },
     },
     // Spesialproduserte ordrar, så produksjonskøen viser eit reelt tal.
     {
@@ -631,7 +652,7 @@ export function demoOrdrar() {
       status: "i_produksjon",
       opprettet: new Date(Date.now() - 2 * 86400000).toISOString(),
       seljarId: "demo-2",
-      seljarNavn: (VINDEX_TEAM[1] || {}).navn || "Selger",
+      seljarNavn: vindexDemonamn(1),
       kunde: { navn: "Kjell Aune", telefon: "92000001", epost: "kjell@eksempel.no", adresse: "Eksempelvegen 12", postnr: "7010", poststed: "Trondheim" },
       felt: {
         modell1: "VBC-A19",
@@ -647,7 +668,7 @@ export function demoOrdrar() {
       },
       produktId: "rekkverk",
       rader: [],
-      bekrefta: { av: (VINDEX_TEAM[1] || {}).navn || "Selger", tid: new Date(Date.now() - 2 * 86400000).toISOString(), kundeOppgittMal: "nei" },
+      bekrefta: { av: vindexDemonamn(1), tid: new Date(Date.now() - 2 * 86400000).toISOString(), kundeOppgittMal: "nei" },
     },
     {
       id: "demo-ordre-3",
@@ -656,14 +677,14 @@ export function demoOrdrar() {
       status: "i_produksjon",
       opprettet: new Date(Date.now() - 86400000).toISOString(),
       seljarId: "demo-3",
-      seljarNavn: (VINDEX_TEAM[2] || {}).navn || "Selger",
+      seljarNavn: vindexDemonamn(2),
       kunde: { navn: "Trond Sæther", telefon: "92000002", epost: "trond@eksempel.no", adresse: "Eksempelvegen 4", postnr: "5063", poststed: "Bergen" },
       felt: { antall_sprosser: 14, pris_sprosser: 16800 },
       rader: [
         { lnr: "1", antall: "8", fals_b: "1180", fals_h: "1080", ruter_b: "3", ruter_h: "2", sprosseverk: "22", omramming: "29", buer: "", hengsler: "V", type: "V", flukting_nr: "", flukting_verdi: "" },
         { lnr: "2", antall: "6", fals_b: "890", fals_h: "1180", ruter_b: "2", ruter_h: "3", sprosseverk: "22", omramming: "29", buer: "", hengsler: "H", type: "V", flukting_nr: "", flukting_verdi: "" },
       ],
-      bekrefta: { av: (VINDEX_TEAM[2] || {}).navn || "Selger", tid: new Date(Date.now() - 86400000).toISOString(), kundeOppgittMal: "ja" },
+      bekrefta: { av: vindexDemonamn(2), tid: new Date(Date.now() - 86400000).toISOString(), kundeOppgittMal: "ja" },
     },
   ]);
 }

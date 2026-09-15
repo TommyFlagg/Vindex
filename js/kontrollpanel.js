@@ -32,14 +32,46 @@ function vindexOpneSaker(leads) {
 }
 
 /**
+ * Kan denne personen faktisk logge inn?
+ *
+ * Eit seljardokument har to moglege ID-ar. Blir personen oppretta i verktøyet,
+ * får raden ein auto-generert Firestore-ID på 20 teikn. Først når nokon lagar
+ * brukaren i Firebase Authentication og flyttar raden til den uid-en, kan
+ * personen logge inn — og uid-ar frå Firebase er 28 teikn.
+ *
+ * Skiljet er ikkje kosmetikk. Seljarverktøyet hentar leads med
+ * «seljarId == min uid». Eit lead som blir tildelt ein 20-teikns rad blir
+ * lagra, står i basen, og blir aldri vist til nokon. Difor er lengda den
+ * einaste kontrollen vi kan gjere frå klienten, og den gjer vi.
+ */
+const VINDEX_UID_LENGD = 28;
+function vindexHarInnlogging(seljar) {
+  if (!seljar) return false;
+  // Eit uttrykkeleg felt vinn over lengda, så framtidige uid-format ikkje
+  // låser nokon ute. Det blir sett når raden blir laga under ein uid.
+  if (seljar.harInnlogging === true) return true;
+  if (seljar.harInnlogging === false) return false;
+  return typeof seljar.id === "string" && seljar.id.length >= VINDEX_UID_LENGD;
+}
+
+/**
  * Utildelte saker.
  *
  * Dette er den alvorlege lista. Eit lead utan seljar er ikkje forseinka, det
  * er herrelaust: ingen ser det i si eiga arbeidsliste, så det blir ikkje purra
  * på av seg sjølv. Arkiverte saker tel ikkje med — dei er avgjorde.
+ *
+ * Det finst ei verre utgåve enn «ingen seljar», og den er «ein seljar som ikkje
+ * finst». Får eit lead ein seljarId som ikkje svarar til nokon i apparatet —
+ * fordi personen er sletta, eller fordi raden aldri fekk ei innlogging — ser
+ * det tildelt ut i basen samtidig som ingen kan opne det. Slike saker høyrer
+ * heime her, saman med dei heilt utildelte.
  */
-function vindexUtildelte(leads) {
-  return vindexOpneSaker(leads).filter((l) => !l.seljarId);
+function vindexUtildelte(leads, seljarar) {
+  const kjende = new Set((seljarar || []).map((s) => s.id));
+  return vindexOpneSaker(leads).filter(
+    (l) => !l.seljarId || (seljarar && !kjende.has(l.seljarId))
+  );
 }
 
 /**
@@ -49,9 +81,10 @@ function vindexUtildelte(leads) {
  * gonger. Er ei sak både utildelt og uopna, høyrer den heime i den første og
  * strengaste lista.
  */
-function vindexUbehandla(leads) {
+function vindexUbehandla(leads, seljarar) {
+  const herrelause = new Set(vindexUtildelte(leads, seljarar).map((l) => l.id));
   return vindexOpneSaker(leads).filter(
-    (l) => l.seljarId && VINDEX_UBEHANDLA_STATUS.includes(l.status || "ny")
+    (l) => !herrelause.has(l.id) && VINDEX_UBEHANDLA_STATUS.includes(l.status || "ny")
   );
 }
 
@@ -72,9 +105,9 @@ function vindexOverFrist(lead, naa = Date.now()) {
  * Tala er med vilje ikkje-overlappande, slik at dei kan lesast som ei
  * arbeidsliste ovanfrå og ned utan at same sak dukkar opp to stader.
  */
-function vindexKontrollstatus(leads, naa = Date.now()) {
-  const utildelte = vindexUtildelte(leads);
-  const ubehandla = vindexUbehandla(leads);
+function vindexKontrollstatus(leads, naa = Date.now(), seljarar) {
+  const utildelte = vindexUtildelte(leads, seljarar);
+  const ubehandla = vindexUbehandla(leads, seljarar);
   const bistand = typeof vindexOpneBistand === "function" ? vindexOpneBistand(leads) : [];
   const aktive = vindexOpneSaker(leads);
 
@@ -151,7 +184,11 @@ function vindexSokLeads(leads, tekst, seljarar) {
 function vindexSaksstatus(lead, seljarar) {
   const seljar = (seljarar || []).find((s) => s.id === lead.seljarId);
   const status = typeof vindexStatusNavn === "function" ? vindexStatusNavn(lead.status) : lead.status;
-  const hos = seljar ? seljar.navn : lead.seljarId ? "ukjent selger" : "ingen selger";
+  const hos = seljar
+    ? seljar.navn + (vindexHarInnlogging(seljar) ? "" : " (uten innlogging)")
+    : lead.seljarId
+    ? "tildelt en selger som ikke finnes"
+    : "ingen selger";
   const arkiv = lead.arkivert ? " · arkivert" : "";
   return `${status} · ${hos}${arkiv}`;
 }

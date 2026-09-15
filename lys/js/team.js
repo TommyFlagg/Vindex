@@ -1,57 +1,59 @@
 // ============================================================================
-// VINDEX — SELJARAR, FORHANDLARAR OG HISTORISK ORDREINNGANG
+// VINDEX — KVAR VI HAR FOLK
 // ----------------------------------------------------------------------------
-// Apparatet slik det såg ut i 2024. Lista blir brukt til to ting:
+// Denne fila blir lasta av dei opne sidene, og alt som står her kan lastast ned
+// av kven som helst. Difor står det ingen namn her.
 //
-//   1. Utgangspunkt når seljarane skal opprettast i Firestore (sjå README).
-//   2. Demodata i verktøyet, så det viser verkelege namn og distrikt i staden
-//      for oppdikta.
+// Kartet på framsida treng berre å svare på eitt spørsmål: har vi nokon i dette
+// fylket, eller er det ledig? Til det held stad, type og distrikt. Namna vart
+// aldri viste — vindexFylkeinfo har alltid returnert stader, ikkje personar —
+// så dei låg her utan å gjere ein jobb, og ei komplett, maskinlesbar
+// bemanningsliste i eit ope repo er noko ein gir bort utan å ha meint det.
 //
-// Fila blir lasta av dei opne sidene: framsida brukar lista til dekningskartet
-// — kven vi har kvar, og kva fylke som står ledige. Difor står det berre namn,
-// stad og distrikt her. Omsetninga per person låg i same lista og var dermed
-// nedlastbar for kven som helst. Ho ligg no i js/apparattal.js og blir henta
-// frå Firestore etter innlogging.
+// Det verkelege apparatet — namn, telefon, e-post, distrikt og omsetning —
+// ligg i Firestore under `sellers/`, bak innlogging, og blir styrt frå
+// «Salgsapparatet» på hovudkontorsida. Det er den lista som gjeld. Denne er
+// berre eit dekningskart.
 //
-//  ⚠️  Distrikta under er utleidde frå staden kvar person sit, ikkje frå eit
-//     oppgitt ansvarsområde. Dei må stadfestast før dei blir brukte til
-//     automatisk fordeling av leads.
-//  ⚠️  «Herøy» finst både i Møre og Romsdal og i Nordland. Vi har lagt Rune
-//     Mathisen i Møre. Rett opp om det er feil.
-//  ⚠️  Løvdals Trevare manglar stad i rapporten og har difor ikkje distrikt.
+// Omsetninga per person låg ein gong i same fila og var dermed nedlastbar for
+// kven som helst. Ho ligg no i js/apparattal.js og blir henta frå Firestore
+// etter innlogging.
+//
+//  ⚠️  Distrikta er utleidde frå staden kvar representant sit, ikkje frå eit
+//     oppgitt ansvarsområde. Dei må stadfestast mot lista i Firestore.
+//  ⚠️  «Herøy» finst både i Møre og Romsdal og i Nordland. Vi har lagt den i
+//     Møre. Rett opp om det er feil.
 // ============================================================================
 
 const VINDEX_TEAM = [
   // --- Seljarar -----------------------------------------------------------
-  { navn: "Oddveig Farstad",             sted: "Farstad",       type: "selger",      distrikt: ["more-romsdal"] },
-  { navn: "Rolf Konterud",               sted: "Brandbu",       type: "selger",      distrikt: ["innlandet"] },
-  { navn: "Erling-Lyder Berg",           sted: "Ålesund",       type: "selger",      distrikt: ["more-romsdal"] },
-  { navn: "Roy Gåseland",                sted: "Farsund",       type: "selger",      distrikt: ["agder"] },
-  { navn: "Knut E. Andersen",            sted: "Vinterbro",     type: "selger",      distrikt: ["oslo-akershus"] },
-  { navn: "Jan Erik Pedersen",           sted: "Nesna",         type: "selger",      distrikt: ["nordland"] },
-  { navn: "Rune Mathisen",               sted: "Herøy",         type: "selger",      distrikt: ["more-romsdal"] },
-  { navn: "Kjell Berdal",                sted: "Bergen",        type: "selger",      distrikt: ["vestland-sor"] },
-  { navn: "Glenn Øisjøfoss",             sted: "Fredrikstad",   type: "selger",      distrikt: ["ostfold"] },
-  { navn: "Kent Mjøsund",                sted: "Steinkjer",     type: "selger",      distrikt: ["trondelag"] },
-  { navn: "Bjørn Inge Oppedal",          sted: "Måløy",         type: "selger",      distrikt: ["vestland-nord"] },
-  { navn: "Ditt Uterom",                 sted: "Hokksund",      type: "selger",      distrikt: ["buskerud-vestfold-telemark"] },
-  { navn: "Jo Farstad",                  sted: "Farstad",       type: "selger",      distrikt: ["more-romsdal"] },
+  { sted: "Farstad",       type: "selger",      distrikt: ["more-romsdal"] },
+  { sted: "Brandbu",       type: "selger",      distrikt: ["innlandet"] },
+  { sted: "Ålesund",       type: "selger",      distrikt: ["more-romsdal"] },
+  { sted: "Farsund",       type: "selger",      distrikt: ["agder"] },
+  { sted: "Vinterbro",     type: "selger",      distrikt: ["oslo-akershus"] },
+  { sted: "Nesna",         type: "selger",      distrikt: ["nordland"] },
+  { sted: "Herøy",         type: "selger",      distrikt: ["more-romsdal"] },
+  { sted: "Bergen",        type: "selger",      distrikt: ["vestland-sor"] },
+  { sted: "Fredrikstad",   type: "selger",      distrikt: ["ostfold"] },
+  { sted: "Steinkjer",     type: "selger",      distrikt: ["trondelag"] },
+  { sted: "Måløy",         type: "selger",      distrikt: ["vestland-nord"] },
+  { sted: "Hokksund",      type: "selger",      distrikt: ["buskerud-vestfold-telemark"] },
+  { sted: "Farstad",       type: "selger",      distrikt: ["more-romsdal"] },
+  // Ny som seljar i 2025 — stod som forhandlar i rapporten for 2024.
+  { sted: "Sandane",       type: "selger",      distrikt: ["vestland-nord"] },
 
   // --- Forhandlarar -------------------------------------------------------
-  // Tommy Amundsen stod ikkje i rapporten frå 2024 og har difor ikkje tal
-  // derifrå. Stad, distrikt og omsetning står tomme heller enn gjetta — dei
-  // fyllest inn under «Rediger» på hovudkontorsida.
-  { navn: "Tommy Amundsen",              sted: "",              type: "forhandler",  distrikt: [] },
-  { navn: "Multiservice",                sted: "Fauske",        type: "forhandler",  distrikt: ["nordland"] },
-  { navn: "Roy Gåseland AS",             sted: "Farsund",       type: "forhandler",  distrikt: ["agder"] },
-  { navn: "Ken Mora",                    sted: "Bjørkelangen",  type: "forhandler",  distrikt: ["oslo-akershus"] },
-  { navn: "Sprossemannen",               sted: "Lillesand",     type: "forhandler",  distrikt: ["agder"] },
-  { navn: "Seim Gjerde",                 sted: "Sandefjord",    type: "forhandler",  distrikt: ["buskerud-vestfold-telemark"] },
-  { navn: "SD Bygg",                     sted: "Sogn",          type: "forhandler",  distrikt: ["vestland-nord"] },
-  { navn: "Fasade Miljø v/Oppedal",      sted: "Måløy",         type: "forhandler",  distrikt: ["vestland-nord"] },
-  { navn: "Fonna Solskjerming v/Stian",  sted: "Stord",         type: "forhandler",  distrikt: ["vestland-sor"] },
-  { navn: "Øisjøfoss Montasje v/Glenn",  sted: "Fredrikstad",   type: "forhandler",  distrikt: ["ostfold"] },
-  { navn: "Løvdals Trevare",             sted: "",              type: "forhandler",  distrikt: [] },
+  { sted: "Fauske",        type: "forhandler",  distrikt: ["nordland"] },
+  { sted: "Farsund",       type: "forhandler",  distrikt: ["agder"] },
+  { sted: "Bjørkelangen",  type: "forhandler",  distrikt: ["oslo-akershus"] },
+  { sted: "Vinterbro",     type: "forhandler",  distrikt: ["oslo-akershus"] },
+  { sted: "Lillesand",     type: "forhandler",  distrikt: ["agder"] },
+  { sted: "Sandefjord",    type: "forhandler",  distrikt: ["buskerud-vestfold-telemark"] },
+  { sted: "Sogn",          type: "forhandler",  distrikt: ["vestland-nord"] },
+  { sted: "Måløy",         type: "forhandler",  distrikt: ["vestland-nord"] },
+  { sted: "Stord",         type: "forhandler",  distrikt: ["vestland-sor"] },
+  { sted: "Fredrikstad",   type: "forhandler",  distrikt: ["ostfold"] },
 ];
 
 const vindexTeamAv = (type) => VINDEX_TEAM.filter((t) => t.type === type);

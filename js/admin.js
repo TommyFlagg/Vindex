@@ -12,7 +12,7 @@
 import {
   $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
   datoTekst, lagreLead, melding, opneModal, lukkModal, visDatavarsel, demoAnmeldingar,
-} from "./verktoy-felles.js?v=8cb822b4";
+} from "./verktoy-felles.js?v=19616d49";
 import { lastPrisdata, VINDEX_PRISDATA_DOKUMENT } from "./datalast.js?v=8d397edf";
 
 settTeiknar(() => teiknAlt());
@@ -100,7 +100,7 @@ async function hentRepresentantar() {
     return;
   }
   try {
-    const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
+    const { fb } = await import("./verktoy-felles.js?v=19616d49");
     const q = fb.query(fb.representantarCol(), fb.orderBy("opprettet", "desc"), fb.limit(200));
     representantar = (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (err) {
@@ -298,7 +298,7 @@ function opneBistandssvar(lead) {
 let sokeord = "";
 
 function teiknKontrollpanel() {
-  const st = vindexKontrollstatus(app.leads);
+  const st = vindexKontrollstatus(app.leads, Date.now(), app.seljarar);
   const treff = vindexSokLeads(app.leads, sokeord, app.seljarar);
 
   const kort = (id, tal, tittel, tekst, alvor) => `
@@ -400,7 +400,7 @@ function koplaSokeresultat() {
  * seljar, skal det gjerast på den same staden uansett kvar ein kom frå.
  */
 function opneKontrolliste(slag) {
-  const st = vindexKontrollstatus(app.leads);
+  const st = vindexKontrollstatus(app.leads, Date.now(), app.seljarar);
   const liste = st[slag] || [];
 
   if (slag === "bistand") {
@@ -639,7 +639,7 @@ async function lagreAarstal() {
 
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
+      const { fb } = await import("./verktoy-felles.js?v=19616d49");
       await fb.setDoc(fb.settingsDoc("aarstal"), { driftsinntekter: tal });
     }
     // Eit tal nokon har skrive inn sjølv er stadfesta — til skilnad frå det eg
@@ -889,7 +889,12 @@ function aarsveljar(aarListe) {
 function apparatKort(s) {
   const kontakt = [s.telefon, s.epost].filter(Boolean).join(" · ");
   const arkivert = vindexErArkivert(s);
-  const merke = arkivert
+  // Merket skal seie det viktigaste først. Manglande innlogging slår både
+  // «arkivert» og «inaktiv»: ein rad utan Firebase-bruker ser ferdig ut, men
+  // personen kan ikkje opne ei einaste sak.
+  const merke = !vindexHarInnlogging(s) && !arkivert
+    ? '<span class="tag tag-bad">Uten innlogging</span>'
+    : arkivert
     ? `<span class="tag tag-muted">Arkivert${
         s.sluttet ? " " + vindexTid(s.sluttet).toLocaleDateString("nb-NO") : ""
       }</span>`
@@ -1048,12 +1053,41 @@ function teiknApparat() {
 
   // Berre dei aktive dekkjer landet. Ein arkivert seljar som framleis stod
   // oppført på Nordland ville sagt at fylket var dekt når det ikkje var det.
-  const dekt = new Set(app.seljarar.filter(i).flatMap((s) => s.distrikt || []));
+  // Berre dei som faktisk kan logge inn dekkjer eit distrikt. Ein person uten
+  // Firebase-bruker ser ut som ein seljar i denne lista, men kan ikkje opne ei
+  // einaste sak — så distriktet hans er i praksis udekt.
+  const kanLogge = app.seljarar.filter((s) => i(s) && vindexHarInnlogging(s));
+  const dekt = new Set(kanLogge.flatMap((s) => s.distrikt || []));
   const udekt = VINDEX_DISTRIKT.filter((d) => !dekt.has(d.id));
-  $("#dekningVarsel").innerHTML = udekt.length
-    ? `<strong>Uten selger:</strong> ${udekt.map((d) => d.navn).join(", ")}.
-       Forespørsler herfra havner i felles innboks og må fordeles manuelt.`
-    : "<strong>Hele landet er dekket.</strong> Alle forespørsler blir tildelt automatisk.";
+
+  // Dei som står med distrikt, men ikkje kan logge inn. Desse er den farlege
+  // mellomtilstanden: dei ser ferdige ut i apparatet, og var før i tida med i
+  // rutinga — då vart leads tildelte nokon som ikkje kunne opne dei.
+  const utanBrukar = app.seljarar.filter(
+    (s) => i(s) && s.rolle !== "lager" && !vindexHarInnlogging(s) && (s.distrikt || []).length
+  );
+
+  const rute = $("#dekningVarsel");
+  rute.className = "notice mt-2 " + (utanBrukar.length ? "notice-warn" : "notice-info");
+  rute.innerHTML = `
+    ${
+      utanBrukar.length
+        ? `<strong>${utanBrukar.length} ${
+            utanBrukar.length === 1 ? "person mangler" : "personer mangler"
+          } innlogging:</strong>
+           ${utanBrukar.map((s) => vindexT(s.navn)).join(", ")}.
+           De står oppført på distrikt, men har ingen bruker i Firebase
+           Authentication og får derfor ingen forespørsler. Opprett brukeren, og
+           flytt raden til den uid-en — se README. Til da går distriktene deres
+           til felles innboks.<br><br>`
+        : ""
+    }
+    ${
+      udekt.length
+        ? `<strong>Uten selger:</strong> ${udekt.map((d) => d.navn).join(", ")}.
+           Forespørsler herfra havner i felles innboks og må fordeles manuelt.`
+        : "<strong>Hele landet er dekket.</strong> Alle forespørsler blir tildelt automatisk."
+    }`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1124,8 +1158,35 @@ function opnePersonskjema(person) {
           : ""
       }
 
+      <h3 class="mt-2">Innlogging</h3>
+      <p class="hint">Personen kan bare logge inn — og bare få tildelt saker — hvis raden
+        her har samme ID som brukeren i Firebase Authentication. Opprett brukeren der
+        først (Authentication → Users → Add user), kopier <strong>User UID</strong>, og
+        lim den inn her.</p>
+      ${
+        ny
+          ? `<div class="field">
+               <label for="pf_uid">Firebase User UID</label>
+               <input id="pf_uid" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="28 tegn, f.eks. nsfTQbSWf4fbQ3tCvIdIoIKT5rM2">
+               <span class="hint">La stå tom for en forhandler som ikke skal ha verktøyet.
+                 Da står personen i apparatet med sin omsetning, men får ingen saker.</span>
+             </div>`
+          : `<p class="notice ${vindexHarInnlogging(p) ? "notice-info" : "notice-warn"} mt-1">
+               ${
+                 vindexHarInnlogging(p)
+                   ? `<strong>Har innlogging.</strong> <code>${vindexT(p.id)}</code>`
+                   : `<strong>Har ingen innlogging.</strong> Raden ble opprettet uten uid, så
+                      ${vindexT(p.navn)} får ingen saker og kan ikke logge inn. ID-en på et
+                      dokument kan ikke endres i etterkant — opprett personen på nytt med
+                      uid-en, og arkiver denne raden.`
+               }
+             </p>`
+      }
+
       <h3 class="mt-2">Distrikt</h3>
-      <p class="hint">Bestemmer hvilke postnummer som blir tildelt automatisk.</p>
+      <p class="hint">Bestemmer hvilke postnummer som blir tildelt automatisk. En person
+        uten innlogging kan ikke få saker, uansett hva som er krysset av her.</p>
       ${VINDEX_DISTRIKT.map(
         (d) => `<label class="hakelinje">
           <input type="checkbox" data-pdistrikt value="${d.id}"
@@ -1174,14 +1235,24 @@ async function lagrePerson(p, ny) {
       if (ny) app.seljarar.push({ ...data, id: "ny-" + Date.now(), arkivert: false });
       else Object.assign(p, data);
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
+      const { fb } = await import("./verktoy-felles.js?v=19616d49");
       if (ny) {
-        // Personen får rad i apparatet med ein gong, men kan ikkje logge inn
-        // før nokon opprettar brukaren i Firebase Authentication og flyttar
-        // raden til den uid-en. Det står i README, og i meldinga under.
-        const ref = await fb.addDoc(fb.sellersCol(), { ...data, arkivert: false });
-        data.id = ref.id;
-        app.seljarar.push({ ...data, arkivert: false });
+        // Er uid-en oppgitt, blir raden lagd under den med ein gong, og
+        // personen kan logge inn og få saker frå første stund.
+        //
+        // Utan uid får raden ein auto-ID. Då står personen i apparatet med
+        // omsetninga si, men er halden utanfor rutinga — sjå byggRuting. Det
+        // er den viktige skilnaden frå før: rader utan innlogging var med i
+        // rutinga, og leads tildelte dei vart lagra og deretter usynlege.
+        const uid = ($("#pf_uid") || {}).value.trim();
+        if (uid) {
+          await fb.setDoc(fb.sellerDoc(uid), { ...data, arkivert: false, harInnlogging: true });
+          data.id = uid;
+        } else {
+          const ref = await fb.addDoc(fb.sellersCol(), { ...data, arkivert: false });
+          data.id = ref.id;
+        }
+        app.seljarar.push({ ...data, arkivert: false, harInnlogging: !!uid });
       } else {
         await fb.updateDoc(fb.sellerDoc(p.id), data);
         Object.assign(p, data);
@@ -1228,7 +1299,7 @@ async function vekslArkiv(p) {
   const data = vindexArkiverData(p, dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
+      const { fb } = await import("./verktoy-felles.js?v=19616d49");
       await fb.updateDoc(fb.sellerDoc(p.id), data);
     }
     Object.assign(p, data);
@@ -1249,7 +1320,7 @@ async function lagreDistrikt(seljarId) {
   seljar.distrikt = valde;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
+      const { fb } = await import("./verktoy-felles.js?v=19616d49");
       await fb.updateDoc(fb.sellerDoc(seljarId), { distrikt: valde });
       await byggRuting();
     }
@@ -1269,23 +1340,39 @@ async function lagreDistrikt(seljarId) {
  * innlogga. Difor ligg berre ID-ane der — ingen namn, ingen kontaktinfo.
  */
 async function byggRuting() {
-  const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
+  const { fb } = await import("./verktoy-felles.js?v=19616d49");
   // Formen må vere den bestillingsskjemaet les: distrikt-id -> liste med
   // selger-id-ar. Er det fleire i same distrikt, roterer skjemaet mellom dei.
   // Dokumentet ligg flatt, uten «distrikt»-nivå, og heiter settings/ruting.
+  //
+  // Det viktigaste filteret her er vindexHarInnlogging. Ein person oppretta i
+  // verktøyet får ein auto-ID på 20 teikn og kan ikkje logge inn før nokon
+  // lagar Firebase-brukaren. Står han likevel i rutinga, blir leads tildelte
+  // ein eigar som ikkje finst: dei blir lagra, dei står i basen, og dei blir
+  // aldri viste til nokon, fordi seljarverktøyet hentar på «seljarId == min
+  // uid». Eit lead som forsvinn er verre enn eit lead som ligg i den felles
+  // innboksen — der ser i det minste hovudkontoret det.
   const kart = {};
+  const utan = [];
   VINDEX_DISTRIKT.forEach((d) => {
-    const eigarar = app.seljarar
-      .filter(
-        (s) =>
-          (s.distrikt || []).includes(d.id) &&
-          s.aktiv !== false &&
-          !vindexErArkivert(s) &&
-          s.rolle !== "lager"
-      )
-      .map((s) => s.id);
+    const aktuelle = app.seljarar.filter(
+      (s) =>
+        (s.distrikt || []).includes(d.id) &&
+        s.aktiv !== false &&
+        !vindexErArkivert(s) &&
+        s.rolle !== "lager"
+    );
+    const eigarar = aktuelle.filter(vindexHarInnlogging).map((s) => s.id);
+    aktuelle.filter((s) => !vindexHarInnlogging(s)).forEach((s) => {
+      if (!utan.includes(s.navn)) utan.push(s.navn);
+    });
     if (eigarar.length) kart[d.id] = eigarar;
   });
+  if (utan.length)
+    melding(
+      `${utan.join(", ")} står uten Firebase-bruker og får derfor ingen leads ennå.`,
+      "warn"
+    );
   await fb.setDoc(fb.settingsDoc("ruting"), { ...kart, oppdatert: fb.serverTimestamp() });
 }
 
@@ -1582,12 +1669,15 @@ function teiknAnmeldingar() {
 
 function demoOmtaleboks(alle) {
   const demoar = (alle || []).filter((a) => a.demo).length;
-  return `<div class="notice notice-info mt-2">
+  return `<div class="notice ${demoar ? "notice-warn" : "notice-info"} mt-2">
     <strong>Demodata</strong>
     <p class="hint mb-1">${
       demoar
         ? `${demoar} av anmeldelsene er oppdiktede demodata, merket med «demo».
-           De teller ikke som ekte tilbakemelding, og bør fjernes etter demoen.`
+           De blir <strong>ikke</strong> lagt ut på nettsiden — oppdiktede kundesitat
+           på en kommersiell side er villedende markedsføring, så koden holder dem
+           tilbake uansett hva som er huket av. De teller heller ikke som ekte
+           tilbakemelding, og bør fjernes når demoen er over.`
         : "Har du ingen ekte anmeldelser ennå, kan du legge inn ti oppdiktede for å vise fram flyten."
     }</p>
     <div class="knapperad">
@@ -1657,7 +1747,7 @@ async function knytAnmelding(id, seljarId) {
   if (!a) return;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
+      const { fb } = await import("./verktoy-felles.js?v=19616d49");
       await fb.updateDoc(fb.reviewDoc(id), { seljarId: seljarId || null });
     }
     a.seljarId = seljarId || null;
@@ -1793,7 +1883,7 @@ async function lagreGjeninntaking(s, dato) {
   const data = vindexGjeninntaData(dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
+      const { fb } = await import("./verktoy-felles.js?v=19616d49");
       await fb.updateDoc(fb.sellerDoc(s.id), data);
     }
     Object.assign(s, data);
@@ -2171,7 +2261,7 @@ async function lagreKampanje(kam, ny, data) {
       if (ny) app.kampanjar.push({ ...full, id: "k-" + Date.now(), opprettaAv: app.brukar.navn });
       else Object.assign(kam, full);
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
+      const { fb } = await import("./verktoy-felles.js?v=19616d49");
       if (ny) {
         const ref = await fb.addDoc(fb.campaignsCol(), {
           ...full,
@@ -2197,7 +2287,7 @@ async function vekslKampanje(k) {
   const paa = k.aktiv === false;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
+      const { fb } = await import("./verktoy-felles.js?v=19616d49");
       await fb.updateDoc(fb.campaignDoc(k.id), { aktiv: paa });
     }
     k.aktiv = paa;
@@ -2523,9 +2613,22 @@ function oppdaterOmtaleteljar() {
 }
 
 async function skrivOmtalerTilNettsida(stille) {
+  // Demoomtalene skal aldri ut på nettsida.
+  //
+  // Dei vart laga for å vise fram panelet, med oppdikta namn og oppdikta
+  // sitat, og dei hamna på den offentlege nettsida fordi denne funksjonen tok
+  // alt som var hakka av. Ti oppdikta kundesitat på ei kommersiell nettside er
+  // ikkje ein skjønnheitsfeil — det er villeiande marknadsføring, og namna
+  // står der som om det var verkelege kundar som hadde sagt det.
+  //
+  // Difor er dette ikkje eit val i grensesnittet, men ei grense i koden: eit
+  // dokument merkt demo kan ikkje hamne i det opne dokumentet, uansett kva
+  // nokon hakkar av. Panelet får framleis vise dei, så flyten kan demonstrerast.
+  const ekte = (app.anmeldingar || []).filter((a) => !a.demo);
+
   // Berre felta som skal ut. E-post, telefon og seljar-id blir att her —
   // det er kopien som blir open, ikkje originalen.
-  const omtaler = (app.anmeldingar || [])
+  const omtaler = ekte
     .filter((a) => a.vis && a.tekst)
     .sort((a, b) => String(b.dato || "").localeCompare(String(a.dato || "")))
     .map((a) => ({
@@ -2549,11 +2652,16 @@ async function skrivOmtalerTilNettsida(stille) {
         oppdatert: new Date().toISOString(),
       });
     }
+    const haldeAtt = (app.anmeldingar || []).filter((a) => a.demo && a.vis).length;
     if (!stille)
       melding(
-        omtaler.length
+        (omtaler.length
           ? `${omtaler.length} omtale${omtaler.length === 1 ? "" : "r"} ligger nå på nettsiden.`
-          : "Ingen omtaler er valgt — seksjonen på nettsiden står tom."
+          : "Ingen ekte omtaler er valgt — seksjonen på nettsiden står tom.") +
+          (haldeAtt
+            ? ` ${haldeAtt} demoomtale${haldeAtt === 1 ? "" : "r"} ble holdt tilbake.`
+            : ""),
+        haldeAtt ? "warn" : "good"
       );
   } catch (err) {
     console.error(err);

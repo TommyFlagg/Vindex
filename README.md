@@ -937,6 +937,37 @@ sammenligning vet ingen om egne tall er gode.
 Alt regnes i `js/nokkeltal.js`, atskilt fra det som tegner panelene, slik at
 admin og selger aldri kan få to ulike svar på det samme spørsmålet.
 
+### Leads som forsvant
+
+Dette skjedde i drift, og det er verdt å forstå hvorfor.
+
+En person som opprettes i verktøyet får en auto-generert Firestore-ID på 20
+tegn. Personen kan ikke logge inn før noen oppretter brukeren i Firebase
+Authentication — og uid-er derfra er 28 tegn. Likevel ble personen lagt inn i
+rutingtabellen med en gang. Resultatet: leads fra distriktet ble tildelt en ID
+ingen kan logge inn som. De ble lagret, de sto i basen, og de ble aldri vist
+til noen, fordi selgerverktøyet henter med `seljarId == min uid`.
+
+Innlandet pekte mot en slik ID.
+
+Fire ting er gjort:
+
+1. **`byggRuting()` tar bare med folk som kan logge inn.** Resten står i
+   apparatet med omsetningen sin, men er holdt utenfor fordelingen. Da havner
+   distriktet i felles innboks i stedet — der ser hovedkontoret det.
+2. **Personskjemaet spør om Firebase User UID** når noen legges til, og lager
+   raden under den ID-en med en gang. En rad tilsvarer da en innlogging.
+   Feltet kan stå tomt for en forhandler som ikke skal ha verktøyet.
+3. **Kontrollpanelet fanger opp foreldreløse saker** — leads som er tildelt en
+   `seljarId` som ikke finnes i apparatet i det hele tatt. De teller som «uten
+   selger», for det er de i praksis.
+4. **Firestore-reglene krever 28 tegn** i `seljarId`. En klient kan ha feil;
+   reglene er det siste stedet feilen kan stoppes.
+
+Apparatet viser «Uten innlogging» som rød merkelapp på den som mangler bruker,
+og dekningsvarselet navngir dem. En rad som ser ferdig ut og ikke virker er
+verre enn en rad som mangler.
+
 ### Kontrollpanelet
 
 Øverst på hovedkontorsiden, der ordreinngangen sto før. Bytte er gjort med
@@ -1620,6 +1651,67 @@ Vilkårene står i `garanti.html`, gjengitt fra garantidokumentet.
 - [ ] Personvernerklæring (skjemaet samler inn navn, telefon, e-post og adresse)
 - [ ] Vurder e-postvarsel til selger ved nytt lead (GitHub Actions + Resend,
       samme mønster som brannvernkurs-repoet)
+
+
+## Hva som er sikret, og hva som ikke er det
+
+Nettsiden kjører mot den ekte Firebase-databasen. API-nøkkelen i
+`js/firebase-config.js` er offentlig med vilje — det er slik Firebase er ment å
+virke — så **reglene er det eneste som beskytter dataene**. Derfor er de testet
+utenfra, som en tilfeldig person på nettet, ikke bare lest.
+
+Uten innlogging: alle ti samlingene svarer 403. Med en selvopprettet konto:
+fortsatt 403 på alt, og han kan verken lage seg et selgerdokument, skrive
+prislisten eller endre rutingen. Reglene krever et dokument under `sellers/`
+med din egen uid, og bare en administrator kan lage det.
+
+To dokumenter er åpne å lese, og skal være det:
+
+| Dokument | Hvorfor |
+|---|---|
+| `settings/ruting` | Bestillingsskjemaet må vite hvem som dekker postnummeret **før** noen er logget inn. |
+| `settings/omtaler` | Anmeldelsene som vises på nettsiden. Bare felter som skal ut — e-post, telefon og selger-id blir igjen i `reviews/`. |
+
+**Oppdiktede anmeldelser kan ikke havne på nettsiden.** De ti demoanmeldelsene
+gjorde det en gang, fordi publiseringen tok alt som var huket av. Oppdiktede
+kundesitat på en kommersiell side er villedende markedsføring, ikke en
+skjønnhetsfeil, så dette er ikke lenger et valg i grensesnittet: koden holder
+alt som er merket `demo` tilbake, uansett hva noen krysser av.
+
+**Navn ligger ikke i repoet.** `js/team.js` er åpen og hadde en gang hele
+bemanningslisten. Kartet på forsiden trenger bare å vite om et fylke er dekket
+eller ledig, og har aldri vist navn — `vindexFylkeinfo` returnerer steder, ikke
+personer. Så navnene lå der uten å gjøre en jobb. Nå står det bare sted, type
+og distrikt. Det virkelige apparatet ligger i `sellers/` bak innlogging.
+`scripts/test-flyt.mjs` henter `js/team.js` over HTTP og feiler hvis et av
+navnene dukker opp igjen.
+
+### Dette må gjøres i Firebase-konsollet
+
+Ingen av disse kan gjøres fra koden:
+
+- **Slå av selvregistrering.** Authentication → Settings → User actions → skru
+  av «Enable create (sign-up)». Hvem som helst kan i dag lage seg en konto.
+  Den får ingen tilgang til noe, men den fyller brukerlisten, og det er en dør
+  som ikke trenger å stå åpen.
+- **Slå på App Check.** Uten den kan hvem som helst sende inn leads fra sin
+  egen server. Reglene hindrer at de blir feiltildelt, men ikke at de kommer.
+- **Slå på Storage.** Bucket-en svarer 404 — Storage er ikke aktivert på
+  prosjektet. Til det er gjort virker verken vedlegg på ordre eller kundebilder
+  i bestillingsskjemaet, og `storage.rules` kan ikke publiseres.
+- **Publiser `firestore.rules` på nytt** etter uid-kravet i `gyldigTildeling`.
+
+### Prislisten ligger fortsatt i git-historikken
+
+`js/modellar.js` hadde hele prislisten før den ble flyttet til Firestore.
+Repoet er offentlig, og gamle commits kan fortsatt hentes ut. Å skrive om
+historikken er ikke nok alene: GitHub beholder løsrevne objekter tilgjengelige
+gjennom API-et etter en force-push.
+
+Det eneste som lukker den ordentlig er å **slette repoet og pushe på nytt uten
+historikk**. Pages-adressen blir den samme hvis navnet er det. Det er en
+destruktiv operasjon, så den venter på klarsignal.
+
 
 ## Filstruktur
 

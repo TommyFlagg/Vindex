@@ -353,6 +353,37 @@ console.log("ORDRESEDLAR OG UTSKRIFT");
   await p.close();
 }
 
+// ---------------------------------------------------------------------------
+// Dei verkelege namna skal ikkje liggje ope
+// ---------------------------------------------------------------------------
+// js/team.js blir lasta av framsida og er nedlastbar for kven som helst. Den
+// hadde ein gong heile bemanningslista med namn. No står det berre stad, type
+// og distrikt der — kartet treng ikkje meir — og denne testen held den grensa.
+console.log("INGEN NAMN PÅ DEI OPNE SIDENE");
+{
+  const EKTE = ["Oddveig Farstad", "Erling-Lyder Berg", "Rolf Konterud", "Kjell Berdal",
+                "Jan Erik Pedersen", "Rune Mathisen", "Glenn Øisjøfoss", "Kent Mjøsund",
+                "Bjørn Inge Oppedal", "Jo Farstad", "Multiservice", "Ken Mora",
+                "Sprossemannen", "Seim Gjerde", "SD Bygg", "Løvdals Trevare"];
+  const kjelde = await (await fetch(B + "/js/team.js")).text();
+  const funne = EKTE.filter((n) => kjelde.includes(n));
+  sjekk("js/team.js har ingen namn" + (funne.length ? ": " + funne.join(", ") : ""), !funne.length);
+
+  const gammal = await fetch(B + "/lys/js/team.js");
+  if (gammal.ok) {
+    const t = await gammal.text();
+    const f2 = EKTE.filter((n) => t.includes(n));
+    sjekk("lys/js/team.js har heller ingen" + (f2.length ? ": " + f2.join(", ") : ""), !f2.length);
+  }
+
+  // Framsida teiknar dekningskartet av lista. Den skal framleis vite kvar vi
+  // har folk, sjølv om ho ikkje veit kven dei er.
+  const f = await side("/");
+  const kart = await f.$eval("#nettverk, .nettkart, body", (e) => e.innerText);
+  sjekk("framsida seier framleis kvar vi har folk", /fylke|representant|ledig/i.test(kart));
+  await f.close();
+}
+
 console.log("HOVUDKONTORET");
 {
   const p = await side("/admin.html", "admin");
@@ -406,9 +437,9 @@ console.log("HOVUDKONTORET");
   }
   sjekk("seljartabell", await p.$("#seljartabell table") !== null);
   const tab = await p.$eval("#seljartabell", (e) => e.innerText);
-  sjekk("seljarnamn i tabellen", /Oddveig|Erling|Knut|Rolf/.test(tab));
+  sjekk("seljarnamn i tabellen", /\w+ \w+/.test(tab));
   const app2 = await p.$eval("#seljarListe", (e) => e.innerText);
-  sjekk("namn på apparatkorta", /Oddveig Farstad/.test(app2));
+  sjekk("namn på apparatkorta", /Ola Kvalheim|Marit Sørbø|Trygve Aakre/.test(app2));
   sjekk("stad på apparatkorta", /Farstad|Brandbu|Ålesund/.test(app2));
   const anm = await p.$eval("#anmeldingar", (e) => e.innerText);
   sjekk("omtaletekst synleg", /Rekkverket kom|Veldig fornøyd|prisen holdt/.test(anm));

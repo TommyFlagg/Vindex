@@ -208,16 +208,20 @@ sjekk("rapporterte år er ikkje merkte demo", () =>
 
 console.log("KONTROLLPANELET");
 {
+  // Ein ekte Firebase-uid er 28 teikn. Lengda er ikkje pynt i testen: den
+  // avgjer om personen tel som innlogga, og dermed om leadet hans er synleg.
+  const UID = "nsfTQbSWf4fbQ3tCvIdIoIKT5rM2";
+  const AUTOID = "WS9XbFRSDbxvkw4wpnCx";           // 20 teikn — rad utan innlogging
   const naa = Date.parse("2026-09-15T12:00:00Z");
   const t = (timar) => new Date(naa - timar * 3600000).toISOString();
   const leads = [
     { id: "a", status: "ny", seljarId: null, opprettet: t(2),  kunde: { navn: "Ada Berg", telefon: "918 66 547", postnr: "6440", poststed: "Elnesvågen" } },
     { id: "b", status: "ny", seljarId: null, opprettet: t(80), kunde: { navn: "Bo Dahl", telefon: "40012345" } },
-    { id: "c", status: "ny", seljarId: "s1", opprettet: t(40), kunde: { navn: "Cato Lund" } },
-    { id: "d", status: "kontaktet", seljarId: "s1", opprettet: t(100), kunde: { navn: "Dina Vik" } },
-    { id: "e", status: "solgt", seljarId: "s1", arkivert: true, opprettet: t(900), kunde: { navn: "Even Ask", telefon: "918 66 547" } },
+    { id: "c", status: "ny", seljarId: UID, opprettet: t(40), kunde: { navn: "Cato Lund" } },
+    { id: "d", status: "kontaktet", seljarId: UID, opprettet: t(100), kunde: { navn: "Dina Vik" } },
+    { id: "e", status: "solgt", seljarId: UID, arkivert: true, opprettet: t(900), kunde: { navn: "Even Ask", telefon: "918 66 547" } },
   ];
-  const seljarar = [{ id: "s1", navn: "Oddveig Farstad" }];
+  const seljarar = [{ id: UID, navn: "Oddveig Farstad" }];
   const st = G("vindexKontrollstatus")(leads, naa);
 
   p("utan seljar", st.utildelte.map((l) => l.id), ["a", "b"]);
@@ -243,6 +247,43 @@ console.log("KONTROLLPANELET");
   p("statuslinje utan seljar", G("vindexSaksstatus")(leads[0], seljarar), "Ny · ingen selger");
   p("statuslinje med seljar", G("vindexSaksstatus")(leads[3], seljarar), "Kontaktet · Oddveig Farstad");
   p("statuslinje arkivert", G("vindexSaksstatus")(leads[4], seljarar), "Solgt · Oddveig Farstad · arkivert");
+
+  // ---------------------------------------------------------------------
+  // Herrelause saker: tildelte ein eigar som ikkje kan opne dei.
+  //
+  // Dette skjedde i drift. Rutinga peika Innlandet mot ein 20-teikns auto-ID,
+  // og leads derifrå vart lagra med den som eigar. Dei stod i basen, såg
+  // tildelte ut, og vart aldri viste til nokon — seljarverktøyet hentar på
+  // «seljarId == min uid», og den uid-en fanst ikkje.
+  // ---------------------------------------------------------------------
+  sjekk("28 teikn tel som innlogging", () => G("vindexHarInnlogging")({ id: UID }) === true);
+  sjekk("20 teikn gjer det ikkje", () => G("vindexHarInnlogging")({ id: AUTOID }) === false);
+  sjekk("feltet vinn over lengda", () =>
+    G("vindexHarInnlogging")({ id: AUTOID, harInnlogging: true }) === true &&
+    G("vindexHarInnlogging")({ id: UID, harInnlogging: false }) === false);
+
+  {
+    const herrelaus = { id: "x", status: "sett", seljarId: AUTOID, opprettet: t(6),
+                        kunde: { navn: "Frida Nord" } };
+    const med = leads.concat([herrelaus]);
+    const s2 = G("vindexKontrollstatus")(med, naa, seljarar);
+    sjekk("eigar som ikkje finst tel som utan seljar", () =>
+      s2.utildelte.some((l) => l.id === "x"));
+    sjekk("og berre éin stad", () => !s2.ubehandla.some((l) => l.id === "x"));
+    p("statuslinja seier frå", G("vindexSaksstatus")(herrelaus, seljarar),
+      "Sett · tildelt en selger som ikke finnes");
+    // Utan seljarlista kan vi ikkje vite kven som finst, og då skal vi ikkje
+    // gjette: berre dei heilt utan seljar blir rekna som herrelause.
+    sjekk("utan seljarliste blir ingen gjetta på", () =>
+      !G("vindexUtildelte")(med).some((l) => l.id === "x"));
+    // Ein seljar som står i lista, men ikkje kan logge inn, er ikkje herrelaus
+    // — men statuslinja skal seie at han ikkje kan opne saka.
+    const utanLogin = seljarar.concat([{ id: AUTOID, navn: "Ny Forhandler" }]);
+    sjekk("kjend, men utan innlogging, er ikkje herrelaus", () =>
+      !G("vindexUtildelte")(med, utanLogin).some((l) => l.id === "x"));
+    p("men statuslinja seier det", G("vindexSaksstatus")(herrelaus, utanLogin),
+      "Sett · Ny Forhandler (uten innlogging)");
+  }
 }
 
 console.log(`\n${ok} testar OK` + (feil ? `, ${feil} FEILA` : ", ingen feil"));
