@@ -72,9 +72,16 @@ const app = initializeApp(FIREBASE_CONFIG);
 // Står nøkkelen tom, er App Check av og alt virkar som før. Det er med vilje:
 // ein halvt konfigurert App Check som avviser ekte kundar er verre enn ingen.
 if (typeof VINDEX_APPCHECK_NOKKEL === "string" && VINDEX_APPCHECK_NOKKEL) {
-  const { initializeAppCheck, ReCaptchaV3Provider } = await import(
+  const { initializeAppCheck, ReCaptchaV3Provider, ReCaptchaEnterpriseProvider } = await import(
     "https://www.gstatic.com/firebasejs/10.13.0/firebase-app-check.js"
   );
+  // Google har merkt vanleg reCAPTCHA v3 som utfasa og peikar på Enterprise.
+  // Begge virkar, og begge er gratis på dette volumet, så valet står i
+  // firebase-config.js. Providerane er ulike klasser — difor dette.
+  const Provider =
+    typeof VINDEX_APPCHECK_TYPE === "string" && VINDEX_APPCHECK_TYPE === "v3"
+      ? ReCaptchaV3Provider
+      : ReCaptchaEnterpriseProvider;
   // På localhost finst det ingen ekte reCAPTCHA-kontroll. Då brukar Firebase
   // ein debug-token, som du registrerer i konsollet under App Check → Apps →
   // Manage debug tokens. Token-en blir skriven ut i nettlesarkonsollet.
@@ -82,7 +89,7 @@ if (typeof VINDEX_APPCHECK_NOKKEL === "string" && VINDEX_APPCHECK_NOKKEL) {
     self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
   }
   initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(VINDEX_APPCHECK_NOKKEL),
+    provider: new Provider(VINDEX_APPCHECK_NOKKEL),
     isTokenAutoRefreshEnabled: true,
   });
 }

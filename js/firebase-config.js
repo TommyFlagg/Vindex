@@ -29,21 +29,32 @@ const FIREBASE_CONFIG = {
 // ---------------------------------------------------------------------------
 // App Check
 // ---------------------------------------------------------------------------
-// reCAPTCHA v3 site key. Den er offentleg, som resten her — kontrollen skjer
-// hos Google, ikkje ved at nøkkelen er løynd.
+// Nøkkelen App Check brukar. Den er offentleg, som resten her — kontrollen
+// skjer hos Google, ikkje ved at nøkkelen er løynd.
 //
-// SLIK FYLLER DU DEN INN:
-//   1. console.firebase.google.com -> App Check -> Apps -> registrer
-//      web-appen med reCAPTCHA v3. Konsollet lagar site key og secret, og
-//      legg secret-en inn for deg.
-//   2. Lim site key inn her.
-//   3. La «Enforcement» stå på Unenforced eit døgn. Konsollet viser då kor
+// Google har merkt vanleg reCAPTCHA v3 som utfasa og peikar på Enterprise.
+// Begge er gratis på dette volumet — Enterprise har 10 000 vurderingar i
+// månaden utan kostnad — så vi brukar den som ikkje skal bytast ut igjen.
+//
+// SLIK FYLLER DU DEN INN (Enterprise):
+//   1. console.cloud.google.com/security/recaptcha -> Create key.
+//      Platform: Website. Domene: tommyflagg.github.io (og vindex.no seinare).
+//      Ikkje hak av for «Use checkbox challenge» — App Check vil ha score-basert.
+//   2. Kopier Key ID.
+//   3. console.firebase.google.com -> App Check -> Apps -> reCAPTCHA
+//      Enterprise -> lim inn Key ID -> Save.
+//   4. Lim same Key ID inn her.
+//   5. La «Enforcement» stå på Unenforced eit døgn. Konsollet viser då kor
 //      stor del av trafikken som er verifisert. Er den nær 100 %, slå på
-//      Enforce for Firestore.
+//      Enforce for Firestore og Storage.
+//
+// Vil du likevel bruke den gamle v3-varianten, set VINDEX_APPCHECK_TYPE til
+// "v3" under, og lim inn site key frå google.com/recaptcha/admin i staden.
 //
 // Står den tom, er App Check av og alt virkar som før. Ein halvt konfigurert
 // App Check som avviser ekte kundar er verre enn ingen.
 const VINDEX_APPCHECK_NOKKEL = "";
+const VINDEX_APPCHECK_TYPE = "enterprise";   // "enterprise" eller "v3"
 
 // Så lenge configen ikkje er fylt ut, køyrer seljarverktøyet i demomodus med
 // eksempeldata i staden for å feile stygt. Sett denne til false i produksjon.
