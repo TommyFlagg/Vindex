@@ -1680,6 +1680,22 @@ Skal siden være genuint utilgjengelig, er det tre veier:
 
 Den midterste løser to problemer med én betaling, og er den jeg ville valgt.
 
+### Hvor dataene ligger
+
+| Tjeneste | Region | Innenfor EØS |
+|---|---|---|
+| Firestore (leads, ordrer, apparatet) | `europe-north1` — Hamina, Finland | ja |
+| Cloud Storage (vedlegg, kundebilder) | `europe-north1` — Hamina, Finland | ja |
+| Firebase Authentication | ikke valgbar | nei — dekket av SCC |
+
+Authentication er unntaket, og det er verdt å være presis om hva det omfatter:
+e-postadresse og passord for **våre egne** ansatte og forhandlere. Kunder logger
+aldri inn, så ingen kundeopplysninger ligger der. Alt kundene oppgir ligger i
+Firestore, i Finland.
+
+Regionen på en Firestore-database og en Storage-bøtte kan ikke endres etterpå.
+Skal de flyttes, må det opprettes nye og kopieres over.
+
 ### Ingenting herfra rører eksisterende systemer
 
 Verdt å slå fast, siden det er lett å bli utrygg på: alt vi har bygd lever i
