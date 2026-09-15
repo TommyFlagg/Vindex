@@ -11,7 +11,7 @@
 
 import {
   $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
-  datoTekst, lagreLead, melding, opneModal, lukkModal, visDatavarsel,
+  datoTekst, lagreLead, melding, opneModal, lukkModal, visDatavarsel, demoAnmeldingar,
 } from "./verktoy-felles.js?v=4d23d744";
 import { lastPrisdata, VINDEX_PRISDATA_DOKUMENT } from "./datalast.js?v=ba837177";
 
@@ -1341,7 +1341,13 @@ function teiknAnmeldingar() {
              oppdater. Bare stjerner, tekst, navn og sted blir sendt — ikke e-post,
              telefon eller hvilken selger saken hører til.</p>`
         : ""
-    }`;
+    }
+    ${demoOmtaleboks(alle)}`;
+
+  const leggInn = $("#leggInnDemoOmtaler");
+  if (leggInn) leggInn.addEventListener("click", leggInnDemoOmtaler);
+  const fjern = $("#fjernDemoOmtaler");
+  if (fjern) fjern.addEventListener("click", fjernDemoOmtaler);
 
   $$("[data-anmvis]").forEach((b) =>
     b.addEventListener("change", () => settOmtaleVis(b.dataset.anmvis, b.checked))
@@ -1355,6 +1361,90 @@ function teiknAnmeldingar() {
   $$("[data-anmframlegg]").forEach((b) =>
     b.addEventListener("click", () => knytAnmelding(b.dataset.anmframlegg, b.dataset.seljar))
   );
+}
+
+// ---------------------------------------------------------------------------
+// Demo-anmeldelser
+// ---------------------------------------------------------------------------
+// Ei tom anmeldingsliste er sanninga så lenge ingen har sagt noko — og det er
+// rett. Men på ein demo er ei tom liste eit hol der poenget skulle stått: at
+// hovudkontoret ser kva kundane seier, og slepp det dei vil ut på nettsida.
+//
+// Difor kan hovudkontoret leggje inn ti oppdikta anmeldelser med eitt trykk.
+// Kvar av dei blir merkt `demo: true`, og kan fjernast like fort. Merkinga er
+// ikkje pynt: utan den ville ingen visst kva som var ekte kundeord og kva som
+// var noko vi skreiv sjølve, og det er ein skilnad som må vere til å ta på.
+
+function demoOmtaleboks(alle) {
+  const demoar = (alle || []).filter((a) => a.demo).length;
+  return `<div class="notice notice-info mt-2">
+    <strong>Demodata</strong>
+    <p class="hint mb-1">${
+      demoar
+        ? `${demoar} av anmeldelsene er oppdiktede demodata, merket med «demo».
+           De teller ikke som ekte tilbakemelding, og bør fjernes etter demoen.`
+        : "Har du ingen ekte anmeldelser ennå, kan du legge inn ti oppdiktede for å vise fram flyten."
+    }</p>
+    <div class="knapperad">
+      ${demoar ? '<button class="btn btn-sm btn-ghost" id="fjernDemoOmtaler">Fjern demo-anmeldelsene</button>' : ""}
+      ${demoar ? "" : '<button class="btn btn-sm" id="leggInnDemoOmtaler">Legg inn demo-anmeldelser</button>'}
+    </div>
+  </div>`;
+}
+
+async function leggInnDemoOmtaler() {
+  const mal = demoAnmeldingar();
+  // Seljar-id-ane i malen peikar på demoseljarar som ikkje finst i den ekte
+  // databasen. Utan denne ville ingen seljar sett anmeldelsen sin — og det er
+  // nettopp det seljaren skal sjå.
+  const mine = app.seljarar.filter((x) => x.rolle === "selger" && !vindexErArkivert(x));
+  const nye = mal.map((a, i) => ({
+    ...a,
+    id: "demo-omtale-" + (i + 1),
+    seljarId: a.seljarId && mine.length ? mine[i % mine.length].id : null,
+    vis: false,
+    demo: true,
+  }));
+
+  if (VINDEX_DEMOMODUS) {
+    app.anmeldingar = nye;
+    teiknAnmeldingar();
+    return melding("Ti demo-anmeldelser lagt inn.");
+  }
+  try {
+    for (const a of nye) {
+      const { id, ...felt } = a;
+      await fb.setDoc(fb.reviewDoc(id), felt);
+    }
+    app.anmeldingar = (app.anmeldingar || []).filter((a) => !a.demo).concat(nye);
+    teiknAnmeldingar();
+    melding("Ti demo-anmeldelser lagt inn. Husk å fjerne dem etter demoen.");
+  } catch (err) {
+    console.error(err);
+    melding("Fikk ikke lagt inn demo-anmeldelsene: " + err.message, "warn");
+  }
+}
+
+async function fjernDemoOmtaler() {
+  const demoar = (app.anmeldingar || []).filter((a) => a.demo);
+  if (!demoar.length) return;
+  if (VINDEX_DEMOMODUS) {
+    app.anmeldingar = (app.anmeldingar || []).filter((a) => !a.demo);
+    teiknAnmeldingar();
+    return melding("Demo-anmeldelsene er fjernet.");
+  }
+  try {
+    for (const a of demoar) await fb.deleteDoc(fb.reviewDoc(a.id));
+    app.anmeldingar = (app.anmeldingar || []).filter((a) => !a.demo);
+    teiknAnmeldingar();
+    // Låg dei ute på nettsida, må den skrivast om — elles står oppdikta skryt
+    // igjen på ei open side etter at kjelda er sletta.
+    await skrivOmtalerTilNettsida(true);
+    melding("Demo-anmeldelsene er fjernet, og nettsiden er oppdatert.");
+  } catch (err) {
+    console.error(err);
+    melding("Fikk ikke fjernet demo-anmeldelsene: " + err.message, "warn");
+  }
 }
 
 async function knytAnmelding(id, seljarId) {
@@ -2057,7 +2147,7 @@ function oppdaterOmtaleteljar() {
   el.textContent = `${alle.filter((a) => a.vis).length} av ${alle.length} er valgt`;
 }
 
-async function skrivOmtalerTilNettsida() {
+async function skrivOmtalerTilNettsida(stille) {
   // Berre felta som skal ut. E-post, telefon og seljar-id blir att her —
   // det er kopien som blir open, ikkje originalen.
   const omtaler = (app.anmeldingar || [])
@@ -2084,11 +2174,12 @@ async function skrivOmtalerTilNettsida() {
         oppdatert: new Date().toISOString(),
       });
     }
-    melding(
-      omtaler.length
-        ? `${omtaler.length} omtale${omtaler.length === 1 ? "" : "r"} ligger nå på nettsiden.`
-        : "Ingen omtaler er valgt — seksjonen på nettsiden står tom."
-    );
+    if (!stille)
+      melding(
+        omtaler.length
+          ? `${omtaler.length} omtale${omtaler.length === 1 ? "" : "r"} ligger nå på nettsiden.`
+          : "Ingen omtaler er valgt — seksjonen på nettsiden står tom."
+      );
   } catch (err) {
     console.error(err);
     melding("Kunne ikke oppdatere nettsiden: " + err.message);

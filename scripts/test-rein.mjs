@@ -151,7 +151,15 @@ console.log("ORDRESEDDEL OG SPROSSETILBOD");
 }
 
 console.log("APPARATTAL");
-p("ordreinngang 2025", () => G("vindexOrdreinngangAar")(2025).total, 16408000);
+p("ordreinngang 2025", () => G("vindexOrdreinngangAar")(2025).total, 16782000);
+p("ordreinngang 2026 hittil", () => G("vindexOrdreinngangAar")(2026).total, 15337000);
+// Demoen skal vise vekst, ikkje fall: 2026 skal liggje over 2025 på same dag.
+sjekk("2026 over 2025 hittil i år", () => {
+  const til = (a, n) => G("vindexOrdreinngangAar")(a).manad.slice(0, n).reduce((s, m) => s + m.sum, 0);
+  return til(2026, 9) > til(2025, 8) + G("vindexOrdreinngangAar")(2025).manad[8].sum / 2;
+});
+sjekk("alle fire åra er merkte demo",
+  () => [2023, 2024, 2025, 2026].every((a) => G("vindexErDemotal")(a) === true));
 sjekk("2026 er merkt demo", () => G("vindexErDemotal")(2026) === true);
 p("Tommy 2025", () => (G("VINDEX_HISTORIKK")["Tommy Amundsen"] || {})["2025"], 1960000);
 

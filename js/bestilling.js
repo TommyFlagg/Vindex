@@ -220,10 +220,20 @@ function byggTypeval(p, v) {
         aria-label="Antall ${p.typeval.teljenamn} med ${tittel}">
     </label>`;
 
+  // Foto der vi har det, strekteikning der vi ikkje har. Begge viser den same
+  // stilen; fotoet er berre lettare å kjenne att vindauget sitt i.
+  const figur = (t) => {
+    const bilete = vindexTypebilete(t);
+    if (bilete)
+      return `<img class="typefoto" src="${bilete}" alt="" loading="lazy"
+        width="480" height="320" onerror="vindexBiletFeila(this)">`;
+    return vindexSprossegrafikk({ type_nr: t.nr }, { utanMaal: true, visMaal: false, bredde: 104, hogd: 88 });
+  };
+
   const teikna = VINDEX_SPROSSETYPAR.map((t) =>
     kort(
       t.nr,
-      vindexSprossegrafikk({ type_nr: t.nr }, { utanMaal: true, visMaal: false, bredde: 104, hogd: 88 }),
+      figur(t),
       // Kundenamnet øvst, rutetalet under. «Type 7» er rett på ordreseddelen,
       // men det er ikkje eit namn nokon kjenner att vindauget sitt på.
       vindexTypenamnKunde(t),

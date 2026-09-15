@@ -147,7 +147,12 @@ console.log("BESTILLINGSSKJEMAET");
   sjekk("strekfigurar på utføringane", (await p.$$(".modellfigur")).length >= 2);
   // Sprossene blir valde frå teikningar: ti typar pluss «Rådfør med selger».
   sjekk("fjorten sprossekort", (await p.$$('.produktblokk[data-produkt="sprosser"] .typekort')).length === 14);
-  sjekk("tretten sprosseteikningar", (await p.$$('.produktblokk[data-produkt="sprosser"] svg.sprossefigur')).length === 13);
+  // Ti av stilane har foto, tre held fram med strekteikninga.
+  sjekk("ti stilfoto", (await p.$$('.produktblokk[data-produkt="sprosser"] img.typefoto')).length === 10);
+  sjekk("tre strekteikningar", (await p.$$('.produktblokk[data-produkt="sprosser"] svg.sprossefigur')).length === 3);
+  const brotne = await p.$$eval('.produktblokk[data-produkt="sprosser"] img.typefoto',
+    (a) => a.filter((i) => !i.complete || i.naturalWidth === 0).length);
+  sjekk("alle stilfoto lasta", brotne === 0);
   // Kunden skal sjå kva han ser på vindauget sitt, ikkje eit typenummer.
   const stilnamn = await p.$$eval('.produktblokk[data-produkt="sprosser"] .typenamn', (a) => a.map((e) => e.textContent));
   sjekk("kundenamn på stilane", stilnamn.includes("Ni ruter") && stilnamn.includes("Tolv ruter"));

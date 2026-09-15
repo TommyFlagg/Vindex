@@ -30,20 +30,20 @@
 // X som ei rute til i tabellen.
 
 const VINDEX_SPROSSETYPAR = [
-  { nr: 1, kunde: "Ni ruter", kort: "3 × 3", navn: "3 × 3 ruter", rb: 3, rh: 3 },
+  { nr: 1, bilde: "assets/bilder/sprosse-1.jpg", kunde: "Ni ruter", kort: "3 × 3", navn: "3 × 3 ruter", rb: 3, rh: 3 },
   { nr: 2, kunde: "To halvdeler", kort: "2×3 + 2×3", navn: "Midtstolpe, 2 × 3 ruter i hver halvdel",
     rb: 4, rh: 3, midtstolpe: true },
-  { nr: 3, kunde: "Fire ruter", kort: "2 × 2", navn: "2 × 2 ruter, grovt sprosseverk", rb: 2, rh: 2, grovt: true },
-  { nr: 4, kunde: "Seks ruter", kort: "2 × 3", navn: "2 × 3 ruter", rb: 2, rh: 3 },
+  { nr: 3, bilde: "assets/bilder/sprosse-3.jpg", kunde: "Fire ruter", kort: "2 × 2", navn: "2 × 2 ruter, grovt sprosseverk", rb: 2, rh: 2, grovt: true },
+  { nr: 4, bilde: "assets/bilder/sprosse-4.jpg", kunde: "Seks ruter", kort: "2 × 3", navn: "2 × 3 ruter", rb: 2, rh: 3 },
   { nr: 5, kunde: "Toppfelt med to ruter", kort: "2 / 2", navn: "Losholt — 2 ruter over, 2 under",
     over: { rb: 2, rh: 1 }, under: { rb: 2, rh: 1 }, overDel: 0.38, losholt: true },
-  { nr: 6, kunde: "Toppfelt med fire ruter", kort: "4 / 2", navn: "Losholt — 4 ruter over, midtstolpe under",
+  { nr: 6, bilde: "assets/bilder/sprosse-6.jpg", kunde: "Toppfelt med fire ruter", kort: "4 / 2", navn: "Losholt — 4 ruter over, midtstolpe under",
     over: { rb: 4, rh: 1 }, under: { rb: 2, rh: 1 }, overDel: 0.3, losholt: true, midtstolpe: true },
-  { nr: 7, kunde: "Toppfelt med seks ruter", kort: "6 / 2", navn: "Losholt — 6 ruter over, midtstolpe under",
+  { nr: 7, bilde: "assets/bilder/sprosse-7.jpg", kunde: "Toppfelt med seks ruter", kort: "6 / 2", navn: "Losholt — 6 ruter over, midtstolpe under",
     over: { rb: 6, rh: 1 }, under: { rb: 2, rh: 1 }, overDel: 0.3, losholt: true, midtstolpe: true },
   { nr: 8, kunde: "Toppfelt i to rader", kort: "4×2 / 2", navn: "Losholt — 4 × 2 ruter over, midtstolpe under",
     over: { rb: 4, rh: 2 }, under: { rb: 2, rh: 1 }, overDel: 0.34, losholt: true, midtstolpe: true },
-  { nr: 9, kunde: "Toppfelt med kryss", kort: "X / 2", navn: "Losholt — 2 kryss over, midtstolpe under",
+  { nr: 9, bilde: "assets/bilder/sprosse-9.jpg", kunde: "Toppfelt med kryss", kort: "X / 2", navn: "Losholt — 2 kryss over, midtstolpe under",
     over: { rb: 2, rh: 1, kryss: true }, under: { rb: 2, rh: 1 }, overDel: 0.32,
     losholt: true, midtstolpe: true },
 
@@ -54,7 +54,7 @@ const VINDEX_SPROSSETYPAR = [
   // Det som skil den frå type 5 er kva den tverrgåande profilen er: her er det
   // ei heilt vanleg sprosse, ikkje ein berande losholt, og den står ein
   // tredel nede i staden for midt på. Den loddrette går gjennom i eitt strekk.
-  { nr: "K", kunde: "Kryssprosse", kort: "Kryss", etikett: "Kryss", navn: "Kryssprosse — tverrsprossen 1/3 ned fra toppen",
+  { nr: "K", bilde: "assets/bilder/sprosse-K.jpg", kunde: "Kryssprosse", kort: "Kryss", etikett: "Kryss", navn: "Kryssprosse — tverrsprossen 1/3 ned fra toppen",
     over: { rb: 2, rh: 1 }, under: { rb: 2, rh: 1 }, overDel: 1 / 3,
     lettTverr: true, gjennomgaande: true },
 
@@ -67,14 +67,14 @@ const VINDEX_SPROSSETYPAR = [
   // Dei er snarvegar, ikkje nye produkt: kvar av dei er ein kombinasjon av
   // ruter, losholt og midtstolpe som «Egen» alltid har kunna gi. Skilnaden er
   // at kunden og seljaren kan peike på den i staden for å telje seg fram.
-  { nr: "R", kunde: "Tolv ruter", kort: "4 × 3", etikett: "4 × 3", navn: "4 × 3 ruter — tolv like ruter",
+  { nr: "R", bilde: "assets/bilder/sprosse-R.jpg", kunde: "Tolv ruter", kort: "4 × 3", etikett: "4 × 3", navn: "4 × 3 ruter — tolv like ruter",
     rb: 4, rh: 3 },
 
-  { nr: "L3", kunde: "Toppfelt, tre i bredden", kort: "3×2 / 2", etikett: "3×2", navn: "Losholt — 3 × 2 ruter over, midtstolpe under",
+  { nr: "L3", bilde: "assets/bilder/sprosse-L3.jpg", kunde: "Toppfelt, tre i bredden", kort: "3×2 / 2", etikett: "3×2", navn: "Losholt — 3 × 2 ruter over, midtstolpe under",
     over: { rb: 3, rh: 2 }, under: { rb: 2, rh: 1 }, overDel: 0.34,
     losholt: true, midtstolpe: true },
 
-  { nr: "L2", kunde: "Toppfelt, helt glass under", kort: "2 / helt", etikett: "2/1", navn: "Losholt — 2 ruter over, helt glass under",
+  { nr: "L2", bilde: "assets/bilder/sprosse-L2.jpg", kunde: "Toppfelt, helt glass under", kort: "2 / helt", etikett: "2/1", navn: "Losholt — 2 ruter over, helt glass under",
     over: { rb: 2, rh: 1 }, under: { rb: 1, rh: 1 }, overDel: 0.3, losholt: true },
 ];
 
@@ -90,6 +90,17 @@ const vindexTypenamn = (type) => (type ? type.etikett || "Type " + type.nr : "")
  * står det kva ein faktisk ser.
  */
 const vindexTypenamnKunde = (type) => (type ? type.kunde || vindexTypenamn(type) : "");
+
+/**
+ * Fotoet av ein stil, der vi har eit.
+ *
+ * Strekteikninga er laga av tala og kan difor aldri vise noko anna enn det som
+ * blir bestilt — den er sanninga. Men eit foto er lettare å kjenne att
+ * vindauget sitt i, og det er det kunden skal gjere. Difor: foto der vi har
+ * det, teikning der vi ikkje har.
+ */
+const vindexTypebilete = (type, rot = "") =>
+  type && type.bilde ? rot + type.bilde : "";
 
 const vindexSprossetype = (nr) =>
   VINDEX_SPROSSETYPAR.find((t) => String(t.nr) === String(nr)) || null;
