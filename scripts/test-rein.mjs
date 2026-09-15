@@ -26,6 +26,36 @@ const sjekk = (namn, uttrykk) => {
   if (v) ok++; else { feil++; console.log(`  ✗ ${namn}`); }
 };
 
+// ---------------------------------------------------------------------------
+// Modulane skal parse som modular
+// ---------------------------------------------------------------------------
+// `node --check` les ei .js-fil som CommonJS. Eit importnamn som står to
+// gonger er lovleg der, og blir difor godkjent — men i nettlesaren er det ein
+// SyntaxError som tek ned heile fila. Skjer det i js/firebase-init.js, får
+// ingen logga inn, og det einaste sporet er ei linje i konsollet.
+//
+// Difor blir kvar modul her parsa som det den er.
+console.log("MODULANE PARSAR");
+{
+  const { execFileSync } = await import("node:child_process");
+  const modular = fs.readdirSync(R + "/js").filter((f) => f.endsWith(".js"))
+    .filter((f) => /^(export|import)\s/m.test(fs.readFileSync(R + "/js/" + f, "utf8")))
+    .concat(fs.readdirSync(R + "/scripts").filter((f) => f.endsWith(".mjs")).map((f) => "../scripts/" + f));
+
+  modular.forEach((f) => {
+    const sti = R + "/js/" + f;
+    try {
+      execFileSync(process.execPath, ["--input-type=module", "--check"],
+                   { input: fs.readFileSync(sti, "utf8"), stdio: ["pipe", "pipe", "pipe"] });
+      ok++;
+    } catch (e) {
+      feil++;
+      const melding = String(e.stderr || e.message).split("\n").filter((l) => /Error|error/.test(l))[0] || "";
+      console.log(`  ✗ ${f.replace("../scripts/", "scripts/")}: ${melding.trim()}`);
+    }
+  });
+}
+
 console.log("PRISBOK OG MODELLAR");
 p("prislinjer", () => G("vindexPrisbok")().length, 172);   // 108 + 64 skoddemål
 p("skoddemål i prisboka", () => G("vindexPrisbok")().filter((l) => l.gruppe === "Skodder").length, 64);

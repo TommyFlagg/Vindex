@@ -35,7 +35,7 @@ async function sikreFirebase() {
   if (VINDEX_DEMOMODUS || fbLasta) return fb;
   fbLasta = true;
   try {
-    fb = await import("./firebase-init.js?v=0d0d83c8");
+    fb = await import("./firebase-init.js?v=93828ac0");
   } catch (err) {
     console.error("Fekk ikkje lasta Firebase:", err);
     const boks = document.querySelector("#skjema") || document.body;

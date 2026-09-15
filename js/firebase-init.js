@@ -25,7 +25,6 @@ import {
   updateDoc,
   deleteDoc,
   deleteField,
-  deleteField,
   collection,
   query,
   where,

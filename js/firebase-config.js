@@ -53,7 +53,7 @@ const FIREBASE_CONFIG = {
 //
 // Står den tom, er App Check av og alt virkar som før. Ein halvt konfigurert
 // App Check som avviser ekte kundar er verre enn ingen.
-const VINDEX_APPCHECK_NOKKEL = "";
+const VINDEX_APPCHECK_NOKKEL = "6LcnfL0tAAAAAOa6_AEORYb2xIYoP2KIN2G6pE0E";
 const VINDEX_APPCHECK_TYPE = "enterprise";   // "enterprise" eller "v3"
 
 // Så lenge configen ikkje er fylt ut, køyrer seljarverktøyet i demomodus med
