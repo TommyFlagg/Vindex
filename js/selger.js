@@ -2221,6 +2221,9 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
     },
   };
 
+  // Vart ordren skriven før det eventuelt gjekk gale?
+  let lagra = false;
+
   try {
     if (VINDEX_DEMOMODUS) {
       ordre.id = (eksisterande && eksisterande.id) || "ordre-" + Date.now();
@@ -2239,8 +2242,14 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
       app.ordrar.unshift(ordre);
     }
 
+    // Frå og med her ER ordren lagra. Feilar noko under, er det saka som ikkje
+    // vart oppdatert — ikkje ordren som mangla. Skiljet avgjer kva seljaren
+    // skal gjere: «prøv igjen» på ei lagra ordre lagar ei ordre nummer to, og
+    // då står same kunde med to like i produksjonskøen.
+    lagra = true;
+
     await lagreLead(lead, { status: "solgt", ordreId: ordre.id }, [
-      `Ordre ${ordre.id} bekreftet av ${vindexT(app.brukar.navn)} og sendt til ${
+      `Ordre ${ordre.id} bekreftet av ${vindexT(app.brukar.navn || app.brukar.epost || "ukjent")} og sendt til ${
         harSpesial ? "produksjon" : "plukk på lager"
       }.`,
     ]);
@@ -2256,7 +2265,10 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
     // neste gong. Difor står grunnen her: manglar seljaren rettar, er det
     // reglane som seier frå, og då skal det stå reglar — ikkje «prøv igjen».
     const kode = String((err && err.code) || "");
-    const forklaring = kode.includes("permission-denied")
+    const forklaring = lagra
+      ? `Ordre ${ordre.id} ER lagret og går til produksjon, men saken ble ikke oppdatert. ` +
+        "Ikke send på nytt — da blir det to like ordrer. Si fra til hovedkontoret."
+      : kode.includes("permission-denied")
       ? "Databasen avviste ordren. Brukeren din mangler rettigheter — si fra til hovedkontoret."
       : kode.includes("unavailable") || kode.includes("network")
       ? "Fikk ikke kontakt med databasen. Sjekk nettet og prøv igjen — ordren ligger som utkast."
