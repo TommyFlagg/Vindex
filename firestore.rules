@@ -86,7 +86,41 @@ service cloud.firestore {
              // avgrensa der; her held vi talet nede, så ingen kan feste
              // tusen stiar på eit lead.
              && (!d.keys().hasAny(['vedlegg'])
-                 || (d.vedlegg is list && d.vedlegg.size() <= 6));
+                 || (d.vedlegg is list && d.vedlegg.size() <= 6))
+             && gyldigTildeling(d);
+    }
+
+    /** Rutingtabellen: distrikt -> liste med seljar-id-ar. */
+    function rutingdata() {
+      return get(/databases/$(database)/documents/settings/ruting).data;
+    }
+
+    /**
+     * Er seljaren på leadet ein som faktisk dekkjer distriktet?
+     *
+     * Nettlesaren vel seljar sjølv: skjemaet les `settings/ruting` — som er ope,
+     * fordi det må lesast før innlogging — og skriv uid-en inn i leadet. Fram
+     * til no stod det feltet uvalidert, og då kunne kven som helst sende inn eit
+     * lead med kva uid som helst på:
+     *
+     *   · styre kven i landet som får saka, forbi postnummeret
+     *   · eller setje ein uid som ikkje finst, så INGEN seljar ser leadet —
+     *     lesregelen krev at seljarId == eigen uid, så det blir liggjande
+     *     usynleg for alle andre enn hovudkontoret
+     *
+     * Heile systemet kviler på at postnummeret avgjer kven som får saka. Står
+     * det feltet ope, er ikkje den påstanden sann.
+     *
+     * Vi kan ikkje rekne postnummer -> distrikt her (den tabellen ligg i JS),
+     * men vi kan krevje at seljaren står oppført på distriktet leadet oppgir.
+     */
+    function gyldigTildeling(d) {
+      return (d.seljarId == null && d.tildeltAutomatisk == false)
+             || (d.tildeltAutomatisk == true
+                 && exists(/databases/$(database)/documents/settings/ruting)
+                 && d.distriktId in rutingdata()
+                 && rutingdata()[d.distriktId] is list
+                 && d.seljarId in rutingdata()[d.distriktId]);
     }
 
     // Eit svar på ein bistandsførespurnad kjem frå daglig leder. Utan denne
