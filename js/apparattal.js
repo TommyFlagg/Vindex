@@ -122,3 +122,127 @@ function vindexSettApparattal(d) {
   vindexFyllObjekt(VINDEX_AARSTAL, { kjelde: "", orgnr: "", aar: {}, ...(d.aarstal || {}) });
   return Object.keys(VINDEX_TEAMTAL).length > 0;
 }
+
+/**
+ * Kva år eit ordreinngangspanel skal opne på.
+ *
+ * Inneverande år, så lenge det har noko å vise. Tidleg på året — eller før
+ * verktøyet har fått ordrar nok — er det året nesten tomt, og eit diagram med
+ * éi søyle i er ikkje verdt plassen sin. Då opnar vi på det siste året som har
+ * ei skikkeleg kurve, og årsknappane står der for den som vil vidare.
+ *
+ * Tre månader er grensa: to punkt er ei linje, tre er ei utvikling.
+ */
+function vindexStartaar(aarListe, ordrar) {
+  const fyldig = (a) => vindexAarsdata(a, ordrar).manad.filter((m) => m.sum > 0).length >= 3;
+  const naa = new Date().getFullYear();
+  if (aarListe.includes(naa) && fyldig(naa)) return naa;
+  return aarListe.filter(fyldig).pop() || aarListe[aarListe.length - 1];
+}
+
+// ---------------------------------------------------------------------------
+// Oppdikta tal til demoen
+// ---------------------------------------------------------------------------
+// Dei verkelege omsetningstala ligg i Firestore og kjem inn etter innlogging.
+// Repoet her er ope, så dei kan ikkje liggje i ei fil — det var heile grunnen
+// til at prislista vart flytta ut i si tid.
+//
+// Men ein demo med tomme diagram seier ingenting om kva verktøyet er. Difor
+// dette: eit fullstendig oppdikta apparat som berre blir brukt når demoen
+// ikkje finn ekte data. Kvart år er merkt `demo: true`, så diagrammet skriv
+// «Demotall» over seg sjølv og ingen kan ta feil av dei.
+//
+// Sesongprofilen er den einaste opplysninga som er teken frå verkelegheita —
+// mai og juni er dei store månadene i denne bransjen — men kurva er runda av
+// og jamna ut, så den røper ikkje noko om Vindex.
+const VINDEX_DEMOPROFIL = [4, 3, 6, 9, 14, 13, 8, 11, 10, 9, 7, 6];
+const VINDEX_MANADSNAMN = [
+  "Januar", "Februar", "Mars", "April", "Mai", "Juni",
+  "Juli", "August", "September", "Oktober", "November", "Desember",
+];
+
+/**
+ * Eit oppdikta år: årstotalen fordelt på sesongprofilen.
+ *
+ * `total` er alltid heile året, også når året ikkje er omme. Månadene etter
+ * `tilManad` blir ståande på null i staden for å få resten av pengane dytta
+ * inn i seg — elles ville eit halvferdig år sett ut som eit rekordår, og mai
+ * ville vore dobbelt så høg som mai i fjor utan grunn.
+ */
+function vindexDemoaar(total, tilManad = 12) {
+  const heile = VINDEX_DEMOPROFIL.reduce((a, b) => a + b, 0);
+  return VINDEX_MANADSNAMN.map((navn, i) => ({
+    navn,
+    sum: i < tilManad ? Math.round((total * VINDEX_DEMOPROFIL[i]) / heile / 100) * 100 : 0,
+  }));
+}
+
+/**
+ * Heile det oppdikta apparatet.
+ *
+ * To fulle år og eit inneverande år som stoppar der kalenderen står, slik at
+ * diagrammet ser ut som eit diagram nokon faktisk brukar.
+ */
+function vindexDemoapparat() {
+  const naa = new Date();
+  const iAar = naa.getFullYear();
+  // Inneverande månad er sjeldan ferdig fakturert, så vi stoppar månaden før.
+  const tilManad = Math.max(1, naa.getMonth());
+  const merknad = "Oppdiktede tall, lagt inn for demonstrasjon. Ikke ordreinngang.";
+
+  const aar = (total, tilM, periode) => {
+    const manad = vindexDemoaar(total, tilM);
+    // Totalen som blir vist skal vere summen av søylene, ikkje årsprognosen.
+    return { periode, merknad, demo: true, manad, total: manad.reduce((n, m) => n + m.sum, 0) };
+  };
+
+  return {
+    ordreinngang: {
+      [iAar - 2]: aar(15000000, 12, "hele året"),
+      [iAar - 1]: aar(17000000, 12, "hele året"),
+      [iAar]: aar(
+        Math.round(17000000 * 1.08),
+        tilManad,
+        `januar–${VINDEX_MANADSNAMN[tilManad - 1].toLowerCase()}`
+      ),
+    },
+    // VINDEX_FJOR treng årstalet sitt: årsveljaren les det, og utan det får
+    // diagrammet ein knapp som heiter «undefined».
+    fjor: { ...aar(17000000, 12, "hele året"), aar: iAar - 1 },
+    aarstal: { kjelde: "Oppdiktet for demoen", orgnr: "", aar: {} },
+  };
+}
+
+/**
+ * Fordel eit årsbeløp på personane i apparatet.
+ *
+ * Tala blir rekna ut her i staden for å stå i ei liste, med vilje: ei fil i
+ * eit ope repo som parar namngjevne, verkelege personar med omsetningstal
+ * ville sett ut som ein lekkasje same kor tydeleg «demo» det sto over.
+ *
+ * Fordelinga er deterministisk — same namn gir same tal kvar gong, så demoen
+ * ikkje endrar seg mellom to omlastingar midt i eit møte — og skeiv, slik
+ * ekte sal er: nokre få står for det meste.
+ */
+function vindexDemoteamtal(namn, total) {
+  const liste = (namn || []).filter(Boolean);
+  if (!liste.length) return {};
+
+  // Enkel, stabil hash av namnet til eit tal mellom 0 og 1.
+  const fro = (s) => {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 100000;
+    return h / 100000;
+  };
+
+  // Kvadrert vekt gir den skeive fordelinga. 0,15 i botn gjer at ingen står
+  // med null — ein seljar utan ei einaste krone ser ut som ein feil.
+  const vekter = liste.map((n) => 0.15 + Math.pow(fro(n), 2) * 3);
+  const sum = vekter.reduce((a, b) => a + b, 0);
+
+  const ut = {};
+  liste.forEach((n, i) => {
+    ut[n] = Math.round((total * vekter[i]) / sum / 1000) * 1000;
+  });
+  return ut;
+}

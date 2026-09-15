@@ -100,13 +100,19 @@ p { margin: 0.5rem 0; }
   max-width: var(--maxw); margin: 0 auto; padding: 0.7rem 1.1rem;
   display: flex; align-items: center; gap: 1rem;
 }
+/* Logoen ligg i to utgåver. Ordmerket har svart skugge og eit svart
+   VEDLIKEHOLDSFRITT under, og begge forsvinn mot mørk botn — difor ei lysna
+   utgåve som byter inn med temaet. Berre éi av dei er i dokumentflyten om
+   gongen, så topplinja får same høgd uansett.
+
+   Den mørke utgåva har tom alt-tekst og aria-hidden: to bilete med same
+   alt-tekst ville lese logoen to gonger opp for ein skjermlesar. */
 .logo {
-  font-family: "Source Serif 4", serif; font-weight: 700; font-size: 1.3rem;
-  color: var(--primary-dark); text-decoration: none; letter-spacing: -0.01em;
-  display: flex; align-items: baseline; gap: 0.45rem; flex-shrink: 0;
+  display: flex; align-items: center; text-decoration: none; flex-shrink: 0;
 }
-.logo span { font-family: "Inter", sans-serif; font-size: 0.7rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+.logo img { display: block; height: 34px; width: auto; }
+.logo .logo-mork { display: none; }
+@media (min-width: 600px) { .logo img { height: 38px; } }
 .nav { display: flex; gap: 0.35rem; margin-left: auto; align-items: center; flex-wrap: wrap; }
 .nav a {
   color: var(--ink); text-decoration: none; font-weight: 600; font-size: 0.93rem;
@@ -1186,8 +1192,8 @@ body.tema-mork .btn-ghost:hover { background: rgba(230, 238, 243, 0.08); color: 
 
 /* --- topbar --- */
 body.tema-mork .topbar { background: rgba(10, 22, 33, 0.92); border-bottom-color: var(--border); }
-body.tema-mork .logo { color: var(--krem); font-family: "Oswald", sans-serif; text-transform: uppercase; letter-spacing: 0.06em; }
-body.tema-mork .logo span { color: var(--accent); letter-spacing: 0.18em; }
+body.tema-mork .logo .logo-lys { display: none; }
+body.tema-mork .logo .logo-mork { display: block; }
 body.tema-mork .nav a { color: var(--muted); }
 body.tema-mork .nav a:hover, body.tema-mork .nav a.active { color: var(--krem); background: transparent; }
 body.tema-mork .nav-toggle { border-color: var(--border); color: var(--krem); }
@@ -1642,6 +1648,68 @@ body.tema-mork.verktoyside a { color: var(--accent); }
 .panel-tett { padding: 0.75rem 0.85rem; }
 .dashbord-side .kpi { padding: 0.7rem 0.8rem; }
 .dashbord-side .kpi-num { font-size: 1.5rem; }
+
+/* ---------------------------------------------------------------------------
+   Kontrollpanelet på hovudkontoret
+   ---------------------------------------------------------------------------
+   Fire knappar som fortel kor mange saker som ventar, og eit søkefelt under.
+   Knappane er tal først, tekst etter: talet er det ein ser frå andre sida av
+   rommet, og er det null, er knappen slått av og dempa — ingenting å gjere
+   er ein gyldig og hyggjeleg tilstand.
+
+   Varselmerket er ein raud ring med utropsteikn ved sida av talet, ikkje ein
+   raud farge på talet. Farge åleine ville forsvunne for den som ikkje ser
+   raudt, og eit tal som byter farge er lett å lese som pynt. */
+.kontrollrad {
+  display: grid; gap: 0.7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 820px) { .kontrollrad { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.kontrollkort {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  text-align: left; cursor: pointer;
+  background: var(--surface-alt); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.7rem 0.8rem;
+  color: inherit; font: inherit;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.kontrollkort:hover:not(:disabled) { border-color: var(--primary); transform: translateY(-1px); }
+.kontrollkort:disabled { cursor: default; opacity: 0.6; }
+.kontrolltal {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 1.7rem; font-weight: 700; line-height: 1.1; color: var(--primary);
+}
+.kontrolltittel { font-weight: 600; }
+.kontrollkort .hint { margin: 0; }
+
+.kontrollkort-varsel { border-color: var(--bad); background: var(--bad-soft); }
+.kontrollkort-varsel .kontrolltal { color: var(--bad); }
+.varselmerke {
+  display: inline-grid; place-items: center;
+  width: 1.5rem; height: 1.5rem; flex: none;
+  border-radius: 50%; background: var(--bad); color: #fff;
+  font-size: 0.95rem; font-weight: 700;
+}
+
+.sokefelt { max-width: 34rem; }
+
+/* Søkeresultatet. Kvar rad er ein knapp i full breidd — han skal treffast med
+   tommelen medan ein held telefonen i den andre handa. */
+.sokeliste { list-style: none; margin: 0.4rem 0 0; padding: 0; display: grid; gap: 0.35rem; }
+.sokerad {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: var(--surface-alt); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0.55rem 0.7rem;
+  color: inherit; font: inherit;
+}
+.sokerad:hover { border-color: var(--primary); }
+.sokerad-namn { display: block; font-weight: 600; }
+.sokerad .hint { display: block; margin: 0; }
+
+/* Summen under det vesle ordreinngangsdiagrammet i sidekolonna. */
+.panel-sum { margin: 0.4rem 0 0; }
+.panel-sum strong { font-size: 1.25rem; }
 
 /* ---------------------------------------------------------------------------
    Kontakttemperatur

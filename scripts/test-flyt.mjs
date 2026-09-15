@@ -248,7 +248,8 @@ console.log("SELJARVERKTØYET");
   sjekk("mine tall", await p.$("#minetal .kpi") !== null);
   sjekk("mitt salg", (await p.$eval("#minetal", (e) => e.innerText)).includes("Mitt salg"));
   sjekk("ordreinngang", await p.$("#ordreinngangSeljar .diagramboks") !== null);
-  sjekk("fire årsknappar", (await p.$$("#ordreinngangSeljar [data-seljaraar]")).length === 4);
+  // Talet på år følgjer rapportane som er lagde inn, og veks med kvart år.
+  sjekk("årsknappar", (await p.$$("#ordreinngangSeljar [data-seljaraar]")).length >= 2);
   sjekk("kampanjepanel", await p.$("#kampanjepanel") !== null);
   sjekk("anmeldingar", (await p.$eval("#anmeldingar", (e) => e.innerText)).includes("av 5"));
   sjekk("påminningar", await p.$("#paaminningar") !== null);
@@ -357,8 +358,52 @@ console.log("HOVUDKONTORET");
   const p = await side("/admin.html", "admin");
   sjekk("statflis", (await p.$$(".stat-kort")).length >= 4);
   sjekk("ordreinngang", await p.$("#ordreinngang .diagramboks") !== null);
-  sjekk("fire år", (await p.$$("[data-oaar]")).length === 4);
-  sjekk("demovarsel", (await p.$eval("#ordreinngang", (e) => e.innerText)).includes("Demotall"));
+  sjekk("årsknappar", (await p.$$("#ordreinngang [data-oaar]")).length >= 2);
+  // Demostempelet skal stå der og berre der tala er oppdikta. Står det på eit
+  // rapportert år, mistrur nokon eit ekte tal; manglar det på eit oppdikta,
+  // trur nokon på eit tal som ikkje finst.
+  sjekk("demostempelet følgjer året", await p.evaluate(() => {
+    const knappar = [...document.querySelectorAll("#ordreinngang [data-oaar]")];
+    const demo = knappar.filter((k) => vindexErDemotal(Number(k.dataset.oaar)));
+    const tekst = () => document.querySelector("#ordreinngang").innerText.includes("Demotall");
+    return knappar.every((k) => {
+      k.click();
+      return tekst() === demo.includes(k);
+    });
+  }));
+  // Panelet er minimert i sidekolonna og skal kunne opnast i full breidd.
+  await p.click("#storreOrdreinngang");
+  await p.waitForSelector("#ordreinngangStor .diagramboks");
+  sjekk("forstørra ordreinngang", await p.$("#ordreinngangStor #redigerAarstal") !== null);
+  await p.click("#modalLukk");
+
+  // Kontrollpanelet.
+  sjekk("kontrollpanel", await p.$("#kontrollpanel .kontrollrad") !== null);
+  sjekk("fire kontrollkort", (await p.$$("#kontrollpanel [data-kontroll]")).length === 4);
+  sjekk("varselmerke på utildelte", await p.$("#kontrollpanel .kontrollkort-varsel .varselmerke") !== null);
+
+  // Eit kontrollkort skal opne sakslista — den same lista resten av verktøyet
+  // brukar, ikkje ei ny av same slag. Kort utan saker er slått av, så vi tek
+  // det første som faktisk har noko i seg.
+  await p.click("#kontrollpanel [data-kontroll]:not([disabled])");
+  await p.waitForSelector("#saksliste");
+  sjekk("kortet opnar sakslista", (await p.$$("#saksliste [data-sak]")).length > 0);
+
+  // Namnet på ei sak vi veit finst, henta frå lista vi nettopp opna.
+  const etternamn = await p.$eval("#saksliste [data-sak] .saksnamn strong", (e) =>
+    e.textContent.trim().split(/\s+/).slice(-1)[0]
+  );
+  await p.click("#modalLukk");
+  sjekk("fann eit kundenamn å søkje på", !!etternamn);
+  if (etternamn) {
+    await p.fill("#leadSok", etternamn);
+    await p.waitForTimeout(300);
+    sjekk("søket gir treff", (await p.$$("#sokeresultat [data-sak]")).length > 0);
+    await p.click("#sokeresultat [data-sak]");
+    await p.waitForSelector("#sakskort");
+    sjekk("søketreffet opnar sakskortet", await p.$("#sakskort #sakSeljar") !== null);
+    await p.click("#modalLukk");
+  }
   sjekk("seljartabell", await p.$("#seljartabell table") !== null);
   const tab = await p.$eval("#seljartabell", (e) => e.innerText);
   sjekk("seljarnamn i tabellen", /Oddveig|Erling|Knut|Rolf/.test(tab));

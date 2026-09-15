@@ -36,7 +36,12 @@
   header.className = "topbar";
   header.innerHTML = `
     <div class="topbar-inner">
-      <a class="logo" href="${rot}index.html">VINDEX <span>Vedlikeholdsfritt</span></a>
+      <a class="logo" href="${rot}index.html" aria-label="Vindex — til forsiden">
+        <img src="${rot}assets/vindex-logo.png" alt="Vindex — vedlikeholdsfritt"
+          class="logo-lys" width="600" height="143" decoding="async">
+        <img src="${rot}assets/vindex-logo-mork.png" alt="" aria-hidden="true"
+          class="logo-mork" width="600" height="143" decoding="async">
+      </a>
       ${minimal ? "" : '<button class="nav-toggle" type="button" aria-expanded="false" aria-label="Vis meny">☰</button>'}
       <nav class="nav" id="hovudmeny">
         ${menyHtml}

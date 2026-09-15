@@ -19,7 +19,7 @@ import {
   lastData, startDemo, tid, datoTekst, nesteAvtale,
   lagreLead, melding, opneModal, lukkModal, skrivUtDialog, demoLagreOrdre, demoNullstill,
   lagreKladd, hentKladd, slettKladd, kladdlagrar, sidanTekst,
-} from "./verktoy-felles.js?v=4d23d744";
+} from "./verktoy-felles.js?v=8cb822b4";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visVerktoy());
@@ -4557,7 +4557,7 @@ function opneBistandssvar(lead) {
 // Panelet hjå seljaren viser heile selskapet, ikkje berre hans eigne ordrar.
 // Det er referansen han treng: er mai svak i år, er det verdt å vite om det
 // gjeld han eller alle.
-let ordreinngangAarSeljar = new Date().getFullYear();
+let ordreinngangAarSeljar = null;  // vel år ved fyrste teikning
 
 function ordreinngangAaraSeljar() {
   const ut = new Set([new Date().getFullYear()]);
@@ -4575,6 +4575,7 @@ function teiknOrdreinngangSeljar() {
   const el = $("#ordreinngangSeljar");
   if (!el || erLager()) return;
   const aara = ordreinngangAaraSeljar();
+  if (ordreinngangAarSeljar === null) ordreinngangAarSeljar = vindexStartaar(aara, app.ordrar);
   if (!aara.includes(ordreinngangAarSeljar)) ordreinngangAarSeljar = aara[aara.length - 1];
 
   const data = vindexAarsdata(ordreinngangAarSeljar, app.ordrar);

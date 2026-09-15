@@ -71,7 +71,36 @@ export async function lastPrisdataLokalt(mappe = "data") {
   } catch (e) {
     VINDEX_DATASTATUS.feil = "Demo uten prisliste (" + (e && e.message ? e.message : e) + ").";
   }
+  // Den publiserte demoen har ingen data-mappe — omsetningstala er lukka, og
+  // mappa er halden utanfor repoet med vilje. Utan noko å teikne står
+  // diagramma tomme, og ein demo med tomme diagram fortel ikkje kva verktøyet
+  // gjer. Difor fyller vi dei med openlyst oppdikta tal når dei ekte manglar.
+  if (!VINDEX_DATASTATUS.apparat) vindexSettApparattal(vindexDemoapparat());
   return { ...VINDEX_DATASTATUS };
+}
+
+/**
+ * Oppdikta omsetning per person, lagt på det apparatet demoen faktisk viser.
+ *
+ * Må kallast etter at seljarlista er henta, sidan namna kjem derifrå. Gjer
+ * ingenting når det finst ekte tal — då er det dei som gjeld.
+ */
+export function fyllDemoteamtal(seljarar) {
+  if (VINDEX_DATASTATUS.apparat) return;
+  const iAar = new Date().getFullYear();
+  const namn = (seljarar || []).map((s) => s.navn).filter(Boolean);
+  const historikk = {};
+  namn.forEach((n) => (historikk[n] = {}));
+  // Også inneverande år. Kortet viser det året som står valt, og det er dette
+  // — utan tal her stod heile apparatet med «Ikke lagt inn» i demoen.
+  [iAar - 2, iAar - 1, iAar].forEach((aar) => {
+    const total = (vindexOrdreinngangAar(aar) || {}).total || 0;
+    Object.entries(vindexDemoteamtal(namn, total)).forEach(([n, sum]) => {
+      historikk[n][String(aar)] = sum;
+    });
+  });
+  vindexFyllObjekt(VINDEX_HISTORIKK, historikk);
+  vindexFyllObjekt(VINDEX_TEAMTAL, vindexDemoteamtal(namn, (vindexOrdreinngangAar(iAar - 1) || {}).total || 0));
 }
 
 /** Alt som skal skrivast opp når admin importerer prisboka på nytt. */

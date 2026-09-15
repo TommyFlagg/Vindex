@@ -12,8 +12,8 @@
 import {
   $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
   datoTekst, lagreLead, melding, opneModal, lukkModal, visDatavarsel, demoAnmeldingar,
-} from "./verktoy-felles.js?v=4d23d744";
-import { lastPrisdata, VINDEX_PRISDATA_DOKUMENT } from "./datalast.js?v=ba837177";
+} from "./verktoy-felles.js?v=8cb822b4";
+import { lastPrisdata, VINDEX_PRISDATA_DOKUMENT } from "./datalast.js?v=8d397edf";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visPanel(), { berreAdmin: true });
@@ -58,6 +58,7 @@ function teiknAlt() {
   teiknStatRad();
   teiknPrisdata();
   teiknBistand();
+  teiknKontrollpanel();
   teiknOrdreinngang();
   teiknSeljartabell();
   vindexTeiknDashKart($("#adminKart"), {
@@ -99,7 +100,7 @@ async function hentRepresentantar() {
     return;
   }
   try {
-    const { fb } = await import("./verktoy-felles.js?v=4d23d744");
+    const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
     const q = fb.query(fb.representantarCol(), fb.orderBy("opprettet", "desc"), fb.limit(200));
     representantar = (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (err) {
@@ -284,13 +285,160 @@ function opneBistandssvar(lead) {
 }
 
 // ---------------------------------------------------------------------------
+// Kontrollpanelet — det hovudkontoret må gjere noko med i dag
+// ---------------------------------------------------------------------------
+// To jobbar, i denne rekkjefølgja:
+//
+//   Fange opp det som fell mellom stolane. Verst er saker utan seljar: dei
+//   ligg ikkje i noka arbeidsliste, så ingen saknar dei. Difor har dei eit
+//   eige kort med varselmerke, og dei kan tildelast herifrå.
+//
+//   Svare kunden som ringjer. Han spør om ei sak vi kanskje lukka i fjor, så
+//   søket går over alt — opne, lukka og arkiverte saker under eitt.
+let sokeord = "";
+
+function teiknKontrollpanel() {
+  const st = vindexKontrollstatus(app.leads);
+  const treff = vindexSokLeads(app.leads, sokeord, app.seljarar);
+
+  const kort = (id, tal, tittel, tekst, alvor) => `
+    <button type="button" class="kontrollkort${alvor && tal ? " kontrollkort-varsel" : ""}"
+      data-kontroll="${id}" ${tal ? "" : "disabled"}>
+      <span class="kontrolltal">${alvor && tal ? '<span class="varselmerke" aria-hidden="true">!</span>' : ""}${tal}</span>
+      <span class="kontrolltittel">${tittel}</span>
+      <span class="hint">${tekst}</span>
+    </button>`;
+
+  $("#kontrollpanel").innerHTML = `
+    <div class="panel-topp">
+      <h2>Kontrollpanel</h2>
+      <span class="spacer"></span>
+      <span class="hint">${st.aktive} åpne saker · ${st.totalt} totalt i basen</span>
+    </div>
+
+    <div class="kontrollrad mt-1">
+      ${kort("utildelte", st.utildelte.length, "Uten selger",
+             "Ingen eier saken. Tildel den.", true)}
+      ${kort("ubehandla", st.ubehandla.length, "Ikke åpnet",
+             "Tildelt, men selgeren har ikke sett den ennå.", false)}
+      ${kort("forseinka", st.forseinka.length, "Over døgnet",
+             "Kom inn for mer enn 24 timer siden og er fortsatt ikke åpnet.", true)}
+      ${kort("bistand", st.bistand.length, "Venter på deg",
+             "Selgere som har bedt om hjelp i en sak.", false)}
+    </div>
+
+    <div class="field mt-2 sokefelt">
+      <label for="leadSok">Søk i alle henvendelser</label>
+      <input id="leadSok" type="search" value="${vindexT(sokeord)}" autocomplete="off"
+        placeholder="Navn, telefon, postnummer, e-post, produkt …">
+      <span class="hint">Søker også i lukkede og arkiverte saker, så du kan svare kunder
+        som ringer og spør hvordan det gikk.</span>
+    </div>
+    <div id="sokeresultat">${sokeresultatHtml(treff)}</div>`;
+
+  $$("#kontrollpanel [data-kontroll]").forEach((k) =>
+    k.addEventListener("click", () => opneKontrolliste(k.dataset.kontroll))
+  );
+
+  const felt = $("#leadSok");
+  felt.addEventListener("input", () => {
+    sokeord = felt.value;
+    $("#sokeresultat").innerHTML = sokeresultatHtml(vindexSokLeads(app.leads, sokeord, app.seljarar));
+    koplaSokeresultat();
+  });
+  koplaSokeresultat();
+}
+
+/**
+ * Søkeresultatet.
+ *
+ * Maks tjue rader. Er det fleire, er søkeordet for vidt, og ei lang liste
+ * hjelper ingen som har ein kunde på tråden — då er det betre å seie kor
+ * mange det er og be om eit meir presist ord.
+ */
+function sokeresultatHtml(treff) {
+  if (sokeord.trim().length < 2) return "";
+  if (!treff.length)
+    return `<p class="hint mt-1">Ingen treff på «${vindexT(sokeord)}». Prøv telefonnummer
+      eller postnummer — de er skrevet inn likt hver gang.</p>`;
+
+  const vist = treff.slice(0, 20);
+  return `
+    <p class="hint mt-1">${treff.length} treff${
+      treff.length > vist.length ? ` — viser de ${vist.length} nyeste` : ""
+    }</p>
+    <ul class="sokeliste">
+      ${vist
+        .map((l) => {
+          const k = l.kunde || {};
+          return `<li>
+            <button type="button" class="sokerad" data-sak="${l.id}">
+              <span class="sokerad-namn">${vindexT(k.navn) || "Uten navn"}</span>
+              <span class="hint">${vindexT(k.telefon || "")}${
+                k.poststed ? ` · ${vindexT(k.poststed)}` : ""
+              } · ${vindexT(vindexSaksstatus(l, app.seljarar))}</span>
+              <span class="hint">${datoTekst(l.opprettet)}</span>
+            </button>
+          </li>`;
+        })
+        .join("")}
+    </ul>`;
+}
+
+function koplaSokeresultat() {
+  $$("#sokeresultat [data-sak]").forEach((b) =>
+    b.addEventListener("click", () => opneSak(b.dataset.sak))
+  );
+}
+
+/**
+ * Ei av dei fire listene, opna i dialogen.
+ *
+ * Sakslista og sakskortet finst frå før lenger nede i fila — dei blir brukte
+ * frå nøkkeltala, frå kartet og frå kvar seljar. Kontrollpanelet er berre ein
+ * inngang til, ikkje ei ny visning: skal ein kunne flytte ei sak til ein annan
+ * seljar, skal det gjerast på den same staden uansett kvar ein kom frå.
+ */
+function opneKontrolliste(slag) {
+  const st = vindexKontrollstatus(app.leads);
+  const liste = st[slag] || [];
+
+  if (slag === "bistand") {
+    // Bistandssakene har sitt eige skjema med svarfelt. Ingen grunn til å lage
+    // eit dårlegare eit her.
+    if (liste.length === 1) return opneBistandssvar(liste[0]);
+    return $("#seksjonBistand").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  const { tittel, undertekst } = {
+    utildelte: {
+      tittel: "Saker uten selger",
+      undertekst:
+        "Ingen har disse i arbeidslisten sin, så de blir ikke fulgt opp av seg selv. " +
+        "Åpne saken og sett en ansvarlig.",
+    },
+    ubehandla: {
+      tittel: "Tildelt, men ikke åpnet",
+      undertekst: "Selgeren har fått saken, men har ikke sett på den ennå.",
+    },
+    forseinka: {
+      tittel: "Har ligget over et døgn",
+      undertekst: "Kom inn for mer enn 24 timer siden og er fortsatt ikke åpnet av noen.",
+    },
+  }[slag];
+
+  opneSaksliste(tittel, liste, undertekst);
+}
+
+// ---------------------------------------------------------------------------
 // Ordreinngang: eit år om gongen, med året før som referanse
 // ---------------------------------------------------------------------------
 // Åra står stigande frå venstre, slik ein les ei tidsline. Det er ikkje alle
 // åra som har månadstal — verktøyet er nytt, og rapporten frå 2024 dekkjer
 // berre januar–september — og då seier panelet det i staden for å teikne ein
 // tom akse som ser ut som ein nedgang.
-let ordreAar = new Date().getFullYear();
+// null til fyrste teikning: då veit vi kva år som faktisk har tal.
+let ordreAar = null;
 
 function ordreinngangAar() {
   const naa = new Date().getFullYear();
@@ -311,8 +459,20 @@ function ordreinngangAar() {
   return Array.from(ut).sort();
 }
 
-function teiknOrdreinngang() {
+/**
+ * Ordreinngangen, i to storleikar.
+ *
+ * Panelet låg lenge øvst og breidt, men det er ei historiebok: det fortel kva
+ * som har skjedd, ikkje kva som må gjerast i dag. Difor står det no smalt i
+ * sidekolonna, og opnar seg i full breidd når nokon vil studere det.
+ *
+ * Diagrammet er det same i begge storleikane — det er ein SVG med viewBox, så
+ * det skalerer utan å miste noko. Det som fell bort i den vesle utgåva er
+ * regnskapstala og forklaringane rundt, som ingen les i eit hjørne uansett.
+ */
+function ordreinngangHtml(stor) {
   const aarListe = ordreinngangAar();
+  if (ordreAar === null) ordreAar = vindexStartaar(aarListe, app.ordrar);
   if (!aarListe.includes(ordreAar)) ordreAar = aarListe[aarListe.length - 1];
 
   const data = vindexAarsdata(ordreAar, app.ordrar);
@@ -320,13 +480,56 @@ function teiknOrdreinngang() {
   const sum = data.manad.reduce((n, m) => n + (m.sum || 0), 0);
   const rekneskap = (VINDEX_AARSTAL.aar[ordreAar] || {}).driftsinntekter;
 
-  $("#ordreinngang").innerHTML = `
+  const aarsveljar = `<div class="aarsveljar mt-1" role="group" aria-label="Velg år">
+      ${aarListe
+        .map(
+          (a) => `<button type="button" class="aarknapp${a === ordreAar ? " valt" : ""}"
+            data-oaar="${a}" aria-pressed="${a === ordreAar}">${a}</button>`
+        )
+        .join("")}
+    </div>`;
+
+  const demovarsel = vindexErDemotal(ordreAar)
+    ? `<div class="notice notice-warn mt-1"><strong>Demotall.</strong> Tallene for
+         ${ordreAar} er oppdiktet og lagt inn for demonstrasjon. De er ikke
+         ordreinngang. Fjern dem ved å laste inn den ekte apparat-filen på nytt
+         under «Prisliste og satser».</div>`
+    : "";
+
+  const diagram = data.manad.length
+    ? manadsdiagram(data.manad, forrige.manad, ordreAar, forrige.manad.length ? ordreAar - 1 : null)
+    : `<p class="notice notice-info mt-1"><strong>Ingen månedstall for ${ordreAar}.</strong>
+         Verktøyet har ingen ordrer fra året, og det finnes ingen rapport lagt inn.
+         ${
+           rekneskap
+             ? "Årstallet fra regnskapet står under."
+             : "Legg inn driftsinntektene fra regnskapet under, så har du i det minste årssummen."
+         }</p>`;
+
+  const periode = data.periode && data.periode !== "hele året" ? ` (${data.periode})` : "";
+  const kjeldetekst =
+    data.kjelde === "ordrar" ? "Regnet av ordrene i verktøyet" : data.merknad || VINDEX_FJOR.merknad;
+
+  if (!stor) {
+    return `
     <div class="panel-topp">
       <h2>Ordreinngang</h2>
       <span class="spacer"></span>
-      <span class="hint">Eks. mva, uten frakt — samme grunnlag som årsrapporten.</span>
+      <button class="btn btn-ghost btn-sm" id="storreOrdreinngang"
+        aria-label="Forstørr ordreinngangen">Forstørr</button>
     </div>
-    <div class="aarsveljar mt-1" role="group" aria-label="Velg år">
+    ${aarsveljar}
+    ${demovarsel}
+    ${diagram}
+    <p class="panel-sum">${
+      data.manad.length
+        ? `<strong>${kr(sum)}</strong> <span class="hint">${ordreAar}${periode} · eks. mva</span>`
+        : '<span class="hint">Ikke registrert</span>'
+    }</p>`;
+  }
+
+  return `
+    <div class="aarsveljar" role="group" aria-label="Velg år">
       ${aarListe
         .map(
           (a) => `<button type="button" class="aarknapp${a === ordreAar ? " valt" : ""}"
@@ -334,35 +537,15 @@ function teiknOrdreinngang() {
         )
         .join("")}
     </div>
-    ${
-      vindexErDemotal(ordreAar)
-        ? `<div class="notice notice-warn mt-1"><strong>Demotall.</strong> Tallene for
-             ${ordreAar} er oppdiktet og lagt inn for demonstrasjon. De er ikke
-             ordreinngang. Fjern dem ved å laste inn den ekte apparat-filen på nytt
-             under «Prisliste og satser».</div>`
-        : ""
-    }
-    ${
-      data.manad.length
-        ? manadsdiagram(data.manad, forrige.manad, ordreAar, forrige.manad.length ? ordreAar - 1 : null)
-        : `<p class="notice notice-info mt-1"><strong>Ingen månedstall for ${ordreAar}.</strong>
-             Verktøyet har ingen ordrer fra året, og det finnes ingen rapport lagt inn.
-             ${
-               rekneskap
-                 ? "Årstallet fra regnskapet står under."
-                 : "Legg inn driftsinntektene fra regnskapet under, så har du i det minste årssummen."
-             }</p>`
-    }
+    <p class="hint mt-1">Eks. mva, uten frakt — samme grunnlag som årsrapporten.</p>
+    ${demovarsel}
+    ${diagram}
     <div class="aarsfakta">
       <div>
-        <dt>Ordreinngang ${ordreAar}${data.periode && data.periode !== "hele året" ? ` (${data.periode})` : ""}</dt>
+        <dt>Ordreinngang ${ordreAar}${periode}</dt>
         <dd>${
           data.manad.length
-            ? `<strong>${kr(sum)}</strong><span class="hint">${
-                data.kjelde === "ordrar"
-                  ? "Regnet av ordrene i verktøyet"
-                  : data.merknad || VINDEX_FJOR.merknad
-              }</span>`
+            ? `<strong>${kr(sum)}</strong><span class="hint">${kjeldetekst}</span>`
             : '<span class="hint">Ikke registrert</span>'
         }</dd>
       </div>
@@ -381,15 +564,35 @@ function teiknOrdreinngang() {
     <p class="hint mt-1">Driftsinntekter er ikke ordreinngang: regnskapet tar med frakt og alt
       annet som faktureres, og periodiserer etter når inntekten er opptjent. Derfor står de to
       hver for seg — lagt i samme søylerekke ville de gitt en vekstkurve som ikke måler noe.</p>`;
+}
 
-  koplaDiagram($("#ordreinngang"));
-  $$("[data-oaar]").forEach((k) =>
+function teiknOrdreinngang() {
+  const rot = $("#ordreinngang");
+  rot.innerHTML = ordreinngangHtml(false);
+  koplaDiagram(rot);
+  rot.querySelectorAll("[data-oaar]").forEach((k) =>
     k.addEventListener("click", () => {
       ordreAar = parseInt(k.dataset.oaar, 10);
       teiknOrdreinngang();
     })
   );
-  $("#redigerAarstal").addEventListener("click", opneAarstal);
+  $("#storreOrdreinngang").addEventListener("click", opneOrdreinngang);
+}
+
+/** Same panel i full breidd, i dialogen. Årsknappane teiknar dialogen om att. */
+function opneOrdreinngang() {
+  opneModal("Ordreinngang", `<div id="ordreinngangStor">${ordreinngangHtml(true)}</div>`);
+  const rot = $("#ordreinngangStor");
+  koplaDiagram(rot);
+  rot.querySelectorAll("[data-oaar]").forEach((k) =>
+    k.addEventListener("click", () => {
+      ordreAar = parseInt(k.dataset.oaar, 10);
+      opneOrdreinngang();
+      // Det vesle panelet i sidekolonna skal følgje same år som dialogen.
+      teiknOrdreinngang();
+    })
+  );
+  rot.querySelector("#redigerAarstal").addEventListener("click", opneAarstal);
 }
 
 /**
@@ -436,7 +639,7 @@ async function lagreAarstal() {
 
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=4d23d744");
+      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
       await fb.setDoc(fb.settingsDoc("aarstal"), { driftsinntekter: tal });
     }
     // Eit tal nokon har skrive inn sjølv er stadfesta — til skilnad frå det eg
@@ -971,7 +1174,7 @@ async function lagrePerson(p, ny) {
       if (ny) app.seljarar.push({ ...data, id: "ny-" + Date.now(), arkivert: false });
       else Object.assign(p, data);
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=4d23d744");
+      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
       if (ny) {
         // Personen får rad i apparatet med ein gong, men kan ikkje logge inn
         // før nokon opprettar brukaren i Firebase Authentication og flyttar
@@ -1025,7 +1228,7 @@ async function vekslArkiv(p) {
   const data = vindexArkiverData(p, dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=4d23d744");
+      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
       await fb.updateDoc(fb.sellerDoc(p.id), data);
     }
     Object.assign(p, data);
@@ -1046,7 +1249,7 @@ async function lagreDistrikt(seljarId) {
   seljar.distrikt = valde;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=4d23d744");
+      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
       await fb.updateDoc(fb.sellerDoc(seljarId), { distrikt: valde });
       await byggRuting();
     }
@@ -1066,7 +1269,7 @@ async function lagreDistrikt(seljarId) {
  * innlogga. Difor ligg berre ID-ane der — ingen namn, ingen kontaktinfo.
  */
 async function byggRuting() {
-  const { fb } = await import("./verktoy-felles.js?v=4d23d744");
+  const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
   // Formen må vere den bestillingsskjemaet les: distrikt-id -> liste med
   // selger-id-ar. Er det fleire i same distrikt, roterer skjemaet mellom dei.
   // Dokumentet ligg flatt, uten «distrikt»-nivå, og heiter settings/ruting.
@@ -1454,7 +1657,7 @@ async function knytAnmelding(id, seljarId) {
   if (!a) return;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=4d23d744");
+      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
       await fb.updateDoc(fb.reviewDoc(id), { seljarId: seljarId || null });
     }
     a.seljarId = seljarId || null;
@@ -1590,7 +1793,7 @@ async function lagreGjeninntaking(s, dato) {
   const data = vindexGjeninntaData(dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=4d23d744");
+      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
       await fb.updateDoc(fb.sellerDoc(s.id), data);
     }
     Object.assign(s, data);
@@ -1968,7 +2171,7 @@ async function lagreKampanje(kam, ny, data) {
       if (ny) app.kampanjar.push({ ...full, id: "k-" + Date.now(), opprettaAv: app.brukar.navn });
       else Object.assign(kam, full);
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=4d23d744");
+      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
       if (ny) {
         const ref = await fb.addDoc(fb.campaignsCol(), {
           ...full,
@@ -1994,7 +2197,7 @@ async function vekslKampanje(k) {
   const paa = k.aktiv === false;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=4d23d744");
+      const { fb } = await import("./verktoy-felles.js?v=8cb822b4");
       await fb.updateDoc(fb.campaignDoc(k.id), { aktiv: paa });
     }
     k.aktiv = paa;

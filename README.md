@@ -24,6 +24,27 @@ hele dagen og skrives ut — plukklister og ordresedler går på papir — og de
 lys bakgrunn riktig. Temaet er scopet til `body.tema-mork`, som alle sidene
 utenom `selger.html` har fast.
 
+### Logoen
+
+Ordmerket i topplinjen var lenge satt i tekst — «VINDEX» i serif med
+«Vedlikeholdsfritt» under. Nå ligger den ekte logoen der: rød kursiv VINDEX med
+svart skygge, VEDLIKEHOLDSFRITT under, og det norske flagget som rundt merke.
+
+Den ligger i to filer, ikke én. Det svarte — skyggen og hele ordet under —
+forsvinner mot mørk bunn, så `assets/vindex-logo-mork.png` har fått de svarte
+og grå partiene lysnet til samme kremfarge som resten av det mørke temaet.
+Rødfargen og flagget står like godt i begge og er ikke rørt. Kriteriet for hva
+som lysnes er gråtone, ikke «svart»: kantene er antialiasert, og et rent
+fargeoppslag ville latt en mørk rand stå igjen rundt hver bokstav.
+
+Bare én av dem er i dokumentflyten om gangen, så topplinjen har samme høyde
+uansett tema. Den mørke har tom `alt` og `aria-hidden`, ellers ville en
+skjermleser lest logoen to ganger.
+
+Originalen fra kunden ligger i `assets/vindexlogo_vedlikeholdsfritt.png`.
+Ikonet i fanen (`assets/favicon.svg`) er tegnet etter den: hvit kursiv V med
+skygge på rød bunn.
+
 ### Selgeren velger selv
 
 Øverst til høyre i verktøylinja ligger en **Lys / Mørk**-bryter, og den samme
@@ -889,7 +910,7 @@ fra det selgerne faktisk blir spurt om, ikke fra generelle salgsfraser.
 - Fire nøkkeltall øverst: åpne saker, hvor mange som har ventet over tre døgn,
   ordreinngang i år, produksjonskø.
 - **Bistandsforespørsler** — det eneste på siden som krever handling.
-- Ordreinngang i år mot i fjor.
+- **Kontrollpanelet** (se under).
 - Hele apparatet i tall, sortert på oppfølgingsrate, med en egen kolonne for
   hvor mange saker hver selger har liggende over tre døgn. Det er tallet som
   koster salg.
@@ -897,8 +918,8 @@ fra det selgerne faktisk blir spurt om, ikke fra generelle salgsfraser.
   En kanal som gir få, men store saker er mer verdt enn en som gir mange små.
   Stolpen måler antall leads; omsetning og treffprosent står som tall ved siden
   av, aldri som en andre stolpe i samme geometri.
-- Kart, oppfølgingsfordeling, produksjonskø, hele apparatet med distrikt, og
-  hvorfor vi vinner og taper.
+- Ordreinngang, kart, oppfølgingsfordeling, produksjonskø, kundeanmeldelser og
+  hvorfor vi vinner og taper — alt i sidekolonnen.
 
 Begge sidene deler innlogging, demodata og lagring gjennom
 `js/verktoy-felles.js`, slik at de aldri kan drive fra hverandre.
@@ -915,6 +936,60 @@ sammenligning vet ingen om egne tall er gode.
 
 Alt regnes i `js/nokkeltal.js`, atskilt fra det som tegner panelene, slik at
 admin og selger aldri kan få to ulike svar på det samme spørsmålet.
+
+### Kontrollpanelet
+
+Øverst på hovedkontorsiden, der ordreinngangen sto før. Bytte er gjort med
+vilje: **ordreinngangen er en historiebok, ikke en arbeidsliste.** Den forteller
+hva som har skjedd, og den forteller det like godt fra sidekolonnen. Det som
+fortjener den beste plassen på siden er det ingen andre fanger opp.
+
+Fire tellere, i den rekkefølgen de haster:
+
+| Kort | Hva det er | Varsel |
+|---|---|---|
+| **Uten selger** | Saker ingen har fått. De ligger ikke i noen arbeidsliste, så ingen savner dem. | Ja |
+| **Ikke åpnet** | Tildelt, men selgeren har ikke sett den ennå. | Nei |
+| **Over døgnet** | Kom inn for mer enn 24 timer siden og er fortsatt uåpnet. | Ja |
+| **Venter på deg** | Selgere som har bedt hovedkontoret om hjelp i en sak. | Nei |
+
+Tallene overlapper ikke. En sak som både mangler selger og er uåpnet telles bare
+i den første og strengeste listen, slik at de fire kan leses ovenfra og ned som
+én arbeidsliste uten at samme sak dukker opp to ganger.
+
+Varselet er en rød ring med utropstegn ved siden av tallet, ikke en rød farge
+**på** tallet. Farge alene forsvinner for den som ikke ser rødt, og et tall som
+bytter farge leses lett som pynt. Er telleren null, er kortet slått av og
+dempet — ingenting å gjøre er en gyldig tilstand, ikke en tom liste å klikke seg
+inn i.
+
+Klikker du et kort, åpnes den **samme** sakslisten og det samme sakskortet som
+nøkkeltallsflisene og kartet bruker. Kontrollpanelet er en inngang til, ikke en
+ny visning av samme sak: skal en sak flyttes til en annen selger, gjøres det på
+ett sted uansett hvor du kom fra.
+
+#### Søk i alle henvendelser
+
+Under tellerne står et fritekstsøk som går over **alle** leads — også de som er
+lukket, solgt, avslått og arkivert.
+
+Grunnen er kunden på telefonen. Han spør hvordan det gikk med tilbudet, og det
+spørsmålet kommer like ofte om en sak selgeren avsluttet for et halvt år siden.
+Et søk som bare finner åpne saker gjør at hovedkontoret må svare «jeg finner deg
+ikke i systemet» til en kunde som står i systemet.
+
+Søket dekker navn, telefon, e-post, adresse, postnummer, poststed, kommentar,
+produkt, distrikt og selgerens navn. Telefonnummer og postnummer sammenlignes
+siffer for siffer uten mellomrom, fordi ingen skriver dem likt to ganger:
+«+47 918 66 547», «918 66 547» og «91866547» finner det samme. Hvert treff står
+med status, hvem som har saken og om den er arkivert, i én setning som kan leses
+høyt til kunden uten tolkning.
+
+Maks tjue rader vises. Er det flere, er søkeordet for vidt, og en lang liste
+hjelper ingen som har en kunde på tråden — da sier den heller hvor mange det er.
+
+Logikken ligger i `js/kontrollpanel.js`, uten DOM, og er dekket av testene i
+`scripts/test-rein.mjs`.
 
 ### Hovedkontoret kan gå inn i sakene
 
@@ -1259,14 +1334,58 @@ Verktøyet regner ordreinngang på samme grunnlag som årsrapporten: eks. mva,
 uten frakt, per måned og per selger. Verdien hentes fra prisfeltene i
 ordreskjemaet — den eneste stedet en pris faktisk skrives inn.
 
-Månedsdiagrammet på oversikten viser inneværende år med **2024 som referanse**
-bak. Alle ser selskapets månedstall; bare hovedkontoret ser fordelingen per
-selger.
+Månedsdiagrammet viser ett år med året før som referanse bak. Alle ser
+selskapets månedstall; bare hovedkontoret ser fordelingen per selger.
 
-Referansetallene ligger i `VINDEX_FJOR` (`js/team.js`) og er hentet fra
-rapporten «Ordreinngang Vindex» datert 31.10.2024: 9 943 157 kr i januar–
-september, fordelt på 6,1 mill fra selgere, 1,5 mill fra forhandlere og 2,3 mill
-direkte fra Vindex AS.
+Panelet står **minimert i sidekolonnen** på hovedkontoret, med en «Forstørr»-
+knapp som åpner det i full bredde med regnskapstallene. Diagrammet er en SVG med
+viewBox, så det er det samme diagrammet i begge størrelser — det som faller bort
+i den lille utgaven er forklaringene rundt, som ingen leser i et hjørne uansett.
+
+Panelet åpner på inneværende år så lenge det året har noe å vise, målt som minst
+tre måneder med tall. Tidlig på året er inneværende år nesten tomt, og et
+diagram med én søyle i er ikke verdt plassen sin; da åpner det på siste år med
+en skikkelig kurve. Regelen er `vindexStartaar` i `js/apparattal.js`, delt av
+begge sidene, slik at selgeren og hovedkontoret aldri åpner på hvert sitt år.
+
+### Tallene som ligger inne
+
+Fra rapporten «Ordreinngang Vindex», eks. mva og uten frakt:
+
+| År | Periode | Ordreinngang | Kilde |
+|---|---|---|---|
+| 2024 | januar–september | 9 943 157 kr | Rapport datert 31.10.2024 |
+| 2025 | januar–august | 10 363 998 kr | Rapport datert 01.10.2025 |
+
+2025 fordeler seg på 6,5 mill fra selgere, 1,3 mill fra forhandlere og 2,6 mill
+direkte fra Vindex AS Farstad. **Omsetning per person står ikke her** — den
+ligger i `historikk` i apparat-filen, med år som nøkkel, og apparat-filen er
+gitignorert.
+
+Tallene ligger **ikke i repoet**. De lastes inn i Firestore under `prisdata/`
+fra «Prisliste og satser» på hovedkontorsiden, på samme måte som prislisten.
+Mappen `data/` er gitignorert.
+
+### Demoen har oppdiktede tall
+
+Nettopp fordi de ekte tallene ikke ligger i repoet, har den publiserte demoen
+ingen. Et diagram uten tall forteller ikke hva verktøyet er, så finner demoen
+ingen ekte data, faller den tilbake på `vindexDemoapparat()` i
+`js/apparattal.js`: to hele år på 15 og 17 millioner, og et inneværende år som
+stopper der kalenderen står.
+
+Hvert år er merket `demo: true`, så diagrammet skriver «Demotall» over seg selv,
+og salgstallet på hvert personkort sier «Oppdiktet for demoen. Ikke et virkelig
+salgstall.» Et tall som later som det er ekte er verre enn ikke noe tall.
+
+Omsetning per person **regnes ut** av `vindexDemoteamtal()` i stedet for å stå i
+en liste. Det er med vilje: en fil i et åpent repo som parer navngitte,
+virkelige personer med omsetningstall ville sett ut som en lekkasje uansett hvor
+tydelig «demo» det sto over. Fordelingen er deterministisk, så demoen ikke
+endrer seg mellom to omlastinger midt i et møte, og skjev, slik ekte salg er.
+
+Sesongprofilen er det eneste som er hentet fra virkeligheten — mai og juni er de
+store månedene i denne bransjen — men kurven er rundet av og jevnet ut.
 
 ## Produksjonskø
 
@@ -1512,6 +1631,7 @@ produkter/*.html         Genererte produktsider
 bestilling.html          Bestillingsskjema (4 steg)
 selger.html              Selgerens dashbord (og lagerets plukkliste)
 admin.html               Hovedkontorets samlede oversikt
+assets/vindex-logo.png   Logoen i topplinjen (og -mork.png for mørkt tema)
 assets/bilder/           Produktbilder (filnavn = produkt-id)
                          Bare bilder som holder mål — se «Bilder» under
 css/style.css            Designsystem
@@ -1525,6 +1645,7 @@ js/verktoy-felles.js     Delt grunnmur: innlogging, demodata, lagring, dialog
 js/selger.js             Selgerens dashbord: leads, tilbud, kalender, ordre, arkiv
 js/admin.js              Hovedkontoret: apparatet, kanaler, statistikk
 js/oppfolging.js         Kontakttemperatur, arkiv, bistand, tilbudslinjer, tips
+js/kontrollpanel.js      Ubehandlede leads, varsler og søk i alle saker
 js/leadtekst.js          Leser et lead ut av en innlimt e-post
 js/nettverk.js           Representantkartet og «bli representant»-boksen
 js/modellar.js           Prislisten 2026 som data, med rabattgrenser

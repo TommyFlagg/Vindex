@@ -1,5 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Vindex">
-  <rect width="64" height="64" rx="12" fill="#10495a"/>
-  <path d="M14 16h9.5l8.5 24 8.5-24H50L37 48h-10z" fill="#ffffff"/>
-  <rect x="14" y="52" width="36" height="4" rx="2" fill="#b8862f"/>
+  <!-- Fargane er tekne frå logoen: raud #e30613, og marineblått frå flagget. -->
+  <rect width="64" height="64" rx="12" fill="#e30613"/>
+  <!-- Kursiv V, som i ordmerket, med den svarte skuggen bak. -->
+  <path d="M19 15h10l6.5 22L44 15h10L38.5 52H26.5z" fill="#0d0d0d" opacity=".35"
+    transform="translate(2 2)"/>
+  <path d="M19 15h10l6.5 22L44 15h10L38.5 52H26.5z" fill="#ffffff"/>
 </svg>

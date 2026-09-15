@@ -15,7 +15,7 @@
 // koden: dei blir henta frå Firestore etter innlogging (js/datalast.js).
 // ============================================================================
 
-import { lastPrisdata, lastPrisdataLokalt } from "./datalast.js?v=ba837177";
+import { lastPrisdata, lastPrisdataLokalt, fyllDemoteamtal } from "./datalast.js?v=8d397edf";
 
 export let fb = null;
 // Lastar ikkje Firebase-biblioteket, skal brukaren få vite kvifor. Utan denne
@@ -259,6 +259,10 @@ export async function lastData() {
 }
 
 export function startDemo(rolle) {
+  // Fann demoen ingen ekte omsetningstal, får apparatet oppdikta tal her — før
+  // seljarlista blir bygd, sidan kvar seljar les sitt eige tal med det same.
+  fyllDemoteamtal(VINDEX_TEAM);
+
   // Demoen brukar det verkelege apparatet frå js/team.js, så namn, stader og
   // distrikt er dei same som i drift. Innlogga brukar overtek den første
   // seljaren sin plass.
@@ -389,6 +393,14 @@ export function demoLeads() {
     ["Geir Todal", "6413", "Molde", "terrassegulv", "solgt", 47, "demo-2", "anbefaling"],
     ["Solveig Ness", "6530", "Averøy", "gjerde", "avslatt", 21, "demo-3", "utsatt"],
     ["Are Kvam", "6650", "Surnadal", "levegg", "sett", 1, "demo-4", null],
+    // Rogaland og Troms og Finnmark står utan representant. Førespurnader
+    // derifrå får ingen seljar av rutinga, og blir liggjande i den felles
+    // innboksen til nokon på hovudkontoret tek tak i dei. Dei er med her
+    // fordi det er slik det faktisk ser ut — og fordi eit kontrollpanel som
+    // aldri har noko å vise, ikkje er til å stole på.
+    ["Sigrid Aarre", "4340", "Bryne", "rekkverk", "ny", 0, null, null],
+    ["Hans Petter Mo", "9010", "Tromsø", "gjerde", "ny", 2, null, null],
+    ["Elin Bakkejord", "4306", "Sandnes", "levegg", "ny", 5, null, null],
   ];
 
   const ekstra = spreidd.map(([navn, postnr, poststed, produkt, status, dagar, seljar, grunn], i) => {

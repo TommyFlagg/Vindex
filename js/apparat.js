@@ -62,14 +62,15 @@ function vindexSalgsaar(seljar, ordrar, aar) {
   const gammal = aar === 2024 ? seljar.y2024 : undefined;
   const sum = [lagra, felles, gammal].find((v) => v !== undefined && v !== null);
   if (sum === undefined || sum === null) return { sum: null, kjelde: null, merknad: "Ikke lagt inn." };
-  return {
-    sum,
-    kjelde: "historikk",
-    merknad:
-      aar === 2024 && lagra === undefined
-        ? `Fra rapporten «Ordreinngang Vindex» — ${VINDEX_FJOR.periode}, eks. mva.`
-        : "Lagt inn fra regnskapet.",
-  };
+  // Merknaden skal seie kvar talet kjem frå. Er året merkt som demo, er talet
+  // oppdikta, og då er «fra regnskapet» ei direkte usanning på eit kort som
+  // står ved sida av namnet til ein verkeleg person.
+  const merknad = demoAar
+    ? "Oppdiktet for demoen. Ikke et virkelig salgstall."
+    : lagra === undefined && aar === VINDEX_FJOR.aar
+    ? `Fra rapporten «Ordreinngang Vindex» — ${VINDEX_FJOR.periode}, eks. mva.`
+    : "Lagt inn fra regnskapet.";
+  return { sum, kjelde: "historikk", merknad };
 }
 
 /** Åra kortet kan vise: dei vi har eit tal for, pluss inneverande år. */

@@ -6,7 +6,7 @@ const les = (f) => fs.readFileSync(R + "/" + f, "utf8").replace(/^export /gm, ""
 const filer = ["js/datafyll.js","js/modellar.js","js/provisjon.js","js/team.js","js/apparattal.js",
   "js/terrasse.js","js/sprosser.js","js/oppfolging.js","js/distrikt.js","js/fylke.js",
   "js/kalender.js","js/kampanje.js","js/anmeldingar.js","js/nokkeltal.js","js/apparat.js",
-  "js/modellfigur.js","js/produkter.js","js/ordre.js"];
+  "js/modellfigur.js","js/produkter.js","js/ordre.js","js/kontrollpanel.js"];
 const kjelde = filer.map(les).join("\n;\n") + `
 ;vindexSettPrisbok(${fs.readFileSync(R + "/data/prisbok.json","utf8")});
 vindexSettProvisjon(${fs.readFileSync(R + "/data/provisjon.json","utf8")});
@@ -151,17 +151,99 @@ console.log("ORDRESEDDEL OG SPROSSETILBOD");
 }
 
 console.log("APPARATTAL");
-p("ordreinngang 2025", () => G("vindexOrdreinngangAar")(2025).total, 16782000);
-p("ordreinngang 2026 hittil", () => G("vindexOrdreinngangAar")(2026).total, 15337000);
-// Demoen skal vise vekst, ikkje fall: 2026 skal liggje over 2025 på same dag.
-sjekk("2026 over 2025 hittil i år", () => {
-  const til = (a, n) => G("vindexOrdreinngangAar")(a).manad.slice(0, n).reduce((s, m) => s + m.sum, 0);
-  return til(2026, 9) > til(2025, 8) + G("vindexOrdreinngangAar")(2025).manad[8].sum / 2;
-});
-sjekk("alle fire åra er merkte demo",
-  () => [2023, 2024, 2025, 2026].every((a) => G("vindexErDemotal")(a) === true));
-sjekk("2026 er merkt demo", () => G("vindexErDemotal")(2026) === true);
-p("Tommy 2025", () => (G("VINDEX_HISTORIKK")["Tommy Amundsen"] || {})["2025"], 1960000);
+// Tala sjølve står i data/apparat-demo.json og blir bytta ut kvar gong det
+// kjem ein ny rapport. Difor testar vi eigenskapane, ikkje beløpa: eit nytt
+// kvartal skal ikkje gjere testsuiten raud.
+const AAR = () => Object.keys(G("VINDEX_ORDREINNGANG")).map(Number).sort();
+sjekk("det finst ordreinngang for minst to år", () => AAR().length >= 2);
+sjekk("totalen er summen av månadene", () =>
+  AAR().every((a) => {
+    const o = G("vindexOrdreinngangAar")(a);
+    return o.total === o.manad.reduce((n, m) => n + m.sum, 0);
+  }));
+sjekk("alle tolv månadene står der, i rekkjefølgje", () =>
+  AAR().every((a) => G("vindexOrdreinngangAar")(a).manad.length === 12));
+// Rapporterte år er verkelege tal og skal ikkje ha demostempelet. Det er
+// stempelet som avgjer om diagrammet skriv «Demotall» over seg sjølv, og eit
+// feil stempel er verre enn ingen: enten trur nokon på oppdikta tal, eller
+// dei mistrur dei ekte.
+sjekk("rapporterte år er ikkje merkte demo", () =>
+  AAR().filter((a) => a < new Date().getFullYear()).every((a) => G("vindexErDemotal")(a) === false));
+
+// Det oppdikta apparatet som demoen fell tilbake på når den ikkje finn ekte
+// tal. Dette ligg i koden og er difor verdt å feste med tal.
+{
+  const d = G("vindexDemoapparat")();
+  const iAar = new Date().getFullYear();
+  const sum = (a) => d.ordreinngang[a].manad.reduce((n, m) => n + m.sum, 0);
+  p("demoår 1", sum(iAar - 2), 15000000);
+  p("demoår 2", sum(iAar - 1), 17000000);
+  sjekk("alle demoåra er merkte demo", () => Object.values(d.ordreinngang).every((v) => v.demo === true));
+  // Eit halvferdig år skal ikkje få heile årsbeløpet dytta inn i månadene sine.
+  sjekk("inneverande år er lågare enn i fjor", () => sum(iAar) < sum(iAar - 1));
+  sjekk("månadene etter i dag står tomme", () =>
+    d.ordreinngang[iAar].manad.slice(new Date().getMonth()).every((m) => m.sum === 0));
+
+  const namn = ["Ada", "Bo", "Cato", "Dina", "Even"];
+  const t = G("vindexDemoteamtal")(namn, 5000000);
+  p("demofordelinga summerer seg til totalen", Object.values(t).reduce((a, b) => a + b, 0), 5000000);
+  sjekk("ingen står på null", () => Object.values(t).every((v) => v > 0));
+  sjekk("same namn gir same tal kvar gong", () =>
+    JSON.stringify(G("vindexDemoteamtal")(namn, 5000000)) === JSON.stringify(t));
+}
+
+// Kva år panela opnar på.
+{
+  const iAar = new Date().getFullYear();
+  const aara = AAR();
+  const valt = G("vindexStartaar")(aara, []);
+  sjekk("startåret er eit av åra vi har", () => aara.includes(valt));
+  sjekk("startåret har minst tre månader med tal", () => {
+    const d = G("vindexAarsdata")(valt, []);
+    return d.manad.filter((m) => m.sum > 0).length >= 3;
+  });
+  // Eit år utan tal skal aldri bli valt så lenge det finst eit med tal.
+  sjekk("tomt inneverande år vinn ikkje", () => G("vindexStartaar")(aara.concat(iAar + 5), []) !== iAar + 5);
+}
+
+console.log("KONTROLLPANELET");
+{
+  const naa = Date.parse("2026-09-15T12:00:00Z");
+  const t = (timar) => new Date(naa - timar * 3600000).toISOString();
+  const leads = [
+    { id: "a", status: "ny", seljarId: null, opprettet: t(2),  kunde: { navn: "Ada Berg", telefon: "918 66 547", postnr: "6440", poststed: "Elnesvågen" } },
+    { id: "b", status: "ny", seljarId: null, opprettet: t(80), kunde: { navn: "Bo Dahl", telefon: "40012345" } },
+    { id: "c", status: "ny", seljarId: "s1", opprettet: t(40), kunde: { navn: "Cato Lund" } },
+    { id: "d", status: "kontaktet", seljarId: "s1", opprettet: t(100), kunde: { navn: "Dina Vik" } },
+    { id: "e", status: "solgt", seljarId: "s1", arkivert: true, opprettet: t(900), kunde: { navn: "Even Ask", telefon: "918 66 547" } },
+  ];
+  const seljarar = [{ id: "s1", navn: "Oddveig Farstad" }];
+  const st = G("vindexKontrollstatus")(leads, naa);
+
+  p("utan seljar", st.utildelte.map((l) => l.id), ["a", "b"]);
+  // Ei sak som både manglar seljar og er uopna skal berre telje éin stad.
+  p("tildelt, men uopna", st.ubehandla.map((l) => l.id), ["c"]);
+  p("over døgnet", st.forseinka.map((l) => l.id).sort(), ["b", "c"]);
+  p("arkiverte tel ikkje som opne", st.aktive, 4);
+  p("men dei finst framleis", st.totalt, 5);
+
+  // Søket skal nå alt — også den arkiverte, lukka saka. Det er heile poenget:
+  // kunden som ringjer spør om noko vi gjorde ferdig for lenge sidan.
+  p("søk på namn", G("vindexSokLeads")(leads, "even", seljarar).map((l) => l.id), ["e"]);
+  p("søk på telefon utan mellomrom", G("vindexSokLeads")(leads, "91866547", seljarar).map((l) => l.id), ["a", "e"]);
+  p("søk på telefon med mellomrom", G("vindexSokLeads")(leads, "918 66 547", seljarar).map((l) => l.id), ["a", "e"]);
+  p("søk på postnummer", G("vindexSokLeads")(leads, "6440", seljarar).map((l) => l.id), ["a"]);
+  p("søk på poststad", G("vindexSokLeads")(leads, "elnesvågen", seljarar).map((l) => l.id), ["a"]);
+  p("søk på seljarnamn", G("vindexSokLeads")(leads, "oddveig", seljarar).map((l) => l.id).sort(), ["c", "d", "e"]);
+  p("eitt teikn gir ingenting", G("vindexSokLeads")(leads, "a", seljarar).length, 0);
+  p("tomt søk gir ingenting", G("vindexSokLeads")(leads, "", seljarar).length, 0);
+  // Nyaste først — den som ringjer spør nesten alltid om det siste han gjorde.
+  p("nyaste treff først", G("vindexSokLeads")(leads, "918 66 547", seljarar)[0].id, "a");
+
+  p("statuslinje utan seljar", G("vindexSaksstatus")(leads[0], seljarar), "Ny · ingen selger");
+  p("statuslinje med seljar", G("vindexSaksstatus")(leads[3], seljarar), "Kontaktet · Oddveig Farstad");
+  p("statuslinje arkivert", G("vindexSaksstatus")(leads[4], seljarar), "Solgt · Oddveig Farstad · arkivert");
+}
 
 console.log(`\n${ok} testar OK` + (feil ? `, ${feil} FEILA` : ", ingen feil"));
 process.exit(feil ? 1 : 0);
