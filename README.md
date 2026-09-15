@@ -1686,6 +1686,38 @@ og distrikt. Det virkelige apparatet ligger i `sellers/` bak innlogging.
 `scripts/test-flyt.mjs` henter `js/team.js` over HTTP og feiler hvis et av
 navnene dukker opp igjen.
 
+### Den første administratoren
+
+Et høna-og-egget-problem: reglene krever at du står under `sellers/` for å få
+gjøre noe, og bare en administrator kan legge noen inn der. Den aller første må
+derfor lages for hånd i konsollet, som går utenom reglene.
+
+**Samlingen heter `sellers`.** Ikke `admin`, ikke `users`. Både reglene og
+verktøyet slår opp `sellers/{uid}` og ser ikke etter noe annet sted. Et
+administratordokument i feil samling gir ingen feilmelding som forklarer hvorfor
+— innloggingen sier bare «Brukeren er ikke registrert som selger».
+
+1. **Authentication → Users → Add user.** Fyll inn e-post og et passord.
+   Kopier **User UID** fra lista etterpå. Den er 28 tegn.
+2. **Firestore → Data → `sellers` → Add document.**
+   Lim uid-en inn som **Document ID**. Ikke trykk «Auto-ID» — da får dokumentet
+   en ID på 20 tegn, og personen kan verken logge inn eller få tildelt saker.
+3. Legg inn feltene:
+
+| Felt | Type | Verdi |
+|---|---|---|
+| `navn` | string | Fullt navn |
+| `epost` | string | Samme som i Authentication |
+| `rolle` | string | `admin`, `selger` eller `lager` |
+| `type` | string | `internt` for hovedkontoret, ellers `selger`/`forhandler` |
+| `aktiv` | boolean | `true` |
+| `arkivert` | boolean | `false` |
+| `distrikt` | array | Tom for administrator |
+| `harInnlogging` | boolean | `true` |
+
+Etterpå legges alle andre inn fra **Salgsapparatet** på hovedkontorsiden, som
+spør om uid-en og lager raden riktig med en gang.
+
 ### Dette må gjøres i Firebase-konsollet
 
 Ingen av disse kan gjøres fra koden. Prosjektet er `vindex-d2de6`.
