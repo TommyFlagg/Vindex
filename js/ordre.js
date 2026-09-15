@@ -28,6 +28,22 @@ const VINDEX_STATUSAR = [
   { id: "avslatt", navn: "Avslått", steg: 6, open: false },
 ];
 
+/**
+ * Skal denne ordren oppdatere eit dokument, eller lage eit nytt?
+ *
+ * Spørsmålet ser trivielt ut, og var det ikkje. Ordreskjemaet sender eit
+ * «eksisterande»-objekt vidare i fleire tilfelle der det ikkje finst nokon
+ * ordre enno: når ein legg til ei rad, når ein går tilbake frå kontrollen, og
+ * når ordren blir laga ut frå eit tilbod. Objektet er då sant, men har ingen
+ * id — og ein test på `if (eksisterande)` valde difor oppdatering av
+ * dokumentet `orders/undefined`.
+ *
+ * Det er id-en som avgjer om det finst noko å oppdatere. Ikkje objektet.
+ */
+function vindexErOppdatering(eksisterande) {
+  return Boolean(eksisterande && eksisterande.id);
+}
+
 const vindexStatus = (id) => VINDEX_STATUSAR.find((s) => s.id === id) || VINDEX_STATUSAR[0];
 const vindexStatusNavn = (id) => vindexStatus(id).navn;
 const vindexStatusOpen = (id) => vindexStatus(id).open;

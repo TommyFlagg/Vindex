@@ -236,6 +236,24 @@ sjekk("rapporterte år er ikkje merkte demo", () =>
   sjekk("tomt inneverande år vinn ikkje", () => G("vindexStartaar")(aara.concat(iAar + 5), []) !== iAar + 5);
 }
 
+// Ordre: oppdatere eller lage ny?
+//
+// Ordreskjemaet sender eit «eksisterande»-objekt vidare i fleire tilfelle der
+// det ikkje finst nokon ordre enno — når ein legg til ei rad, når ein går
+// tilbake frå kontrollen, og når ordren blir laga ut frå eit tilbod. Ein test
+// på objektet i staden for id-en valde då oppdatering av orders/undefined.
+console.log("ORDRE: OPPDATERE ELLER NY");
+{
+  const E = (v) => G("vindexErOppdatering")(v);
+  sjekk("ingenting er ny", () => E(null) === false && E(undefined) === false);
+  sjekk("objekt med id er oppdatering", () => E({ id: "abc123" }) === true);
+  sjekk("utkast frå «legg til rad» er ny", () => E({ felt: {}, rader: [], frisk: true }) === false);
+  sjekk("utkast frå eit tilbod er ny", () =>
+    E({ felt: {}, rader: [], frisk: true, fraTilbod: true }) === false);
+  sjekk("tom id er ny", () => E({ id: "" }) === false);
+  sjekk("id som ikkje er tekst er ny", () => E({ id: undefined }) === false);
+}
+
 console.log("KONTROLLPANELET");
 {
   // Ein ekte Firebase-uid er 28 teikn. Lengda er ikkje pynt i testen: den

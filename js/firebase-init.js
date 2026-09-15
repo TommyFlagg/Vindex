@@ -97,7 +97,21 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 const leadsCol = () => collection(db, "leads");
-const leadDoc = (id) => doc(db, "leads", id);
+/**
+ * Peik på eit dokument, og sei frå med ein gong om id-en manglar.
+ *
+ * Utan denne blir ein manglande id til `doc(db, "orders", undefined)`, og
+ * Firebase svarar «Cannot read properties of undefined (reading 'indexOf')» —
+ * ei melding som ikkje nemner korkje samlinga eller at det var ein id som
+ * mangla. Den har kosta oss ein heil feilsøkingsrunde.
+ */
+function dok(samling, id) {
+  if (typeof id !== "string" || !id)
+    throw new Error(`Mangler id for ${samling} (fikk ${JSON.stringify(id)}).`);
+  return doc(db, samling, id);
+}
+
+const leadDoc = (id) => dok("leads", id);
 const storage = getStorage(app);
 
 /**
@@ -111,16 +125,16 @@ const ordreVedleggRef = (ordreId, filnamn) => storageRef(storage, `ordrar/${ordr
 const ordersCol = () => collection(db, "orders");
 
 /** Eit dokument per salstips, med kven som har likt det. */
-const tipsDoc = (id) => doc(db, "tips", id);
-const orderDoc = (id) => doc(db, "orders", id);
+const tipsDoc = (id) => dok("tips", id);
+const orderDoc = (id) => dok("orders", id);
 const sellersCol = () => collection(db, "sellers");
-const sellerDoc = (uid) => doc(db, "sellers", uid);
+const sellerDoc = (uid) => dok("sellers", uid);
 // Kampanjar: hovudkontoret skriv, alle innlogga les.
 const campaignsCol = () => collection(db, "campaigns");
-const campaignDoc = (id) => doc(db, "campaigns", id);
+const campaignDoc = (id) => dok("campaigns", id);
 // Kundeanmeldingar: alle innlogga les, admin knyter dei til ein seljar.
 const reviewsCol = () => collection(db, "reviews");
-const reviewDoc = (id) => doc(db, "reviews", id);
+const reviewDoc = (id) => dok("reviews", id);
 // Søknader frå «bli representant»-skjemaet. Kven som helst kan sende inn,
 // berre hovudkontoret kan lese — sjå firestore.rules.
 const representantarCol = () => collection(db, "representanter");
@@ -130,7 +144,7 @@ const settingsDoc = (id = "config") => doc(db, "settings", id);
 
 // Prisliste, provisjonssatsar og omsetningstal. Ligg her og ikkje i koden,
 // fordi koden blir servert til kven som helst og desse dataa ikkje skal det.
-const prisdataDoc = (id) => doc(db, "prisdata", id);
+const prisdataDoc = (id) => dok("prisdata", id);
 
 // Omsetning per person, ute av seljardokumentet med vilje.
 //
@@ -138,7 +152,7 @@ const prisdataDoc = (id) => doc(db, "prisdata", id);
 // og slik namn kjem opp i lister. Låg omsetninga der, kunne kvar av dei
 // eksterne forhandlarane lese kva alle dei andre hadde selt. Her ligg den bak
 // ein regel som berre hovudkontoret kjem gjennom.
-const omsetningDoc = (uid) => doc(db, "omsetning", uid);
+const omsetningDoc = (uid) => dok("omsetning", uid);
 const omsetningCol = () => collection(db, "omsetning");
 
 export {

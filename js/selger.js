@@ -19,7 +19,7 @@ import {
   lastData, startDemo, tid, datoTekst, nesteAvtale,
   lagreLead, melding, opneModal, lukkModal, skrivUtDialog, demoLagreOrdre, demoNullstill,
   lagreKladd, hentKladd, slettKladd, kladdlagrar, sidanTekst,
-} from "./verktoy-felles.js?v=7e0c7f2b";
+} from "./verktoy-felles.js?v=637082a8";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visVerktoy());
@@ -2225,12 +2225,17 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
   let lagra = false;
 
   try {
+    // Same avgjerd i demo og i drift. Sto ho ulikt, ville demoen gått fint
+    // gjennom ein veg som feila i drift — og det var akkurat det som skjedde:
+    // demogreina tolererte ein manglande id, produksjonsgreina ikkje.
+    const oppdater = vindexErOppdatering(eksisterande);
+
     if (VINDEX_DEMOMODUS) {
-      ordre.id = (eksisterande && eksisterande.id) || "ordre-" + Date.now();
+      ordre.id = oppdater ? eksisterande.id : "ordre-" + Date.now();
       ordre.opprettet = new Date().toISOString();
       app.ordrar = app.ordrar.filter((o) => o.id !== ordre.id).concat([ordre]);
       demoLagreOrdre(ordre);
-    } else if (eksisterande) {
+    } else if (oppdater) {
       await fb.updateDoc(fb.orderDoc(eksisterande.id), utanUdefinerte(ordre));
       ordre.id = eksisterande.id;
       ordre.opprettet = eksisterande.opprettet;
