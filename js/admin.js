@@ -31,6 +31,7 @@ const SNARVEGAR = [
   { id: "seksjonRepresentantar", navn: "Nye representanter" },
   { id: "seksjonTilbakemelding", navn: "Vinn og tap" },
   { id: "seksjonPrisdata", navn: "Prisliste" },
+  { id: "seksjonSletting", navn: "Slett saker" },
 ];
 
 async function visPanel() {
@@ -77,6 +78,7 @@ function teiknAlt() {
   teiknKampanjar();
   teiknRepresentantar();
   teiknGrunnar();
+  teiknSletting();
 }
 
 // ---------------------------------------------------------------------------
@@ -1602,6 +1604,176 @@ async function lagreGjeninntaking(s, dato) {
     feil.textContent = "Kunne ikke lagre: " + err.message;
     feil.classList.remove("hidden");
   }
+}
+
+// ---------------------------------------------------------------------------
+// Slett saker permanent
+// ---------------------------------------------------------------------------
+// Arkivet er ikkje sletting. Ei arkivert sak kan hentast tilbake, og ho står
+// framleis i statistikken — det er heile poenget med eit arkiv. Men av og til
+// skal noko faktisk vekk: ein kunde som ber om det, ei dobbeltregistrering,
+// ein test.
+//
+// Tre ting er avgjort med vilje:
+//
+//  1. Berre hovudkontoret. Seljarverktøyet har ikkje knappen i det heile —
+//     den einaste handlinga som ikkje kan angrast skal ikkje liggje midt i
+//     det ein bruker heile dagen.
+//
+//  2. Berre arkiverte saker. Du må arkivere først. To steg, så ingen slettar
+//     ein open sak med eit feilklikk.
+//
+//  3. Aldri ei sak med ordre på. Bokføringslova krev at salsdokumentasjon blir
+//     teken vare på i fem år etter rekneskapsåret. Det er ikkje vårt val, og
+//     difor er det ikkje eit val i verktøyet heller.
+
+const slettvalde = new Set();
+
+/** Saker som kan slettast: arkiverte, og utan ordre på seg. */
+function slettbareSaker() {
+  const sok = ($("#slettSok") || {}).value || "";
+  const s = sok.trim().toLowerCase();
+  return app.leads
+    .filter((l) => l.arkivert)
+    .filter((l) => {
+      if (!s) return true;
+      const k = l.kunde || {};
+      return [k.navn, k.poststed, k.telefon, k.epost].join(" ").toLowerCase().includes(s);
+    })
+    .sort((a, b) => new Date((b.arkiv || {}).tid || 0) - new Date((a.arkiv || {}).tid || 0));
+}
+
+const harOrdre = (l) => app.ordrar.some((o) => o.leadId === l.id);
+
+function slettrad(l) {
+  const k = l.kunde || {};
+  const a = l.arkiv || {};
+  const sperra = harOrdre(l);
+  return `<label class="slettrad${sperra ? " sperra" : ""}">
+    <input type="checkbox" data-slett="${vindexT(l.id)}"${sperra ? " disabled" : ""}${
+      slettvalde.has(l.id) ? " checked" : ""
+    }>
+    <span class="slettnamn"><strong>${vindexT(k.navn)}</strong>
+      <span class="hint">${vindexT(k.poststed)} · ${vindexT(k.telefon)}
+        · ${vindexT((l.produkt || {}).navn)}</span></span>
+    <span class="hint">arkivert ${datoTekst(a.tid)}${
+      a.grunn ? " · " + vindexT(vindexArkivgrunnNavn(a.grunn)) : ""
+    }</span>
+    ${sperra ? '<span class="tag tag-warn">Har ordre — kan ikke slettes</span>' : ""}
+  </label>`;
+}
+
+function teiknSletting() {
+  const liste = slettbareSaker();
+  const valde = liste.filter((l) => slettvalde.has(l.id)).length;
+
+  $("#slettListe").innerHTML = `
+    <div class="apparatstyring">
+      <input id="slettSok" type="search" placeholder="Søk i arkivet" style="flex:1;min-width:12rem"
+        value="${(($("#slettSok") || {}).value || "").replace(/"/g, "&quot;")}">
+      <span class="spacer"></span>
+      <button class="btn btn-sm btn-fare" id="slettValde"${valde ? "" : " disabled"}>
+        Slett ${valde || ""} ${valde === 1 ? "sak" : "saker"}
+      </button>
+    </div>
+    ${
+      liste.length
+        ? `<div class="slettliste">${liste.map(slettrad).join("")}</div>`
+        : `<p class="hint">Ingen arkiverte saker. Du må arkivere en sak i salgsverktøyet
+             før den kan slettes herfra.</p>`
+    }`;
+
+  $$("#slettListe [data-slett]").forEach((b) =>
+    b.addEventListener("change", () => {
+      if (b.checked) slettvalde.add(b.dataset.slett);
+      else slettvalde.delete(b.dataset.slett);
+      // Berre knappen blir teikna på nytt — teiknar vi heile lista, blir
+      // avkryssingsboksane bytta ut under fingeren.
+      const knapp = $("#slettValde");
+      const n = slettbareSaker().filter((l) => slettvalde.has(l.id)).length;
+      knapp.disabled = !n;
+      knapp.textContent = `Slett ${n || ""} ${n === 1 ? "sak" : "saker"}`;
+    })
+  );
+  const sok = $("#slettSok");
+  if (sok) sok.addEventListener("input", teiknSletting);
+  const knapp = $("#slettValde");
+  if (knapp) knapp.addEventListener("click", opneSletting);
+}
+
+function opneSletting() {
+  const valde = slettbareSaker().filter((l) => slettvalde.has(l.id));
+  if (!valde.length) return;
+
+  const biletetal = valde.reduce((n, l) => n + (l.vedlegg || []).length, 0);
+  opneModal(
+    `Slette ${valde.length} ${valde.length === 1 ? "sak" : "saker"}?`,
+    `<p>Dette kan ikke angres. Saken forsvinner fra databasen med alt som hører til:
+       kundeopplysninger, tilbud, avtaler, notater og historikk.</p>
+     ${
+       biletetal
+         ? `<p>${biletetal} bilde${biletetal === 1 ? "" : "r"} kunden lastet opp blir slettet
+              sammen med saken.</p>`
+         : ""
+     }
+     <div class="notice notice-warn mt-1">
+       <strong>Dette slettes:</strong>
+       <ul class="hint" style="margin:.4rem 0 0;padding-left:1.1rem">
+         ${valde.map((l) => `<li>${vindexT((l.kunde || {}).navn)} — ${vindexT((l.kunde || {}).poststed)}</li>`).join("")}
+       </ul>
+     </div>
+     <p class="hint mt-1">Skriv <strong>SLETT</strong> i feltet for å bekrefte.</p>
+     <div class="field"><input id="slettBekreft" autocomplete="off" placeholder="SLETT"></div>
+     <p class="field-error hidden" id="slettFeil"></p>`,
+    `<button class="btn btn-ghost" id="slettAvbryt">Avbryt</button>
+     <button class="btn btn-fare" id="slettJa" disabled>Slett permanent</button>`
+  );
+
+  const felt = $("#slettBekreft");
+  const ja = $("#slettJa");
+  felt.addEventListener("input", () => { ja.disabled = felt.value.trim().toUpperCase() !== "SLETT"; });
+  felt.focus();
+  $("#slettAvbryt").addEventListener("click", lukkModal);
+  ja.addEventListener("click", () => utforSletting(valde));
+}
+
+async function utforSletting(valde) {
+  const ja = $("#slettJa");
+  ja.disabled = true;
+  ja.textContent = "Sletter …";
+  let talt = 0;
+  const feila = [];
+
+  for (const l of valde) {
+    try {
+      if (!VINDEX_DEMOMODUS) {
+        // Bileta først. Slettar vi saka først og filene feilar, står det att
+        // filer ingen veit kven høyrer til — og som ingen lenger har grunn
+        // til å leite etter.
+        for (const v of l.vedlegg || []) {
+          try {
+            await fb.deleteObject(fb.storageRef(fb.storage, v.sti));
+          } catch (e) {
+            console.warn("Fekk ikkje sletta", v.sti, e);
+          }
+        }
+        await fb.deleteDoc(fb.leadDoc(l.id));
+      }
+      app.leads = app.leads.filter((x) => x.id !== l.id);
+      slettvalde.delete(l.id);
+      talt++;
+    } catch (err) {
+      console.error(err);
+      feila.push(((l.kunde || {}).navn || l.id) + ": " + err.message);
+    }
+  }
+
+  lukkModal();
+  teiknAlt();
+  if (feila.length)
+    melding(`Slettet ${talt}. Disse gikk ikke: ${feila.join(" · ")}`, "warn");
+  else
+    melding(`${talt} ${talt === 1 ? "sak er" : "saker er"} slettet permanent.`);
 }
 
 // ---------------------------------------------------------------------------

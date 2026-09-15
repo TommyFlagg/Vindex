@@ -511,6 +511,34 @@ footer.site h4 { color: #fff; margin: 0 0 0.6rem; font-size: 0.95rem; }
 .sprosselinjeknappar .btn { white-space: nowrap; }
 .figurmerknad { display: block; margin-top: 0.3rem; text-align: center; font-size: 0.75rem; }
 
+/* ---------- slett saker ----------
+   Raud er reservert for denne eine handlinga i heile verktøyet. Brukar vi
+   fargen på noko anna òg, sluttar den å bety «dette kan ikkje angrast». */
+.btn-fare {
+  background: #a5301f; border-color: #a5301f; color: #fff;
+}
+.btn-fare:hover:not(:disabled) { background: #8c2718; border-color: #8c2718; }
+.btn-fare:disabled { opacity: .45; cursor: not-allowed; }
+
+.slettliste { display: grid; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.slettrad {
+  display: grid; grid-template-columns: auto 1fr auto auto; gap: .35rem .8rem;
+  align-items: center; padding: .6rem .8rem; background: var(--surface);
+  cursor: pointer; font-size: .92rem;
+}
+.slettrad:hover { background: var(--surface-alt); }
+.slettrad input[type=checkbox] { width: 18px; height: 18px; margin: 0; accent-color: #a5301f; }
+.slettrad .slettnamn { display: grid; gap: .05rem; min-width: 0; }
+.slettrad .slettnamn .hint { font-size: .8rem; }
+/* Ei sak med ordre på kan ikkje slettast — bokføringslova. Rada står, men
+   utan hake, så det er tydeleg at den er vurdert og ikkje gløymd. */
+.slettrad.sperra { cursor: default; opacity: .72; }
+.slettrad.sperra:hover { background: var(--surface); }
+@media (max-width: 720px) {
+  .slettrad { grid-template-columns: auto 1fr; }
+  .slettrad .hint, .slettrad .tag { grid-column: 2; }
+}
+
 /* ---------- kundebileta, slik seljaren ser dei ---------- */
 .kundebilete {
   display: grid; gap: 0.7rem; margin: 0.6rem 0 0;

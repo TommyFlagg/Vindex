@@ -378,6 +378,65 @@ console.log("HOVUDKONTORET");
   await p.close();
 }
 
+console.log("SLETT SAKER (HOVUDKONTORET)");
+{
+  const p = await b.newPage({ viewport: { width: 1400, height: 1100 } });
+  p.on("pageerror", (e) => { feil++; console.log("  ✗ PAGEERROR: " + e.message); });
+  // Tre arkiverte saker, og éi av dei har ordre på seg.
+  await p.goto(B + "/admin.html");
+  await p.evaluate(() => localStorage.setItem("vindex_demo_endringar", JSON.stringify({
+    "demo-lead-1": { arkivert: true, arkiv: { grunn: "utgatt", tid: new Date().toISOString(), av: "Selger" } },
+    "demo-lead-3": { arkivert: true, arkiv: { grunn: "dublett", tid: new Date().toISOString(), av: "Selger" } },
+    "demo-lead-5": { arkivert: true, arkiv: { grunn: "avslag", tid: new Date().toISOString(), av: "Selger" } },
+  })));
+  await p.goto(B + "/admin.html", { waitUntil: "networkidle" });
+  await p.fill("#loginEpost", "admin@vindex.no");
+  await p.fill("#loginPassord", "x");
+  await p.evaluate(() => document.querySelector("#loginKnapp").click());
+  await p.waitForSelector("#verktoy:not(.hidden)", { timeout: 15000 });
+  await p.waitForTimeout(1800);
+
+  sjekk("tre arkiverte saker i lista", (await p.$$(".slettrad")).length === 3);
+  // Bokføringslova krev fem år på salsdokumentasjon. Ei sak med ordre kan
+  // difor ikkje slettast — og det skal vere sperra i verktøyet, ikkje berre
+  // noko ein hugsar.
+  sjekk("saka med ordre er sperra", (await p.$$(".slettrad.sperra")).length === 1);
+  sjekk("sperra rad kan ikkje hakast av",
+    await p.$eval(".slettrad.sperra input", (e) => e.disabled) === true);
+  sjekk("knappen er av når ingenting er valt",
+    await p.$eval("#slettValde", (e) => e.disabled) === true);
+
+  await p.evaluate(() => document.querySelector(".slettrad:not(.sperra) input").click());
+  await p.waitForTimeout(250);
+  sjekk("knappen tel valde", (await p.$eval("#slettValde", (e) => e.textContent)).includes("1 sak"));
+
+  await p.evaluate(() => document.querySelector("#slettValde").click());
+  await p.waitForTimeout(500);
+  sjekk("dialogen spør", (await p.$eval("#modalTittel", (e) => e.textContent)).includes("Slette"));
+  sjekk("kan ikkje slette utan å skrive SLETT", await p.$eval("#slettJa", (e) => e.disabled) === true);
+  await p.fill("#slettBekreft", "ja");
+  await p.waitForTimeout(150);
+  sjekk("feil ord opnar ikkje knappen", await p.$eval("#slettJa", (e) => e.disabled) === true);
+  await p.fill("#slettBekreft", "slett");
+  await p.waitForTimeout(150);
+  sjekk("«slett» opnar knappen", await p.$eval("#slettJa", (e) => e.disabled) === false);
+
+  await p.evaluate(() => document.querySelector("#slettJa").click());
+  await p.waitForTimeout(1200);
+  sjekk("saka er borte", (await p.$$(".slettrad")).length === 2);
+  sjekk("seier frå", (await p.$eval("#toast", (e) => e.textContent)).includes("slettet permanent"));
+  await p.close();
+}
+
+{
+  // Seljarverktøyet skal ikkje ha knappen i det heile. Den einaste handlinga
+  // som ikkje kan angrast høyrer ikkje heime der ein jobbar heile dagen.
+  const p = await side("/selger.html", "selger");
+  sjekk("ingen slettedel i seljarverktøyet", await p.$("#seksjonSletting") === null);
+  sjekk("ingen fareknapp i seljarverktøyet", (await p.$$(".btn-fare")).length === 0);
+  await p.close();
+}
+
 console.log("LAGER");
 {
   const p = await side("/selger.html", "lager");
