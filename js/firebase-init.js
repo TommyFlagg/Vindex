@@ -24,6 +24,8 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
+  deleteField,
   collection,
   query,
   where,
@@ -124,6 +126,15 @@ const settingsDoc = (id = "config") => doc(db, "settings", id);
 // fordi koden blir servert til kven som helst og desse dataa ikkje skal det.
 const prisdataDoc = (id) => doc(db, "prisdata", id);
 
+// Omsetning per person, ute av seljardokumentet med vilje.
+//
+// `sellers` blir lese av alle innlogga — det er slik kollegaer finn kvarandre,
+// og slik namn kjem opp i lister. Låg omsetninga der, kunne kvar av dei
+// eksterne forhandlarane lese kva alle dei andre hadde selt. Her ligg den bak
+// ein regel som berre hovudkontoret kjem gjennom.
+const omsetningDoc = (uid) => doc(db, "omsetning", uid);
+const omsetningCol = () => collection(db, "omsetning");
+
 export {
   db,
   auth,
@@ -140,12 +151,15 @@ export {
   representantarCol,
   settingsDoc,
   prisdataDoc,
+  omsetningDoc,
+  omsetningCol,
   doc,
   getDoc,
   setDoc,
   addDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   collection,
   query,
   where,

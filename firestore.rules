@@ -259,6 +259,20 @@ service cloud.firestore {
       allow write: if erAdmin();
     }
 
+    // -- Omsetning per person ------------------------------------------------
+    //
+    // Desse tala låg inne i seljardokumentet. `sellers` blir lese av alle
+    // innlogga — det er slik kollegaer finn kvarandre og slik namn kjem opp i
+    // lister — og då kunne kvar av dei elleve eksterne forhandlarane lese kva
+    // alle dei andre hadde selt. Verktøyet viste det aldri, men reglane er det
+    // som avgjer kva som er lesbart, ikkje kva grensesnittet teiknar.
+    //
+    // Seljarsida treng ikkje tala i det heile: topplista blir rekna av ordrane
+    // i verktøyet. Berre hovudkontoret les dei, og difor står dei her.
+    match /omsetning/{uid} {
+      allow read, write: if erAdmin();
+    }
+
     // Prisliste, provisjonssatsar og omsetningstal.
     //
     // Desse låg tidlegare i js/modellar.js, js/provisjon.js og js/team.js.

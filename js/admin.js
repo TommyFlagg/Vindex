@@ -12,7 +12,7 @@
 import {
   $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
   datoTekst, lagreLead, melding, opneModal, lukkModal, visDatavarsel, demoAnmeldingar,
-} from "./verktoy-felles.js?v=c6b2b44c";
+} from "./verktoy-felles.js?v=b2a123c4";
 import { lastPrisdata, VINDEX_PRISDATA_DOKUMENT } from "./datalast.js?v=8d397edf";
 
 settTeiknar(() => teiknAlt());
@@ -34,7 +34,64 @@ const SNARVEGAR = [
   { id: "seksjonSletting", navn: "Slett saker" },
 ];
 
+// ---------------------------------------------------------------------------
+// Omsetning per person
+// ---------------------------------------------------------------------------
+// Tala låg inne i seljardokumentet. `sellers` blir lese av alle innlogga, så
+// kvar av dei eksterne forhandlarane kunne lese kva alle dei andre hadde selt
+// — ikkje gjennom verktøyet, som aldri viste det, men gjennom databasen, som
+// er det som faktisk avgjer.
+//
+// No ligg dei i `omsetning/{uid}`, bak ein regel berre hovudkontoret kjem
+// gjennom. Resten av koden merkar ingenting: tala blir lagde tilbake på
+// seljarobjektet i minnet, slik apparat.js alltid har lese dei.
+async function hentOmsetning() {
+  if (VINDEX_DEMOMODUS) return;
+  const snap = await fb.getDocs(fb.omsetningCol());
+  const kart = {};
+  snap.docs.forEach((d) => (kart[d.id] = d.data() || {}));
+  app.seljarar.forEach((s) => {
+    const o = kart[s.id];
+    if (o && o.historikk) s.historikk = o.historikk;
+  });
+  await flyttGammalOmsetning(kart);
+}
+
+/**
+ * Flytt tal som framleis står i seljardokumentet.
+ *
+ * Rekkjefølgja er det viktige: skriv først, slett etterpå. Stoppar det mellom
+ * dei to, står tala begge stader — det er ei duplisering, ikkje eit tap. Gjer
+ * vi det motsett og det stoppar, er omsetninga borte.
+ *
+ * Køyrer berre for hovudkontoret, og gjer ingenting andre gong.
+ */
+async function flyttGammalOmsetning(alt) {
+  const attende = app.seljarar.filter(
+    (s) => s.historikk && Object.keys(s.historikk).length && !(alt[s.id] || {}).historikk
+  );
+  if (!attende.length) return;
+
+  let flytta = 0;
+  for (const s of attende) {
+    try {
+      await fb.setDoc(fb.omsetningDoc(s.id), { historikk: s.historikk, flytta: new Date().toISOString() });
+      await fb.updateDoc(fb.sellerDoc(s.id), { historikk: fb.deleteField() });
+      flytta++;
+    } catch (e) {
+      console.error("Fikk ikke flyttet omsetningen for " + s.navn, e);
+    }
+  }
+  if (flytta)
+    melding(
+      `Flyttet omsetningstallene for ${flytta} ${flytta === 1 ? "person" : "personer"} ` +
+        "ut av selgerlisten. De var lesbare for alle innloggede.",
+      "warn"
+    );
+}
+
 async function visPanel() {
+  await hentOmsetning();
   await hentRepresentantar();
   $("#login").classList.add("hidden");
   $("#verktoy").classList.remove("hidden");
@@ -100,7 +157,7 @@ async function hentRepresentantar() {
     return;
   }
   try {
-    const { fb } = await import("./verktoy-felles.js?v=c6b2b44c");
+    const { fb } = await import("./verktoy-felles.js?v=b2a123c4");
     const q = fb.query(fb.representantarCol(), fb.orderBy("opprettet", "desc"), fb.limit(200));
     representantar = (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (err) {
@@ -639,7 +696,7 @@ async function lagreAarstal() {
 
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=c6b2b44c");
+      const { fb } = await import("./verktoy-felles.js?v=b2a123c4");
       await fb.setDoc(fb.settingsDoc("aarstal"), { driftsinntekter: tal });
     }
     // Eit tal nokon har skrive inn sjølv er stadfesta — til skilnad frå det eg
@@ -1218,6 +1275,8 @@ async function lagrePerson(p, ny) {
     if (!Number.isNaN(tal)) historikk[felt.dataset.aar] = tal;
   });
 
+  // historikk blir lagra for seg — sjå hentOmsetning. Den skal ikkje tilbake
+  // inn i seljardokumentet, som alle innlogga kan lese.
   const data = {
     navn: verdi("navn").trim(),
     sted: verdi("sted").trim(),
@@ -1227,15 +1286,14 @@ async function lagrePerson(p, ny) {
     type: $("#pf_type").value,
     rolle: $("#pf_rolle").value,
     distrikt: $$("#personskjema [data-pdistrikt]:checked").map((i) => i.value),
-    historikk,
   };
 
   try {
     if (VINDEX_DEMOMODUS) {
-      if (ny) app.seljarar.push({ ...data, id: "ny-" + Date.now(), arkivert: false });
-      else Object.assign(p, data);
+      if (ny) app.seljarar.push({ ...data, id: "ny-" + Date.now(), historikk, arkivert: false });
+      else Object.assign(p, data, { historikk });
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=c6b2b44c");
+      const { fb } = await import("./verktoy-felles.js?v=b2a123c4");
       if (ny) {
         // Er uid-en oppgitt, blir raden lagd under den med ein gong, og
         // personen kan logge inn og få saker frå første stund.
@@ -1252,11 +1310,15 @@ async function lagrePerson(p, ny) {
           const ref = await fb.addDoc(fb.sellersCol(), { ...data, arkivert: false });
           data.id = ref.id;
         }
-        app.seljarar.push({ ...data, arkivert: false, harInnlogging: !!uid });
+        app.seljarar.push({ ...data, historikk, arkivert: false, harInnlogging: !!uid });
       } else {
         await fb.updateDoc(fb.sellerDoc(p.id), data);
-        Object.assign(p, data);
+        Object.assign(p, data, { historikk });
       }
+      // Omsetninga i sitt eige dokument, som berre hovudkontoret kan lese.
+      // Den blir lagd på seljarobjektet i minnet over, så apparat.js finn den
+      // der den alltid har stått.
+      await fb.setDoc(fb.omsetningDoc(data.id || p.id), { historikk });
       await byggRuting();
     }
     lukkModal();
@@ -1299,7 +1361,7 @@ async function vekslArkiv(p) {
   const data = vindexArkiverData(p, dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=c6b2b44c");
+      const { fb } = await import("./verktoy-felles.js?v=b2a123c4");
       await fb.updateDoc(fb.sellerDoc(p.id), data);
     }
     Object.assign(p, data);
@@ -1320,7 +1382,7 @@ async function lagreDistrikt(seljarId) {
   seljar.distrikt = valde;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=c6b2b44c");
+      const { fb } = await import("./verktoy-felles.js?v=b2a123c4");
       await fb.updateDoc(fb.sellerDoc(seljarId), { distrikt: valde });
       await byggRuting();
     }
@@ -1340,7 +1402,7 @@ async function lagreDistrikt(seljarId) {
  * innlogga. Difor ligg berre ID-ane der — ingen namn, ingen kontaktinfo.
  */
 async function byggRuting() {
-  const { fb } = await import("./verktoy-felles.js?v=c6b2b44c");
+  const { fb } = await import("./verktoy-felles.js?v=b2a123c4");
   // Formen må vere den bestillingsskjemaet les: distrikt-id -> liste med
   // selger-id-ar. Er det fleire i same distrikt, roterer skjemaet mellom dei.
   // Dokumentet ligg flatt, uten «distrikt»-nivå, og heiter settings/ruting.
@@ -1747,7 +1809,7 @@ async function knytAnmelding(id, seljarId) {
   if (!a) return;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=c6b2b44c");
+      const { fb } = await import("./verktoy-felles.js?v=b2a123c4");
       await fb.updateDoc(fb.reviewDoc(id), { seljarId: seljarId || null });
     }
     a.seljarId = seljarId || null;
@@ -1883,7 +1945,7 @@ async function lagreGjeninntaking(s, dato) {
   const data = vindexGjeninntaData(dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=c6b2b44c");
+      const { fb } = await import("./verktoy-felles.js?v=b2a123c4");
       await fb.updateDoc(fb.sellerDoc(s.id), data);
     }
     Object.assign(s, data);
@@ -2261,7 +2323,7 @@ async function lagreKampanje(kam, ny, data) {
       if (ny) app.kampanjar.push({ ...full, id: "k-" + Date.now(), opprettaAv: app.brukar.navn });
       else Object.assign(kam, full);
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=c6b2b44c");
+      const { fb } = await import("./verktoy-felles.js?v=b2a123c4");
       if (ny) {
         const ref = await fb.addDoc(fb.campaignsCol(), {
           ...full,
@@ -2287,7 +2349,7 @@ async function vekslKampanje(k) {
   const paa = k.aktiv === false;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=c6b2b44c");
+      const { fb } = await import("./verktoy-felles.js?v=b2a123c4");
       await fb.updateDoc(fb.campaignDoc(k.id), { aktiv: paa });
     }
     k.aktiv = paa;

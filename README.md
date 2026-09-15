@@ -1735,6 +1735,29 @@ og distrikt. Det virkelige apparatet ligger i `sellers/` bak innlogging.
 `scripts/test-flyt.mjs` henter `js/team.js` over HTTP og feiler hvis et av
 navnene dukker opp igjen.
 
+### Omsetning per person ligger ikke i selgerlisten
+
+`sellers` leses av alle innloggede. Det er med vilje — det er slik kolleger
+finner hverandre, og slik navn kommer opp i lister når en sak skal flyttes.
+
+Men `historikk` — omsetning per person per år — lå inne i det samme
+dokumentet. Da kunne hver av de elleve forhandlerne, som er selvstendige
+firmaer, lese hva alle de andre hadde solgt. Ikke gjennom verktøyet, som aldri
+viste det, men gjennom databasen — og det er reglene som avgjør hva som er
+lesbart, ikke hva grensesnittet tegner.
+
+Selgersiden trenger ikke tallene i det hele tatt: topplisten regnes av ordrene
+i verktøyet, ikke av historikken. Bare hovedkontoret leser dem. Derfor ligger de
+nå i `omsetning/{uid}`, bak `allow read, write: if erAdmin()`.
+
+Resten av koden merker ingenting — tallene legges tilbake på selgerobjektet i
+minnet når hovedkontoret laster, så `apparat.js` finner dem der de alltid har
+stått.
+
+Tall som fortsatt står i et selgerdokument blir flyttet automatisk første gang
+hovedkontoret logger inn. Rekkefølgen er skriv først, slett etterpå: stopper det
+mellom de to, står tallene begge steder, som er en duplisering og ikke et tap.
+
 ### Den første administratoren
 
 Et høna-og-egget-problem: reglene krever at du står under `sellers/` for å få
