@@ -2135,6 +2135,11 @@ function bekreftOrdre(lead, skjema, eksisterande, produktId) {
 
   $("#bkTilbake").addEventListener("click", () => opneOrdreskjema(lead, { ...utkast, frisk: true }));
   $("#bkSend").addEventListener("click", async () => {
+    // Rydd vekk feilmeldinga frå førre forsøk. Utan dette blir «Du må bekrefte
+    // at målene er kontrollert» ståande raudt etter at haken er sett, og peikar
+    // på noko som er i orden medan den verkelege feilen står ein annan stad.
+    $("#bkFeil").classList.add("hidden");
+
     // To hakar, ikkje éin: den eine seier at måla er kontrollerte, den andre at
     // ordren kan setjast i produksjon. Det er to ulike vurderingar, og den siste
     // er den som ikkje kan gjerast om.
@@ -2163,6 +2168,28 @@ function bekreftOrdre(lead, skjema, eksisterande, produktId) {
   });
 }
 
+/**
+ * Fjern undefined før noko blir sendt til Firestore.
+ *
+ * Firestore avviser heile skrivinga om eitt einaste felt er undefined, og
+ * feilmeldinga nemner ikkje kva felt det var. Eit manglande namn på brukaren —
+ * til dømes fordi seljardokumentet har «Navn» med stor N, som JavaScript ikkje
+ * kjenner att — tek då med seg heile ordren i fallet.
+ *
+ * Her blir dei skorne bort, slik at det som kan lagrast blir lagra.
+ */
+function utanUdefinerte(o) {
+  if (Array.isArray(o)) return o.map(utanUdefinerte);
+  if (o && typeof o === "object" && !(o instanceof Date)) {
+    const ut = {};
+    Object.entries(o).forEach(([k, v]) => {
+      if (v !== undefined) ut[k] = utanUdefinerte(v);
+    });
+    return ut;
+  }
+  return o;
+}
+
 async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
   const { harPlukk, harSpesial } = vindexPlukkliste(utkast);
   const ordre = {
@@ -2176,13 +2203,22 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
     // går den rett til plukk.
     status: harSpesial ? "i_produksjon" : harPlukk ? "til_plukk" : "bekreftet",
     seljarId: lead.seljarId || app.brukar.uid,
-    seljarNavn: (app.seljarar.find((s) => s.id === lead.seljarId) || app.brukar).navn,
+    seljarNavn:
+      (app.seljarar.find((s) => s.id === lead.seljarId) || app.brukar).navn ||
+      app.brukar.epost ||
+      "ukjent",
     kunde: lead.kunde,
     distriktNavn: lead.distriktNavn || "",
     felt: utkast.felt,
     rader: utkast.rader,
     vedlegg: utkast.vedlegg || [],
-    bekrefta: { av: app.brukar.navn, tid: new Date().toISOString(), ...bekreftelse },
+    // Den som stadfestar skal alltid ha eit namn på seg. Ordreseddelen er det
+    // einaste sporet av kven som sende ordren i produksjon.
+    bekrefta: {
+      av: app.brukar.navn || app.brukar.epost || "ukjent",
+      tid: new Date().toISOString(),
+      ...bekreftelse,
+    },
   };
 
   try {
@@ -2192,12 +2228,12 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
       app.ordrar = app.ordrar.filter((o) => o.id !== ordre.id).concat([ordre]);
       demoLagreOrdre(ordre);
     } else if (eksisterande) {
-      await fb.updateDoc(fb.orderDoc(eksisterande.id), ordre);
+      await fb.updateDoc(fb.orderDoc(eksisterande.id), utanUdefinerte(ordre));
       ordre.id = eksisterande.id;
       ordre.opprettet = eksisterande.opprettet;
       app.ordrar = app.ordrar.map((o) => (o.id === ordre.id ? ordre : o));
     } else {
-      const ref = await fb.addDoc(fb.ordersCol(), { ...ordre, opprettet: fb.serverTimestamp() });
+      const ref = await fb.addDoc(fb.ordersCol(), utanUdefinerte({ ...ordre, opprettet: fb.serverTimestamp() }));
       ordre.id = ref.id;
       ordre.opprettet = new Date().toISOString();
       app.ordrar.unshift(ordre);
@@ -2216,7 +2252,26 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
     teikn();
   } catch (err) {
     console.error(err);
-    alert("Kunne ikke lagre ordren. Prøv igjen.");
+    // «Prøv igjen» er eit dårleg råd når det som feila kjem til å feile likt
+    // neste gong. Difor står grunnen her: manglar seljaren rettar, er det
+    // reglane som seier frå, og då skal det stå reglar — ikkje «prøv igjen».
+    const kode = String((err && err.code) || "");
+    const forklaring = kode.includes("permission-denied")
+      ? "Databasen avviste ordren. Brukeren din mangler rettigheter — si fra til hovedkontoret."
+      : kode.includes("unavailable") || kode.includes("network")
+      ? "Fikk ikke kontakt med databasen. Sjekk nettet og prøv igjen — ordren ligger som utkast."
+      : "Ordren ble ikke lagret.";
+    const detalj = (err && err.message) || String(err);
+
+    const boks = $("#bkFeil");
+    if (boks) {
+      boks.innerHTML = `<strong>${vindexT(forklaring)}</strong><br>
+        <span class="hint">${vindexT(detalj)}</span>`;
+      boks.classList.remove("hidden");
+      boks.scrollIntoView({ block: "nearest" });
+    } else {
+      alert(forklaring + "\n\n" + detalj);
+    }
   }
 }
 
