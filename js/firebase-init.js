@@ -53,6 +53,38 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 const app = initializeApp(FIREBASE_CONFIG);
+
+// ---------------------------------------------------------------------------
+// App Check
+// ---------------------------------------------------------------------------
+// Firestore-reglane avgjer kva ein forespørsel får lov til å gjere. App Check
+// avgjer om forespørselen i det heile skal takast imot — den krev at kallet
+// kjem frå den ekte nettsida vår, ikkje frå eit skript nokon køyrer på si eiga
+// maskin. Utan den kan kven som helst fylle leads-samlinga med søppel gjennom
+// det opne bestillingsskjemaet. Reglane hindrar at søpla blir feiltildelt, men
+// ikkje at den kjem inn.
+//
+// Dette må initialiserast FØR getFirestore og getAuth, elles rekk dei å sende
+// kall utan token.
+//
+// Står nøkkelen tom, er App Check av og alt virkar som før. Det er med vilje:
+// ein halvt konfigurert App Check som avviser ekte kundar er verre enn ingen.
+if (typeof VINDEX_APPCHECK_NOKKEL === "string" && VINDEX_APPCHECK_NOKKEL) {
+  const { initializeAppCheck, ReCaptchaV3Provider } = await import(
+    "https://www.gstatic.com/firebasejs/10.13.0/firebase-app-check.js"
+  );
+  // På localhost finst det ingen ekte reCAPTCHA-kontroll. Då brukar Firebase
+  // ein debug-token, som du registrerer i konsollet under App Check → Apps →
+  // Manage debug tokens. Token-en blir skriven ut i nettlesarkonsollet.
+  if (["localhost", "127.0.0.1"].includes(location.hostname)) {
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(VINDEX_APPCHECK_NOKKEL),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
+
 const db = getFirestore(app);
 const auth = getAuth(app);
 

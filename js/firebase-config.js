@@ -26,6 +26,25 @@ const FIREBASE_CONFIG = {
   measurementId: "G-DKW991120D",
 };
 
+// ---------------------------------------------------------------------------
+// App Check
+// ---------------------------------------------------------------------------
+// reCAPTCHA v3 site key. Den er offentleg, som resten her — kontrollen skjer
+// hos Google, ikkje ved at nøkkelen er løynd.
+//
+// SLIK FYLLER DU DEN INN:
+//   1. console.firebase.google.com -> App Check -> Apps -> registrer
+//      web-appen med reCAPTCHA v3. Konsollet lagar site key og secret, og
+//      legg secret-en inn for deg.
+//   2. Lim site key inn her.
+//   3. La «Enforcement» stå på Unenforced eit døgn. Konsollet viser då kor
+//      stor del av trafikken som er verifisert. Er den nær 100 %, slå på
+//      Enforce for Firestore.
+//
+// Står den tom, er App Check av og alt virkar som før. Ein halvt konfigurert
+// App Check som avviser ekte kundar er verre enn ingen.
+const VINDEX_APPCHECK_NOKKEL = "";
+
 // Så lenge configen ikkje er fylt ut, køyrer seljarverktøyet i demomodus med
 // eksempeldata i staden for å feile stygt. Sett denne til false i produksjon.
 const VINDEX_DEMOMODUS = FIREBASE_CONFIG.apiKey === "FYLL_INN";

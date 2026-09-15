@@ -1688,18 +1688,42 @@ navnene dukker opp igjen.
 
 ### Dette må gjøres i Firebase-konsollet
 
-Ingen av disse kan gjøres fra koden:
+Ingen av disse kan gjøres fra koden. Prosjektet er `vindex-d2de6`.
 
-- **Slå av selvregistrering.** Authentication → Settings → User actions → skru
-  av «Enable create (sign-up)». Hvem som helst kan i dag lage seg en konto.
-  Den får ingen tilgang til noe, men den fyller brukerlisten, og det er en dør
-  som ikke trenger å stå åpen.
-- **Slå på App Check.** Uten den kan hvem som helst sende inn leads fra sin
-  egen server. Reglene hindrer at de blir feiltildelt, men ikke at de kommer.
-- **Slå på Storage.** Bucket-en svarer 404 — Storage er ikke aktivert på
-  prosjektet. Til det er gjort virker verken vedlegg på ordre eller kundebilder
-  i bestillingsskjemaet, og `storage.rules` kan ikke publiseres.
-- **Publiser `firestore.rules` på nytt** etter uid-kravet i `gyldigTildeling`.
+**1. Slå av selvregistrering**
+`console.firebase.google.com/project/vindex-d2de6/authentication/settings`
+Under **User actions**, fjern haken på «Enable create (sign-up)». I dag kan hvem
+som helst lage seg en konto. Den får ingen tilgang til noe — reglene krever et
+dokument under `sellers/` som bare en administrator kan lage — men det er en dør
+som ikke trenger å stå åpen.
+
+Slett samtidig testkontoene under `/authentication/users`:
+`zLAyyL2a3jZXc061nFU9X5034Tz1` og `SfsqH1rY4SQ5WlweKZa2GSLdEVR2`.
+
+**2. Publiser `firestore.rules` på nytt**
+`console.firebase.google.com/project/vindex-d2de6/firestore/rules`
+Lim inn hele fila fra repoet og trykk **Publish**. Det nye er uid-kravet i
+`gyldigTildeling` — uten det kan en klient med feil fortsatt tildele et lead til
+en rad ingen kan logge inn som.
+
+**3. Slå på Storage**
+`console.firebase.google.com/project/vindex-d2de6/storage`
+Bucket-en svarer 404 i dag — Storage er ikke aktivert. Nye prosjekter må på
+Blaze for å slå den på; Blaze har samme gratiskvote som Spark, og du kan sette
+et budsjettvarsel på `/usage/details`. Når den er oppe: lim inn `storage.rules`
+under Rules-fanen. Til det er gjort virker verken vedlegg på ordre eller
+kundebilder i bestillingsskjemaet.
+
+**4. Slå på App Check**
+`console.firebase.google.com/project/vindex-d2de6/appcheck`
+Registrer web-appen med **reCAPTCHA v3**. Konsollet lager site key og secret og
+legger secret-en inn selv. Lim site key inn i `VINDEX_APPCHECK_NOKKEL` i
+`js/firebase-config.js` — koden er klar og slår seg på når feltet er fylt ut.
+
+La **Enforcement** stå på *Unenforced* et døgn først. Konsollet viser da hvor
+stor del av trafikken som er verifisert. Er den nær 100 %, slå på *Enforce* for
+Firestore. Slår du på håndheving med en gang, risikerer du å avvise ekte kunder
+midt i en bestilling.
 
 ### Prislisten ligger fortsatt i git-historikken
 
