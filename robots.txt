@@ -1,0 +1,11 @@
+# Vindex — under arbeid, ikkje lansert.
+#
+# Den verkelege nettstaden til Vindex er vindex.no, og den skal framleis vere
+# den som får trafikken og leadsa. Det som ligg her er eit arbeidsområde, og
+# skal ikkje kome opp i søk ved sida av den ekte sida — to Vindex-sider i
+# Google konkurrerer med kvarandre, og den halvferdige vinn av og til.
+#
+# Merk: dette stengjer søkjemotorane ute, ikkje folk. Adressa virkar framleis
+# for den som har den. Sjå README, «Nettstaden skal ikkje vere offentleg».
+User-agent: *
+Disallow: /

@@ -14,6 +14,13 @@ import { fileURLToPath } from "node:url";
 
 const rot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
+// Adressa nettstaden blir servert frå. Den står eitt stad — VINDEX_NETTSTAD i
+// js/produkter.js — fordi og:image og canonical må vere absolutte URL-ar: dei
+// blir lesne av Facebook og Google, som ikkje har noka side å rekne relativt
+// frå. Peika dei på vindex.no, som ikkje serverer desse filene.
+const BASE = (readFileSync(join(rot, "js/produkter.js"), "utf8")
+  .match(/const VINDEX_NETTSTAD = "([^"]+)"/) || [])[1].replace(/\/+$/, "");
+
 // js/produkter.js er eit vanleg globalt skript (ikkje ein ES-modul), så vi
 // evaluerer det og plukkar ut det vi treng.
 const katalog = readFileSync(join(rot, "js/produkter.js"), "utf8");
@@ -140,7 +147,9 @@ ${kort}
 <meta name="description" content="${esc(p.kort)} Skreddersydd og produsert i Norge. ${esc(garantiTekst)}">
 <meta property="og:title" content="${esc(p.navn)} fra Vindex">
 <meta property="og:description" content="${esc(p.kort)}">
-${p.bilde ? `<meta property="og:image" content="https://vindex.no/${p.bilde}">` : ""}
+<meta name="robots" content="noindex,nofollow">
+<link rel="canonical" href="${BASE}/produkter/${p.id}.html">
+${p.bilde ? `<meta property="og:image" content="${BASE}/${p.bilde}">` : ""}
 <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
 <link rel="stylesheet" href="../css/style.css">
 <script>

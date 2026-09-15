@@ -8,6 +8,25 @@
 // garantidokumentet av 14.03.25), ikkje formulert fritt.
 // ============================================================================
 
+// ---------------------------------------------------------------------------
+// Kvar nettstaden faktisk ligg
+// ---------------------------------------------------------------------------
+// Dette er adressa nettstaden blir servert frå, og den skal vere den same som
+// nettlesaren har i adressefeltet. Den blir brukt til to ting som må vere
+// absolutte URL-ar, fordi dei blir lesne av maskiner som ikkje har noka side å
+// rekne relativt frå:
+//
+//   og:image   Facebook, LinkedIn og Messenger hentar biletet her når nokon
+//              deler ei side. Peikar den feil, kjem delinga ut utan bilete.
+//   canonical  Fortel Google kva som er den ekte adressa til sida. Peikar den
+//              på eit domene som ikkje serverer sida, ber vi Google om å la
+//              vere å indeksere det som faktisk ligg ute.
+//
+// Begge peika på https://vindex.no, som er den gamle nettstaden og ikkje
+// serverer desse filene. Flyttar de hit, er dette den eine staden som skal
+// endrast — så køyrer du `node scripts/nettstad.mjs` og alle sidene følgjer.
+const VINDEX_NETTSTAD = "https://tommyflagg.github.io/Vindex";
+
 const VINDEX_FIRMA = {
   navn: "Vindex AS",
   slagord: "Nyt fritiden mens naboen skraper og maler",

@@ -1653,6 +1653,55 @@ Vilkårene står i `garanti.html`, gjengitt fra garantidokumentet.
       samme mønster som brannvernkurs-repoet)
 
 
+## Nettstaden skal ikke være offentlig
+
+Den ekte nettsiden til Vindex er `vindex.no`. Den er live, den genererer leads,
+og **den røres ikke herfra**. Det som ligger i dette repoet er et arbeidsområde.
+
+To Vindex-sider i Google konkurrerer med hverandre om de samme søkene, og den
+halvferdige vinner av og til. Derfor:
+
+- `<meta name="robots" content="noindex,nofollow">` på alle 20 sidene, satt inn
+  av generatoren for produktsidene og av `scripts/nettstad.mjs` for resten.
+- `robots.txt` med `Disallow: /`.
+
+### Dette er ikke det samme som privat
+
+Søkemotorene holder seg unna, men **adressen virker fremdeles for den som har
+den**, og repoet er offentlig. GitHub Pages har ingen passordbeskyttelse.
+
+Skal siden være genuint utilgjengelig, er det tre veier:
+
+| Vei | Koster | Konsekvens |
+|---|---|---|
+| Skru av GitHub Pages | gratis | Ingen kan se den, heller ikke dere. Brukbart mens dere jobber i lokal kopi. |
+| Gjør repoet privat | GitHub Pro | Pages fra privat repo krever betalt plan. Lukker samtidig prislisten i git-historikken. |
+| Flytt til en host med passord | varierer | Netlify, Cloudflare Pages og Vercel har passordbeskyttelse på gratisplanen. |
+
+Den midterste løser to problemer med én betaling, og er den jeg ville valgt.
+
+### Ingenting herfra rører eksisterende systemer
+
+Verdt å slå fast, siden det er lett å bli utrygg på: alt vi har bygd lever i
+dette repoet og i Firebase-prosjektet `vindex-d2de6`. Det finnes ingen utgående
+integrasjon i koden — to `fetch`-kall, begge til egne filer, og resten går til
+Firestore. Ingen e-post sendes, ingen API-er kalles, ingenting skriver til
+`vindex.no` eller noe annet system Vindex bruker i dag.
+
+Skal de to koples sammen senere — slik at kontaktskjemaet på `vindex.no` lander
+her — er det en egen jobb som må gjøres bevisst, og den er ikke gjort.
+
+### Adressen står ett sted
+
+`og:image` og `canonical` må være absolutte URL-er: de leses av Facebook og
+Google, som ikke har noen side å regne relativt fra. De pekte på
+`https://vindex.no/assets/...`, som ikke serverer disse filene — så delinger
+kom uten bilde, og `canonical` på forsiden fortalte Google at den ekte
+versjonen lå et sted som ikke fantes.
+
+Nå står adressen i `VINDEX_NETTSTAD` i `js/produkter.js`. Endrer du den og
+kjører `node scripts/nettstad.mjs`, følger alle sidene etter.
+
 ## Hva som er sikret, og hva som ikke er det
 
 Nettsiden kjører mot den ekte Firebase-databasen. API-nøkkelen i
