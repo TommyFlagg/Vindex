@@ -1810,16 +1810,48 @@ function opneOrdreskjema(lead, eksisterande) {
   }
   const k = lead.kunde || {};
 
+  // Ei rekkverksordre har 101 felt i åtte seksjonar, og dei aller fleste er
+  // tomme: ein ordre er anten rekkverk med stolpar, eller ein port, eller
+  // LED-lys — sjeldan alt. Står alle opne, må seljaren rulle forbi nitti felt
+  // han ikkje skal fylle ut for å finne dei ti han skal.
+  //
+  // Difor: ein seksjon som har noko i seg står open, resten er slått saman med
+  // ei linje som seier kor mange felt som ligg der. Ingenting er borte — alt er
+  // eitt klikk unna — men skjemaet viser det ordren faktisk gjeld.
+  //
+  // Kjem ordren frå eit tilbod, er felta alt fylte ut frå delelista, og då
+  // opnar akkurat dei seksjonane tilbodet nemner. Det er der «berre det som
+  // skal plukkast» kjem frå: tilbodet veit det, skjemaet treng berre å lese det.
+  const harInnhald = (s) =>
+    s.felt.some((f) => {
+      const v = verdiar[f.id];
+      return v !== undefined && v !== null && v !== "" && v !== "0" && v !== 0;
+    });
+
   const seksjonar = skjema.seksjonar
     .map((s) => {
       if (s.kunSeljar && erLager()) return "";
-      return `<div class="skjemaseksjon ${s.kunSeljar ? "intern" : ""}">
-        <h3>${s.tittel}</h3>
+      const felt = `<div class="feltrutenett">${s.felt
+        .map((f) => feltHtml(f, verdiar[f.id], false, f.type === "hogd" ? verdiar[f.knytModell] : produktId))
+        .join("")}</div>`;
+
+      // Alltid opne: den seljaren uansett må innom. Leveringsadressa og
+      // bekreftelsane kan ikkje stå gøymde bak eit klikk.
+      if (s.alltidOpen || harInnhald(s))
+        return `<div class="skjemaseksjon ${s.kunSeljar ? "intern" : ""}">
+          <h3>${s.tittel}</h3>
+          ${s.hjelp ? `<p class="hint">${s.hjelp}</p>` : ""}
+          ${felt}
+        </div>`;
+
+      return `<details class="skjemaseksjon samanslegen ${s.kunSeljar ? "intern" : ""}">
+        <summary>
+          <span class="seksjonsnamn">${vindexT(s.tittel)}</span>
+          <span class="hint">${s.felt.length} felt · ingenting fylt ut</span>
+        </summary>
         ${s.hjelp ? `<p class="hint">${s.hjelp}</p>` : ""}
-        <div class="feltrutenett">${s.felt
-          .map((f) => feltHtml(f, verdiar[f.id], false, f.type === "hogd" ? verdiar[f.knytModell] : produktId))
-          .join("")}</div>
-      </div>`;
+        ${felt}
+      </details>`;
     })
     .join("");
 

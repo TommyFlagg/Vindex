@@ -1653,6 +1653,37 @@ body.tema-mork.verktoyside a { color: var(--accent); }
 .dashbord-side .kpi-num { font-size: 1.5rem; }
 
 /* ---------------------------------------------------------------------------
+   Samanslegne seksjonar i ordreskjemaet
+   ---------------------------------------------------------------------------
+   Ei rekkverksordre har 101 felt. Dei fleste er tomme på ein gitt ordre, så
+   seksjonar utan innhald ligg saman til nokon opnar dei. Summary-linja seier
+   kor mange felt som ligg der, slik at det er tydeleg at noko er gøymt og kor
+   mykje — ein trekkspelmeny utan tal ser ut som ei tom overskrift. */
+.skjemaseksjon.samanslegen > summary {
+  display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap;
+  cursor: pointer; list-style: none;
+  padding: 0.5rem 0.2rem;
+  border-radius: var(--radius-sm);
+}
+.skjemaseksjon.samanslegen > summary::-webkit-details-marker { display: none; }
+.skjemaseksjon.samanslegen > summary::before {
+  content: "▸"; color: var(--muted); font-size: 0.9em;
+  transition: transform .15s ease;
+}
+.skjemaseksjon.samanslegen[open] > summary::before { transform: rotate(90deg); }
+.skjemaseksjon.samanslegen > summary:hover { background: var(--surface-alt); }
+.skjemaseksjon.samanslegen .seksjonsnamn {
+  font-weight: 700; font-size: 1.02rem;
+}
+.skjemaseksjon.samanslegen > summary .hint { margin: 0; }
+/* Utskrift skal ha alt. Ein ordreseddel med skjulte felt er ein ordreseddel
+   som manglar noko, og den som les papiret kan ikkje klikke. */
+@media print {
+  .skjemaseksjon.samanslegen > summary { display: none; }
+  .skjemaseksjon.samanslegen > *:not(summary) { display: revert; }
+}
+
+/* ---------------------------------------------------------------------------
    Kontrollpanelet på hovudkontoret
    ---------------------------------------------------------------------------
    Fire knappar som fortel kor mange saker som ventar, og eit søkefelt under.

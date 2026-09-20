@@ -291,7 +291,36 @@ console.log("ORDRESEDLAR OG UTSKRIFT");
   const felt = await p.$$eval("#ordreskjema input, #ordreskjema select, #ordreskjema textarea",
     (a) => a.length);
   sjekk("ordreseddelen har felta sine", felt > 60);
-  sjekk("alle seksjonane er teikna", (await p.$$("#ordreskjema .ordreseksjon, #ordreskjema fieldset, #ordreskjema h3")).length >= 5);
+  sjekk("alle seksjonane er teikna", (await p.$$("#ordreskjema .skjemaseksjon")).length >= 5);
+
+  // Eit rekkverksskjema har 101 felt i åtte seksjonar, og dei fleste er tomme
+  // på ein gitt ordre. Tomme seksjonar skal liggje saman, så seljaren ikkje må
+  // rulle forbi nitti felt for å finne dei ti han skal fylle ut. Ingenting er
+  // borte — alt er eitt klikk unna.
+  const seksjonar = await p.$$eval("#ordreskjema .skjemaseksjon", (alle) =>
+    alle.map((el) => ({
+      samanslegen: el.classList.contains("samanslegen"),
+      open: el.tagName === "DETAILS" ? el.open : true,
+      tittel: (el.querySelector("h3, .seksjonsnamn") || {}).textContent || "",
+      felt: el.querySelectorAll("input, select, textarea").length,
+    }))
+  );
+  sjekk("tomme seksjonar er slegne saman", seksjonar.some((s) => s.samanslegen && !s.open));
+  sjekk("leveringsadressa står alltid open",
+    seksjonar.some((s) => /Levering/i.test(s.tittel) && !s.samanslegen));
+  sjekk("bekreftelsane står alltid opne",
+    seksjonar.some((s) => /bekreftels/i.test(s.tittel) && !s.samanslegen));
+  // Felta skal finnast i DOM-en uansett — dei er gøymde, ikkje fjerna.
+  sjekk("ingen felt er borte", seksjonar.reduce((n, s) => n + s.felt, 0) > 60);
+  // Og ein samanslegen seksjon skal seie kor mange felt som ligg der.
+  const summary = await p.$$eval("#ordreskjema .samanslegen > summary", (a) => a.map((e) => e.innerText));
+  sjekk("summary seier kor mange felt", summary.some((t) => /\d+ felt/.test(t)));
+  // Opnar ein av dei, er felta der.
+  if (summary.length) {
+    await p.evaluate(() => document.querySelector("#ordreskjema .samanslegen").open = true);
+    await p.waitForTimeout(200);
+    sjekk("den opnar seg", await p.$eval("#ordreskjema .samanslegen", (e) => e.open) === true);
+  }
   // «Ordre undefined» sto i foten på ein ordre som ikkje var sendt enno.
   const fot = await p.$eval(".modal-botn", (e) => e.innerText);
   sjekk("ingen «undefined» i foten", !/undefined/i.test(fot));

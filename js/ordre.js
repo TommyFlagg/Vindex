@@ -85,6 +85,7 @@ const ORDRESEDDEL_REKKVERK = {
     {
       id: "levering",
       tittel: "Levering og mottaker",
+      alltidOpen: true,
       hjelp: "Kundeopplysningene hentes fra leadet. Fyll ut her bare det som avviker.",
       felt: [
         { id: "referanse", navn: "Referanse", type: "tekst" },
@@ -98,6 +99,7 @@ const ORDRESEDDEL_REKKVERK = {
     {
       id: "modell",
       tittel: "Artikler — modell og mål",
+      alltidOpen: true,
       krevMal: true,
       hjelp:
         "Velg modell fra prislisten og fyll inn antall meter. Modellkoden er det " +
@@ -237,6 +239,7 @@ const ORDRESEDDEL_REKKVERK = {
     {
       id: "avslutning",
       tittel: "Kommentarer og bekreftelser",
+      alltidOpen: true,
       felt: [
         { id: "kommentarer", navn: "Kommentarer", type: "omrade",
           hjelp: "Tegn skisse med forklaring av kombinasjoner (eget vedlegg), og send med bilder." },
@@ -257,6 +260,7 @@ const ORDRESEDDEL_REKKVERK = {
       id: "pris",
       tittel: "Priser",
       kunSeljar: true,
+      alltidOpen: true,
       hjelp: "Prisene er interne — de vises aldri på nettsiden, bare her i salgsverktøyet.",
       felt: [
         { id: "pris_tilpasset", navn: "Tilpasset", type: "tal", enhet: "kr" },
@@ -292,6 +296,7 @@ const ORDRESEDDEL_SPROSSER = {
     {
       id: "levering",
       tittel: "Kunde og levering",
+      alltidOpen: true,
       felt: [
         { id: "mottaker_tlf", navn: "Mottaker tlf.", type: "tekst" },
         { id: "onsket_levering", navn: "Ønsket levering", type: "tekst" },
@@ -300,6 +305,7 @@ const ORDRESEDDEL_SPROSSER = {
     {
       id: "utforelse",
       tittel: "Tegning, type og merknader",
+      alltidOpen: true,
       felt: [
         { id: "antall_sprosser", navn: "Antall sprosser totalt", type: "tal" },
         { id: "tegning_type", navn: "Tegning eller type/nr.", type: "tekst" },
@@ -310,6 +316,7 @@ const ORDRESEDDEL_SPROSSER = {
       id: "pris",
       tittel: "Priser",
       kunSeljar: true,
+      alltidOpen: true,
       felt: [
         { id: "pris_sprosser", navn: "Sprosser", type: "tal", enhet: "kr" },
         { id: "pris_frakt", navn: "Frakt", type: "tal", enhet: "kr" },
