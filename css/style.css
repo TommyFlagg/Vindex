@@ -1653,6 +1653,24 @@ body.tema-mork.verktoyside a { color: var(--accent); }
 .dashbord-side .kpi-num { font-size: 1.5rem; }
 
 /* ---------------------------------------------------------------------------
+   Kvittering etter sendt ordre
+   ---------------------------------------------------------------------------
+   Faktaboksen er to kolonner på skjerm og ei på telefon — seljaren les denne
+   like ofte i bilen som ved skrivebordet. */
+.saksfakta { display: grid; gap: 0.5rem; margin: 0.8rem 0 0; }
+@media (min-width: 620px) { .saksfakta { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.saksfakta dt { font-size: 0.85rem; color: var(--muted); }
+.saksfakta dd { margin: 0; font-weight: 600; word-break: break-word; }
+
+.kvitteringsliste { list-style: none; margin: 0.4rem 0 0; padding: 0; }
+.kvitteringsliste li {
+  display: flex; justify-content: space-between; gap: 1rem;
+  padding: 0.4rem 0; border-bottom: 1px solid var(--border);
+}
+.kvitteringsliste li:last-child { border-bottom: 0; }
+.kvitteringsliste .mengde { font-weight: 600; white-space: nowrap; }
+
+/* ---------------------------------------------------------------------------
    Samanslegne seksjonar i ordreskjemaet
    ---------------------------------------------------------------------------
    Ei rekkverksordre har 101 felt. Dei fleste er tomme på ein gitt ordre, så

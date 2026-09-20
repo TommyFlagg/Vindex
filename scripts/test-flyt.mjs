@@ -337,7 +337,60 @@ console.log("ORDRESEDLAR OG UTSKRIFT");
   sjekk("dialogen står på papiret", synleg !== "none");
   sjekk("verktøyet bak er borte", bak === "none");
   await p.emulateMedia({ media: "screen" });
-  await p.evaluate(() => document.querySelector("#modalLukk").click());
+
+  // --- Send ordren heile vegen ---
+  //
+  // Denne flyten har knekt to gonger utan at testane merka det: éin gong fordi
+  // Firebase-modulen ikkje lasta, éin gong fordi ordren prøvde å oppdatere
+  // orders/undefined. Begge gangane vart det oppdaga av ein seljar, ikkje her.
+  await p.evaluate(() => {
+    // Nok til at skjemaet er gyldig: ein modell med meter og høgd.
+    const sett = (id, v) => {
+      const el = document.querySelector("#" + id);
+      if (!el) return;
+      el.value = v;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const modell = document.querySelector("#of_modell1");
+    if (modell && modell.options.length > 1) sett("of_modell1", modell.options[1].value);
+    sett("of_modell1_meter", "12");
+    // Høgda er ein nedtrekk med standardmåla og eit talfelt for fritt mål.
+    const hogdval = document.querySelector("#of_modell1_hoyde_val");
+    if (hogdval && hogdval.options.length > 1) sett("of_modell1_hoyde_val", hogdval.options[1].value);
+    sett("of_modell1_hoyde", "1000");
+  });
+  await p.waitForTimeout(400);
+  await p.evaluate(() => document.querySelector("#ofBekreft").click());
+  await p.waitForSelector("#bkSend", { timeout: 8000 });
+  sjekk("kontrolldialogen opnar", await p.$("#bkMal") !== null);
+
+  // Send utan hakar: skal stoppe, og seie kvifor.
+  await p.evaluate(() => document.querySelector("#bkSend").click());
+  await p.waitForTimeout(300);
+  sjekk("stoppar utan bekreftelse", await p.$eval("#bkFeil", (e) => !e.classList.contains("hidden")));
+
+  // Hak av og send på ordentleg.
+  await p.evaluate(() => {
+    ["bkMal", "bkRiktig", "bkAvvik", "bkKunde"].forEach((id) => {
+      const el = document.querySelector("#" + id);
+      if (el) el.checked = true;
+    });
+    document.querySelector("#bkSend").click();
+  });
+  await p.waitForTimeout(1200);
+
+  // Kvitteringa: seljaren skal sjå ordrenummeret og kva som skjer vidare.
+  const kvittering = await p.$eval("#modalInnhald", (e) => e.innerText).catch(() => "");
+  sjekk("ordren gjekk gjennom", /Ordre\s+\S+.*lagret/is.test(kvittering));
+  sjekk("kvitteringa seier kva som skjer", /produksjon|plukk|bekreftet/i.test(kvittering));
+  sjekk("kvitteringa viser kunden", /Kunde/i.test(kvittering));
+  sjekk("kan sende seg sjølv eit samandrag", await p.$("#kvitteringMail") !== null);
+  sjekk("kan skrive ut kvitteringa", await p.$("#kvitteringSkriv") !== null);
+  // Feilmeldinga frå den gamle alerten skal ikkje dukke opp.
+  sjekk("ingen feilmelding", !/ikke lagret|Prøv igjen|undefined/i.test(kvittering));
+
+  await p.evaluate(() => document.querySelector("#kvitteringLukk").click());
   await p.waitForTimeout(300);
 
   // --- Måltabellen for sprosser ---

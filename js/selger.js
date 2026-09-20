@@ -2222,6 +2222,93 @@ function utanUdefinerte(o) {
   return o;
 }
 
+/**
+ * Kvittering etter at ordren er sendt.
+ *
+ * Før lukka vindauget seg berre. Seljaren sat att utan ordrenummer, utan å vite
+ * om den gjekk til produksjon eller til plukk, og utan noko å vise til om
+ * kunden ringjer. «Det står i verktøyet» er eit dårleg svar når du sit i bilen.
+ *
+ * E-post kjem når Vindex har ein avsendar å sende frå. Til då gjer denne to
+ * ting utan server: ho seier kva som skjedde, og ho let seljaren sende seg
+ * sjølv eit samandrag frå sitt eige e-postprogram.
+ */
+function visKvittering(ordre, lead, { harSpesial, harPlukk }) {
+  const k = lead.kunde || {};
+  const { plukk, spesial } = vindexPlukkliste(ordre);
+  const linjer = spesial.concat(plukk);
+
+  const vegen = harSpesial
+    ? "Den går til <strong>produksjon</strong> — noe skal lages etter mål."
+    : harPlukk
+    ? "Den går til <strong>plukk på lager</strong> — alt er lagervare."
+    : "Den er <strong>bekreftet</strong>.";
+
+  opneModal(
+    "Ordren er sendt",
+    `<div class="notice notice-good">
+       <strong>Ordre ${vindexT(ordre.id)}</strong> er lagret. ${vegen}
+     </div>
+     <dl class="saksfakta">
+       <div><dt>Kunde</dt><dd>${vindexT(k.navn) || "—"}</dd></div>
+       <div><dt>Levering</dt><dd>${vindexT(
+         [k.adresse, k.postnr, k.poststed].filter(Boolean).join(", ") || "—"
+       )}</dd></div>
+       <div><dt>Bekreftet av</dt><dd>${vindexT((ordre.bekrefta || {}).av || "—")}</dd></div>
+       <div><dt>Dato</dt><dd>${datoTekst(ordre.opprettet)}</dd></div>
+     </dl>
+     ${
+       linjer.length
+         ? `<h3 class="mt-2">Dette er bestilt</h3>
+            <ul class="kvitteringsliste">
+              ${linjer
+                .map(
+                  (l) =>
+                    `<li><span>${vindexT(l.navn)}</span><span class="mengde">${vindexT(
+                      String(l.verdi)
+                    )} ${vindexT(l.enhet || "")}</span></li>`
+                )
+                .join("")}
+            </ul>`
+         : ""
+     }
+     <p class="hint mt-2">Saken står nå som solgt, og ordren ligger under «Ordre».</p>`,
+    `<button class="btn btn-ghost" id="kvitteringMail">Send meg et sammendrag</button>
+     <button class="btn btn-ghost" id="kvitteringSkriv">Skriv ut</button>
+     <button class="btn" id="kvitteringLukk">Ferdig</button>`
+  );
+
+  $("#kvitteringLukk").addEventListener("click", lukkModal);
+  $("#kvitteringSkriv").addEventListener("click", () =>
+    skrivUtDialog("Ordrebekreftelse", lead.kunde || {})
+  );
+
+  // mailto har ei praktisk lengdegrense i fleire e-postprogram, så dette er
+  // eit samandrag og ikkje heile ordreseddelen. Den fulle seddelen står i
+  // verktøyet, og lenka under peikar dit.
+  $("#kvitteringMail").addEventListener("click", () => {
+    const tekst = [
+      `Ordre ${ordre.id}`,
+      ``,
+      `Kunde:    ${k.navn || "—"}`,
+      `Levering: ${[k.adresse, k.postnr, k.poststed].filter(Boolean).join(", ") || "—"}`,
+      `Sendt:    ${datoTekst(ordre.opprettet)}`,
+      `Status:   ${harSpesial ? "Til produksjon" : harPlukk ? "Til plukk" : "Bekreftet"}`,
+      ``,
+      `Bestilt:`,
+      ...linjer.map((l) => `  - ${l.navn}: ${l.verdi} ${l.enhet || ""}`.trimEnd()),
+      ``,
+      `Hele ordreseddelen ligger i salgsverktøyet.`,
+    ].join("\n");
+
+    const adresse = (app.brukar || {}).epost || "";
+    location.href =
+      `mailto:${encodeURIComponent(adresse)}` +
+      `?subject=${encodeURIComponent("Ordre " + ordre.id + " — " + (k.navn || "kunde"))}` +
+      `&body=${encodeURIComponent(tekst)}`;
+  });
+}
+
 async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
   const { harPlukk, harSpesial } = vindexPlukkliste(utkast);
   const ordre = {
@@ -2294,8 +2381,8 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
     // Ordren er lagra — då er det ikkje eit utkast lenger.
     slettKladd(ordrekladdnokkel(lead));
 
-    lukkModal();
     teikn();
+    visKvittering(ordre, lead, { harSpesial, harPlukk });
   } catch (err) {
     console.error(err);
     // «Prøv igjen» er eit dårleg råd når det som feila kjem til å feile likt
