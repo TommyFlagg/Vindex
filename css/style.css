@@ -1652,6 +1652,20 @@ body.tema-mork.verktoyside a { color: var(--accent); }
 .dashbord-side .kpi { padding: 0.7rem 0.8rem; }
 .dashbord-side .kpi-num { font-size: 1.5rem; }
 
+/* Knappane på ei tilbodslinje: flytt opp, flytt ned, kopier, slett.
+   Dei ligg tett fordi dei høyrer til rada, ikkje til sida — men kvar knapp
+   held framleis 32 px, som er nok til ein tommel. */
+.linjer .linjeknappar {
+  width: 8.5rem; white-space: nowrap;
+}
+.linjer .linjeknappar .btn {
+  padding: 0.3rem 0.35rem; min-width: 2rem; line-height: 1;
+}
+.linjer .linjeknappar .btn:disabled { opacity: 0.3; cursor: default; }
+@media (max-width: 720px) {
+  .linjer .linjeknappar { width: auto; }
+}
+
 /* ---------------------------------------------------------------------------
    Kvittering etter sendt ordre
    ---------------------------------------------------------------------------

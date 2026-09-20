@@ -3862,8 +3862,17 @@ function teiknTilbodsdialog(lead) {
         }</td>
         <td style="width:7rem"><input data-felt="enhetspris" type="number" min="0" step="10" value="${linje.enhetspris}"></td>
         <td class="tal linjesum">${kr(r.linjer[i].sum)}</td>
-        <td style="width:2.5rem"><button class="btn btn-ghost btn-sm" data-slett="${i}"
-              aria-label="Slett linjen">✕</button></td>
+        <td class="linjeknappar">
+          <button class="btn btn-ghost btn-sm" data-opp="${i}" ${i === 0 ? "disabled" : ""}
+            aria-label="Flytt linjen opp" title="Flytt opp">↑</button>
+          <button class="btn btn-ghost btn-sm" data-ned="${i}" ${
+            i === u.linjer.length - 1 ? "disabled" : ""
+          } aria-label="Flytt linjen ned" title="Flytt ned">↓</button>
+          <button class="btn btn-ghost btn-sm" data-kopier="${i}"
+            aria-label="Lag en kopi av linjen" title="Kopier">⧉</button>
+          <button class="btn btn-ghost btn-sm" data-slett="${i}"
+            aria-label="Slett linjen" title="Slett">✕</button>
+        </td>
       </tr>`
     )
     .join("");
@@ -4124,6 +4133,37 @@ function teiknTilbodsdialog(lead) {
     lagreKladd(tilbodskladdnokkel(lead), u);
     teiknTilbodsdialog(lead);
   });
+
+  // Rekkjefølgja på linjene er ikkje kosmetikk. Tilbodet blir lese av kunden,
+  // og ei deleliste der stolpane står mellom to rekkverksmodellar er vanskeleg
+  // å kontrollere. Difor kan linjene flyttast.
+  const flytt = (frå, til) => {
+    les();
+    if (til < 0 || til >= u.linjer.length) return;
+    const [linje] = u.linjer.splice(frå, 1);
+    u.linjer.splice(til, 0, linje);
+    lagreKladd(tilbodskladdnokkel(lead), u);
+    teiknTilbodsdialog(lead);
+  };
+  $$("#tilbodsrader [data-opp]").forEach((b) =>
+    b.addEventListener("click", () => flytt(Number(b.dataset.opp), Number(b.dataset.opp) - 1))
+  );
+  $$("#tilbodsrader [data-ned]").forEach((b) =>
+    b.addEventListener("click", () => flytt(Number(b.dataset.ned), Number(b.dataset.ned) + 1))
+  );
+
+  // Kopi: same artikkel ein gong til, rett under. Brukt når same modell går
+  // igjen i ei anna lengd, eller same stolpe står på ein annan plassering —
+  // då er det antalet og plasseringa som skal endrast, ikkje alt det andre.
+  $$("#tilbodsrader [data-kopier]").forEach((b) =>
+    b.addEventListener("click", () => {
+      les();
+      const i = Number(b.dataset.kopier);
+      u.linjer.splice(i + 1, 0, { ...u.linjer[i] });
+      lagreKladd(tilbodskladdnokkel(lead), u);
+      teiknTilbodsdialog(lead);
+    })
+  );
 
   $$("#tilbodsrader [data-slett]").forEach((b) =>
     b.addEventListener("click", () => {

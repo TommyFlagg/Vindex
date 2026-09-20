@@ -393,6 +393,52 @@ console.log("ORDRESEDLAR OG UTSKRIFT");
   await p.evaluate(() => document.querySelector("#kvitteringLukk").click());
   await p.waitForTimeout(300);
 
+  // --- Linjene i delelista kan flyttast og kopierast ---
+  //
+  // Rekkjefølgja er ikkje kosmetikk: kunden les tilbodet, og ei liste der
+  // stolpane står mellom to rekkverksmodellar er vanskeleg å kontrollere.
+  {
+    await opneLead("Rekkverk"); await p.waitForTimeout(700);
+    const tilbod = await p.$("#opneTilbod");
+    if (tilbod) {
+      await p.evaluate(() => document.querySelector("#opneTilbod").click());
+      await p.waitForSelector("#tilbodsrader", { timeout: 8000 });
+      // Legg til to artiklar frå prislista.
+      for (let n = 0; n < 2; n++) {
+        await p.evaluate((i) => {
+          const vel = document.querySelector("#tbPrisbok");
+          const val = [...vel.querySelectorAll("option")].filter((o) => o.value);
+          vel.value = val[i].value;
+          vel.dispatchEvent(new Event("change", { bubbles: true }));
+        }, n);
+        await p.waitForTimeout(350);
+      }
+      const namn = () => p.$$eval("#tilbodsrader [data-felt='navn']", (a) => a.map((e) => e.value));
+      const før = await namn();
+      sjekk("to linjer i delelista", før.length >= 2);
+
+      // Kopier den første: same artikkel ein gong til, rett under.
+      await p.evaluate(() => document.querySelector("#tilbodsrader [data-kopier='0']").click());
+      await p.waitForTimeout(350);
+      const etterKopi = await namn();
+      sjekk("kopien kom rett under", etterKopi.length === før.length + 1 && etterKopi[1] === før[0]);
+
+      // Flytt den nedover, og sjå at rekkjefølgja faktisk endra seg.
+      await p.evaluate(() => document.querySelector("#tilbodsrader [data-ned='0']").click());
+      await p.waitForTimeout(350);
+      const etterFlytt = await namn();
+      sjekk("linja flytta seg ned", etterFlytt[0] === etterKopi[1] && etterFlytt[1] === etterKopi[0]);
+
+      // Øvste linje kan ikkje flyttast opp, nedste ikkje ned.
+      sjekk("øvst kan ikkje opp", await p.$eval("#tilbodsrader [data-opp='0']", (e) => e.disabled));
+      sjekk("nedst kan ikkje ned", await p.$$eval("#tilbodsrader [data-ned]", (a) => a[a.length - 1].disabled));
+
+      await p.evaluate(() => document.querySelector("#modalLukk").click());
+      await p.waitForTimeout(300);
+    }
+  }
+
+
   // --- Måltabellen for sprosser ---
   await opneLead("Sprosser"); await p.waitForTimeout(700);
   await p.evaluate(() => document.querySelector("#opneSprosser").click());
