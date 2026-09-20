@@ -3842,8 +3842,21 @@ function teiknTilbodsdialog(lead) {
   const rader = u.linjer
     .map(
       (linje, i) => `<tr data-linje="${i}">
-        <td><input data-felt="navn" value="${(linje.navn || "").replace(/"/g, "&quot;")}"
-              placeholder="F.eks. Rekkverk VBC 1000 mm"></td>
+        <td>${
+          linje.varegruppe
+            ? // Følgjelinjer: artikkelen er eit val i si eiga gruppe, ikkje
+              // fritekst. Prislista har elleve stolpar, og seljaren skal kunne
+              // byte på linja utan å finne fram i heile lista på nytt.
+              `<select data-felt="vare" data-varegruppe="${linje.varegruppe}">${(
+                vindexPrisbokGrupper().find((g) => g.navn === VINDEX_FOLGEGRUPPER[linje.varegruppe]) || { val: [] }
+              ).val
+                .map((o) => `<option value="${o.id}"${o.id === linje.kode ? " selected" : ""}>${vindexT(o.navn)}</option>`)
+                .join("")}</select>${
+                linje.merknad ? `<span class="hint">${vindexT(linje.merknad)}</span>` : ""
+              }`
+            : `<input data-felt="navn" value="${(linje.navn || "").replace(/"/g, "&quot;")}"
+                 placeholder="F.eks. Rekkverk VBC 1000 mm">`
+        }</td>
         <td style="width:5.5rem"><input data-felt="antall" type="number" min="0" step="0.5" value="${linje.antall}"></td>
         <td style="width:9rem">${
           vindexErStolpe(linje.kode)
@@ -3901,7 +3914,16 @@ function teiknTilbodsdialog(lead) {
             .join("")}</optgroup>`)
           .join("")}
       </select>
-      <p class="hint">Prisen kommer ferdig utfylt inkl. mva, men du kan overstyre den på linjen.</p>
+      <p class="hint">Prisen kommer ferdig utfylt inkl. mva, men du kan overstyre den på linjen.
+        Velger du en modell, kommer stolper, topp, krans og veggfeste med av seg selv —
+        med antall 0, så du fyller inn det prosjektet trenger og sletter resten.</p>
+      ${
+        tilbodsutkast.linjer.some((l) => l.varegruppe === "lys")
+          ? ""
+          : `<button type="button" class="btn btn-ghost btn-sm" id="tbLys">
+               + Kunden vil ha lys
+             </button>`
+      }
     </div>
     <div class="table-scroll" style="border:none">
       <table class="linjer">
@@ -3967,13 +3989,32 @@ function teiknTilbodsdialog(lead) {
     $$("#tilbodsrader tr").forEach((rad, i) => {
       const linje = u.linjer[i];
       const foerUtforing = linje.utforing;
+      const foerVare = linje.kode;
       rad.querySelectorAll("[data-felt]").forEach((felt) => {
         const verdi = felt.value;
+        // «vare» er nedtrekket på ei følgjelinje. Den skriv ikkje eit felt som
+        // heiter vare — den byter kva artikkel linja er.
+        if (felt.dataset.felt === "vare") {
+          linje.kode = verdi;
+          return;
+        }
         linje[felt.dataset.felt] =
           felt.dataset.felt === "antall" || felt.dataset.felt === "enhetspris"
             ? verdi === "" ? "" : parseFloat(verdi)
             : verdi;
       });
+
+      // Byter seljaren artikkel på ei følgjelinje, følgjer namn og pris med.
+      // Ein pris han har overstyrt sjølv blir ståande så lenge artikkelen er
+      // den same — det er berre byttet som set den på nytt.
+      if (linje.varegruppe && linje.kode !== foerVare) {
+        const art = vindexPrislinje(linje.kode);
+        if (art) {
+          linje.navn = art.navn;
+          linje.enhet = art.enhet || "stk";
+          linje.enhetspris = art.pris;
+        }
+      }
 
       // Byter seljaren mellom «etter mål» og ein standardlengd, byter både
       // eininga og prisen betydning: 24 løpemeter er ikkje 24 seksjoner.
@@ -4083,6 +4124,21 @@ function teiknTilbodsdialog(lead) {
       const prisfelt = rad && rad.querySelector('[data-felt="enhetspris"]');
       if (prisfelt && u.linjer[i]) prisfelt.value = u.linjer[i].enhetspris;
     }
+    // Same for ei følgjelinje der artikkelen blir bytt: les() har alt sett den
+    // nye prisen på linja, men feltet på skjermen står med den gamle til nokon
+    // skriv den inn. Ein seljar som ser 684 kr etter å ha valt ein stolpe til
+    // 1 152, trur prisen er overstyrt.
+    if (e.target && e.target.dataset && e.target.dataset.felt === "vare") {
+      const rad = e.target.closest("tr[data-linje]");
+      const i = rad && parseInt(rad.dataset.linje, 10);
+      const linje = u.linjer[i];
+      if (linje) {
+        const prisfelt = rad.querySelector('[data-felt="enhetspris"]');
+        if (prisfelt) prisfelt.value = linje.enhetspris;
+        const einingsfelt = rad.querySelector('[data-felt="enhet"]');
+        if (einingsfelt) einingsfelt.value = linje.enhet;
+      }
+    }
     if (e.target && e.target.id === "tbFraktKjelde") {
       const valt = e.target.value;
       [["fraktFeltSeksjonar", "seksjonar"], ["fraktFeltSprosser", "sprosser"], ["fraktFeltManuell", "manuell"]]
@@ -4123,9 +4179,34 @@ function teiknTilbodsdialog(lead) {
     };
     if (tom) u.linjer[u.linjer.length - 1] = ny;
     else u.linjer.push(ny);
+
+    // Ein modell dreg med seg stolpar, topp, krans og veggfeste. Dei kjem med
+    // antal 0 — kor mange hjørnestolpar prosjektet treng står ikkje i
+    // prislista, det står på tomta. Ei linje med null i er ikkje med i summen,
+    // så ei linje som ikkje skulle vore der kostar ingenting om den blir
+    // ståande.
+    //
+    // Vi legg dei berre til ein gong per modell: har seljaren alt sletta
+    // stolpelinjene og legg til same modell igjen, skal dei ikkje kome tilbake.
+    const folgjer = vindexFolgelinjer(linje);
+    const alt = u.linjer.some((l) => l.folgjer === (linje.kode || linje.navn));
+    if (folgjer.length && !alt)
+      folgjer.forEach((f) => u.linjer.push({ ...vindexTomTilbodslinje(), ...f }));
+
     lagreKladd(tilbodskladdnokkel(lead), u);
     teiknTilbodsdialog(lead);
   });
+
+  // Lys er eit spørsmål, ikkje ein artikkel. Svarar kunden ja, treng tilbodet
+  // tre linjer: lyset i toppen, kabelen mellom dei, og trafoen som driv det.
+  const lysknapp = $("#tbLys");
+  if (lysknapp)
+    lysknapp.addEventListener("click", () => {
+      les();
+      vindexLyslinjer().forEach((f) => u.linjer.push({ ...vindexTomTilbodslinje(), ...f }));
+      lagreKladd(tilbodskladdnokkel(lead), u);
+      teiknTilbodsdialog(lead);
+    });
 
   $("#tbNyLinje").addEventListener("click", () => {
     les();

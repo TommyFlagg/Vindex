@@ -242,6 +242,40 @@ sjekk("rapporterte år er ikkje merkte demo", () =>
 // det ikkje finst nokon ordre enno — når ein legg til ei rad, når ein går
 // tilbake frå kontrollen, og når ordren blir laga ut frå eit tilbod. Ein test
 // på objektet i staden for id-en valde då oppdatering av orders/undefined.
+// Følgjelinjer: stolpar, topp, krans og veggfeste under kvar modell.
+console.log("FØLGJELINJER I DELELISTA");
+{
+  const F = G("vindexFolgelinjer");
+  const P = G("vindexPrislinje");
+
+  const rekkverk = F(P("7409"));           // VBB m/A14
+  p("seks følgjelinjer", rekkverk.length, 6);
+  p("tre stolpar, ein per plassering",
+    rekkverk.filter((l) => l.varegruppe === "stolpe").map((l) => l.plassering),
+    ["linje", "ende", "hjorne"]);
+  // Antalet er det einaste vi ikkje kan vite. Kor mange hjørnestolpar eit
+  // prosjekt treng står ikkje i prislista, det står på tomta.
+  sjekk("alle står på null", () => rekkverk.every((l) => l.antall === 0));
+  sjekk("alle har artikkelnummer", () => rekkverk.every((l) => l.kode));
+  sjekk("alle veit kva modell dei følgjer", () => rekkverk.every((l) => l.folgjer === "7409"));
+
+  // Stolpen følgjer produktfamilien, ikkje namnet på modellen.
+  const stolpen = (kode) => F(P(kode)).find((l) => l.varegruppe === "stolpe").navn;
+  sjekk("levegg får leveggstolpe", () => /levegg/i.test(stolpen("7425")));
+  sjekk("kystvegg får kystveggstolpe", () => /kystvegg/i.test(stolpen("9610")));
+  sjekk("rekkverk får A01", () => /A01/.test(stolpen("7409")));
+
+  // Ein port eller ei glasrute har ingen følgjelinjer.
+  p("port gir ingen følgjelinjer", F(P(G("vindexPrisbok")().find((l) => l.gruppe === "Porter").kode)).length, 0);
+  p("ingenting inn gir ingenting ut", F(null).length, 0);
+
+  const lys = G("vindexLyslinjer")();
+  p("tre lyslinjer", lys.length, 3);
+  sjekk("lys, kabel og trafo", () =>
+    /halvmåne/i.test(lys[0].navn) && /kabel/i.test(lys[1].navn) && /strømforsyning/i.test(lys[2].navn));
+  sjekk("òg dei står på null", () => lys.every((l) => l.antall === 0));
+}
+
 console.log("ORDRE: OPPDATERE ELLER NY");
 {
   const E = (v) => G("vindexErOppdatering")(v);

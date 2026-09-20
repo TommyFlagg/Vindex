@@ -403,6 +403,69 @@ console.log("ORDRESEDLAR OG UTSKRIFT");
     if (tilbod) {
       await p.evaluate(() => document.querySelector("#opneTilbod").click());
       await p.waitForSelector("#tilbodsrader", { timeout: 8000 });
+      // Ein modell dreg med seg stolpar, topp, krans og veggfeste — med antal 0,
+      // fordi kor mange hjørnestolpar eit prosjekt treng står på tomta og ikkje
+      // i prislista.
+      await p.evaluate(() => {
+        const vel = document.querySelector("#tbPrisbok");
+        const o = [...vel.querySelectorAll("option")].find((x) => /VBB m\/A14/.test(x.textContent));
+        if (o) { vel.value = o.value; vel.dispatchEvent(new Event("change", { bubbles: true })); }
+      });
+      await p.waitForTimeout(450);
+      const folgje = await p.$$eval("#tilbodsrader [data-felt='vare']", (a) =>
+        a.map((e) => ({ tekst: e.options[e.selectedIndex].text, gruppe: e.dataset.varegruppe })));
+      sjekk("stolpar, topp, krans og veggfeste kom med", folgje.length >= 6);
+      sjekk("tre stolpelinjer", folgje.filter((f) => f.gruppe === "stolpe").length === 3);
+      sjekk("plasseringane er ulike", await p.$$eval("#tilbodsrader [data-felt='plassering']",
+        (a) => new Set(a.map((e) => e.value)).size >= 3));
+      sjekk("følgjelinjene står på null", await p.$$eval("#tilbodsrader tr", (rader) =>
+        rader.filter((r) => r.querySelector("[data-felt='vare']"))
+             .every((r) => r.querySelector("[data-felt='antall']").value === "0")));
+
+      // Same modell ein gong til skal ikkje gi stolpane på nytt.
+      await p.evaluate(() => {
+        const vel = document.querySelector("#tbPrisbok");
+        const o = [...vel.querySelectorAll("option")].find((x) => /VBB m\/A14/.test(x.textContent));
+        if (o) { vel.value = o.value; vel.dispatchEvent(new Event("change", { bubbles: true })); }
+      });
+      await p.waitForTimeout(450);
+      sjekk("følgjelinjene kjem ikkje to gonger",
+        (await p.$$("#tilbodsrader [data-felt='vare']")).length === folgje.length);
+
+      // Lys er eit spørsmål, ikkje ein artikkel.
+      await p.evaluate(() => document.querySelector("#tbLys").click());
+      await p.waitForTimeout(450);
+      sjekk("lys gir tre linjer til",
+        (await p.$$("#tilbodsrader [data-felt='vare']")).length === folgje.length + 3);
+      sjekk("lysknappen forsvinn etterpå", await p.$("#tbLys") === null);
+
+      // Byter seljaren artikkel på ei følgjelinje, følgjer namn og pris med.
+      const forPris = await p.$$eval("#tilbodsrader tr", (r) => {
+        const rad = r.find((x) => x.querySelector("[data-felt='vare']"));
+        return rad.querySelector("[data-felt='enhetspris']").value;
+      });
+      await p.evaluate(() => {
+        const rad = [...document.querySelectorAll("#tilbodsrader tr")]
+          .find((x) => x.querySelector("[data-felt='vare']"));
+        const vel = rad.querySelector("[data-felt='vare']");
+        // Eit alternativ med ein annan pris i teksten, så testen ikkje kviler
+        // på at to naboartiklar tilfeldigvis kostar ulikt.
+        const no = vel.options[vel.selectedIndex].text;
+        const annan = [...vel.options].find((o) => o.text !== no);
+        vel.value = annan.value;
+        // Ein ekte nettlesar sender begge på ein select. Sender testen berre
+        // «change», prøver han noko brukaren aldri gjer.
+        vel.dispatchEvent(new Event("input", { bubbles: true }));
+        vel.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      await p.waitForTimeout(450);
+      const etterPris = await p.$$eval("#tilbodsrader tr", (r) => {
+        const rad = r.find((x) => x.querySelector("[data-felt='vare']"));
+        return rad.querySelector("[data-felt='enhetspris']").value;
+      });
+      sjekk("prisen følgjer artikkelbyttet", forPris !== etterPris);
+
+
       // Legg til to artiklar frå prislista.
       for (let n = 0; n < 2; n++) {
         await p.evaluate((i) => {

@@ -28,6 +28,126 @@ const VINDEX_STATUSAR = [
   { id: "avslatt", navn: "Avslått", steg: 6, open: false },
 ];
 
+// ---------------------------------------------------------------------------
+// Følgjelinjer i delelista
+// ---------------------------------------------------------------------------
+// Vel seljaren ein rekkverks-, gjerde- eller leveggmodell, følgjer det alltid
+// noko med: stolpar må det vere, og dei står på tre ulike plassar. Ofte òg
+// topp, pyntekrans, stolpefot og veggfeste. Før måtte kvar av dei finnast fram
+// i ei nedtrekksliste med hundre artiklar, éin om gongen, på kvart einaste
+// tilbod.
+//
+// No kjem dei opp av seg sjølve, med antal 0. Antalet er ikkje noko vi kan
+// rekne ut: kor mange hjørnestolpar eit prosjekt treng står ikkje i prislista,
+// det står på tomta. Seljaren fyller inn talet, eller slettar linja. Ei linje
+// med null i er ikkje med i summen, så eit gløymt slett kostar ingenting.
+//
+// Artikkelen står som nedtrekk over si eiga varegruppe, ikkje som fast val.
+// Prislista har elleve stolpar, og kva for ein som høyrer til kva modell
+// følgjer av produktfamilien, ikkje av namnet på modellen. Vi set det
+// sannsynlege og let seljaren endre det med eitt klikk.
+const VINDEX_FOLGEGRUPPER = {
+  stolpe: "Stolper",
+  topp: "Stolpetopper",
+  krans: "Pyntekrans",
+  veggfeste: "Veggfeste",
+  lys: "LED-lys",
+};
+
+// Kva stolpegruppe høyrer til kva modellgruppe. Står modellgruppa ikkje her,
+// blir den vanlegaste stolpen vald — seljaren ser kva som står og byter om
+// det er feil.
+const VINDEX_STOLPEFAMILIE = [
+  { gruppe: "Levegg", passar: /^Stolpe levegg/i },
+  { gruppe: "Kystveggen", passar: /^Kystvegg stolpe linje/i },
+];
+
+/** Den artikkelen i gruppa som passar modellen best. */
+function vindexFolgeartikkel(varegruppe, modellgruppe) {
+  const iGruppa = (typeof vindexPrisbok === "function" ? vindexPrisbok() : []).filter(
+    (l) => l.gruppe === VINDEX_FOLGEGRUPPER[varegruppe]
+  );
+  if (!iGruppa.length) return null;
+  const regel = VINDEX_STOLPEFAMILIE.find((r) => r.gruppe === modellgruppe);
+  if (varegruppe === "stolpe" && regel) {
+    const treff = iGruppa.find((l) => regel.passar.test(l.navn));
+    if (treff) return treff;
+  }
+  return iGruppa[0];
+}
+
+/**
+ * Linjene som skal leggjast til under ein modell.
+ *
+ * Tre stolpelinjer — linje, ende, hjørne — fordi dei tre alltid finst i eit
+ * prosjekt og skal teljast kvar for seg. Resten er ei linje kvar.
+ */
+function vindexFolgelinjer(prislinje) {
+  if (!prislinje) return [];
+  const g = prislinje.gruppe || "";
+  // Berre modellar som blir sette opp med stolpar. Ein port, ei glasrute eller
+  // ein sprosse har ingen følgjelinjer.
+  const modellgrupper = ["Rekkverk og gjerde", "Levegg", "Stakitt og gjerde",
+                         "Gardsgjerde", "Kystveggen"];
+  if (!modellgrupper.includes(g)) return [];
+
+  const linje = (varegruppe, plassering) => {
+    const art = vindexFolgeartikkel(varegruppe, g);
+    if (!art) return null;
+    return {
+      varegruppe,
+      kode: art.kode || "",
+      navn: art.navn,
+      antall: 0,
+      enhet: art.enhet || "stk",
+      enhetspris: art.pris,
+      plassering: plassering || "",
+      folgjer: prislinje.kode || prislinje.navn,
+    };
+  };
+
+  return [
+    linje("stolpe", "linje"),
+    linje("stolpe", "ende"),
+    linje("stolpe", "hjorne"),
+    linje("topp"),
+    linje("krans"),
+    linje("veggfeste"),
+  ].filter(Boolean);
+}
+
+/**
+ * Linjene som kjem når kunden vil ha lys.
+ *
+ * Tre val, ikkje eitt: lyset i toppen, kabelen mellom dei, og trafoen som
+ * driv det heile. Lengda på kabelen og storleiken på trafoen avheng av
+ * prosjektet, så begge står som nedtrekk over si gruppe.
+ */
+function vindexLyslinjer() {
+  const alle = (typeof vindexPrisbok === "function" ? vindexPrisbok() : []).filter(
+    (l) => l.gruppe === "LED-lys"
+  );
+  const finn = (m) => alle.find((l) => m.test(l.navn));
+  const lag = (art, merknad) =>
+    art
+      ? {
+          varegruppe: "lys",
+          kode: art.kode || "",
+          navn: art.navn,
+          antall: 0,
+          enhet: art.enhet || "stk",
+          enhetspris: art.pris,
+          merknad,
+        }
+      : null;
+
+  return [
+    lag(finn(/halvmåne/i) || alle[0], "Lys i toppen"),
+    lag(finn(/forlengelseskabel 5 m/i) || finn(/forlengelseskabel/i), "Velg lengde og antall"),
+    lag(finn(/Strømforsyning 60 W/i) || finn(/Strømforsyning/i), "Velg type etter samlet effekt"),
+  ].filter(Boolean);
+}
+
 /**
  * Skal denne ordren oppdatere eit dokument, eller lage eit nytt?
  *
