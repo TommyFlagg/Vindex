@@ -6,7 +6,7 @@ const les = (f) => fs.readFileSync(R + "/" + f, "utf8").replace(/^export /gm, ""
 const filer = ["js/datafyll.js","js/modellar.js","js/provisjon.js","js/team.js","js/apparattal.js",
   "js/terrasse.js","js/sprosser.js","js/oppfolging.js","js/distrikt.js","js/fylke.js",
   "js/kalender.js","js/kampanje.js","js/anmeldingar.js","js/nokkeltal.js","js/apparat.js",
-  "js/modellfigur.js","js/produkter.js","js/ordre.js","js/kontrollpanel.js"];
+  "js/modellfigur.js","js/produkter.js","js/ordre.js","js/kontrollpanel.js","js/lager.js"];
 const kjelde = filer.map(les).join("\n;\n") + `
 ;vindexSettPrisbok(${fs.readFileSync(R + "/data/prisbok.json","utf8")});
 vindexSettProvisjon(${fs.readFileSync(R + "/data/provisjon.json","utf8")});
@@ -276,6 +276,169 @@ sjekk("rapporterte år er ikkje merkte demo", () =>
 // Følgjelinjer: stolpar, topp, krans og veggfeste under kvar modell.
 // Rabatt per linje.
 // Oppfølging: statusbytte er kontakt, og ein avtalt dato styrer klokka.
+// ---------------------------------------------------------------------------
+// Lager, innkjøp og kostpris
+// ---------------------------------------------------------------------------
+// Tala her er henta frå dei verkelege Bravo-utskriftene, så rekneskapen kan
+// samanliknast med noko som finst.
+console.log("KOSTFAKTOR OG KOSTPRIS");
+{
+  const F = G("vindexKostfaktor");
+  const grupper = { 15: { type: "prosent", verdi: 20 } };
+  const std = { type: "prosent", verdi: 10 };
+
+  // Arvekjeda: artikkel vinn over gruppe, gruppe over standard.
+  p("artikkelen vinn",
+    F({ gruppe: 15, kostfaktor: { type: "prosent", verdi: 5 } }, grupper, std).verdi, 5);
+  p("og vi seier kvar den kom frå",
+    F({ gruppe: 15, kostfaktor: { type: "prosent", verdi: 5 } }, grupper, std).kjelde, "artikkel");
+  p("elles gruppa", F({ gruppe: 15 }, grupper, std).verdi, 20);
+  p("kjelde gruppe", F({ gruppe: 15 }, grupper, std).kjelde, "gruppe");
+  p("elles standard", F({ gruppe: 99 }, grupper, std).verdi, 10);
+  // Null er eit val, ikkje «ikkje sett». Ein artikkel utan påslag finst.
+  p("null på artikkelen gjeld",
+    F({ gruppe: 15, kostfaktor: { type: "prosent", verdi: 0 } }, grupper, std).verdi, 0);
+  p("og då er kjelda artikkelen",
+    F({ gruppe: 15, kostfaktor: { type: "prosent", verdi: 0 } }, grupper, std).kjelde, "artikkel");
+  // Ein faktor utan type er ikkje ein faktor.
+  p("halv faktor blir ignorert", F({ kostfaktor: { verdi: 5 } }, {}, std).kjelde, "standard");
+
+  const K = G("vindexKostpris");
+  // PO 68, linje 1: Post 127x127 til 25,23 CNY. Med kurs 1,45 og 12 % påslag.
+  const r = K({ pris: 25.23, valuta: "CNY", kurs: 1.45 }, { type: "prosent", verdi: 12 });
+  p("i kroner før påslag", Math.round(r.iKroner * 100) / 100, 36.58);
+  p("påslaget", Math.round(r.paaslag * 100) / 100, 4.39);
+  p("kostpris", Math.round(r.kostpris * 100) / 100, 40.97);
+  // Alle ledda skal vere med, ikkje berre svaret.
+  sjekk("valutaen følgjer med", () => r.valuta === "CNY" && r.kurs === 1.45);
+
+  // Kroner i staden for prosent — «fem kroner frakt per stk».
+  const kr5 = K({ pris: 100, kurs: 1 }, { type: "kroner", verdi: 5 });
+  p("kronepåslag", kr5.kostpris, 105);
+
+  // Ein vare kjøpt i kroner har ingen kurs. Den skal ikkje bli gratis.
+  p("manglande kurs er 1", K({ pris: 50 }, null).kostpris, 50);
+}
+
+console.log("LAGERSALDO AV RØRSLER");
+{
+  const S = G("vindexLagersaldo");
+  const poster = [
+    { artnr: "7522", lokasjon: "Lager 3", antall: 7492, type: "innkjop", tid: "2026-09-02" },
+    { artnr: "7522", lokasjon: "Lager 3", antall: -120, type: "ordre", tid: "2026-09-10" },
+    { artnr: "7522", lokasjon: "Stavik", antall: 500, type: "innkjop", tid: "2026-09-15" },
+    { artnr: "7551", lokasjon: "Lager 3", antall: 1873, type: "innkjop", tid: "2026-08-05" },
+  ];
+  p("saldo no", S(poster, "7522"), 7872);
+  p("på éi lokasjon", S(poster, "7522", { lokasjon: "Lager 3" }), 7372);
+
+  // Kravet frå Lagerverdi-info: saldo på ein dato tilbake i tid.
+  p("saldo 05.09 — før uttaket og før Stavik", S(poster, "7522", { til: "2026-09-05" }), 7492);
+  p("saldo 12.09 — etter uttaket", S(poster, "7522", { til: "2026-09-12" }), 7372);
+  p("saldo før noko kom inn", S(poster, "7522", { til: "2026-01-01" }), 0);
+
+  p("per lokasjon", G("vindexSaldoPerLokasjon")(poster, "7522"), { "Lager 3": 7372, Stavik: 500 });
+  p("ukjend artikkel er null", S(poster, "9999"), 0);
+}
+
+console.log("STRUKTURVARER");
+{
+  const SK = G("vindexStrukturKostpris");
+
+  // Frå Strukturvare_info: 3010 er sett saman av 3310, 6,55 × 50,04.
+  const varer = { 3010: { artnr: "3010", bestarAv: [{ artnr: "3310", antall: 6.55 }] } };
+  const kost = (a) => ({ 3310: 50.04 }[a] || 0);
+  p("terrasseplank per m²", SK("3010", varer, kost).kostpris, 327.762);
+  sjekk("den er merkt samansett", () => SK("3010", varer, kost).samansett === true);
+
+  // Robotklipperhuset: arbeid er ein artikkel, 180 min à 8,30 = 1 494.
+  const hus = {
+    3149: { artnr: "3149", bestarAv: [
+      { artnr: "3030", antall: 180 },
+      { artnr: "7518", antall: 3.2 },
+      { artnr: "7555", antall: 5 },
+    ] },
+  };
+  const husKost = (a) => ({ 3030: 8.3, 7518: 43.4497, 7555: 23.2203 }[a] || 0);
+  const h = SK("3149", hus, husKost);
+  p("arbeidslinja", h.delar[0].sum, 1494);
+  p("A08-profilen", h.delar[1].sum, 139.039);
+  sjekk("arbeid er størst", () => h.delar[0].sum > h.delar[1].sum + h.delar[2].sum);
+
+  // Ein artikkel som ikkje er samansett er sin eigen kostpris.
+  p("enkel artikkel", SK("3310", varer, kost).kostpris, 50.04);
+
+  // Ei vare som inneheld seg sjølv skal ikkje gå i ring.
+  const ring = { A: { artnr: "A", bestarAv: [{ artnr: "B", antall: 1 }] },
+                 B: { artnr: "B", bestarAv: [{ artnr: "A", antall: 1 }] } };
+  const r = SK("A", ring, () => 1);
+  sjekk("ringen blir broten", () => r.ring === true);
+}
+
+console.log("LAGERVERDI");
+{
+  const varer = {
+    7522: { artnr: "7522", benevning: "Picket A11", gruppe: 1, kostpris: 3.89, veilPris: 12, lagervare: true },
+    // 363 av 788 artiklar er arbeid og frakt. Dei har kostpris, men ingen saldo.
+    3030: { artnr: "3030", benevning: "Arbeidskost", gruppe: 16, kostpris: 8.3, veilPris: 6.66, lagervare: false },
+    // Strukturvarer ville talt verdien to gonger.
+    3010: { artnr: "3010", benevning: "Terrasseplank", gruppe: 3, kostpris: 327.76, veilPris: 800,
+            lagervare: true, bestarAv: [{ artnr: "3310", antall: 6.55 }] },
+  };
+  const poster = [
+    { artnr: "7522", lokasjon: "Lager 3", antall: 1000, tid: "2026-09-02" },
+    { artnr: "3030", lokasjon: "", antall: 500, tid: "2026-09-02" },
+    { artnr: "3010", lokasjon: "Lager 3", antall: 10, tid: "2026-09-02" },
+  ];
+  const v = G("vindexLagerverdi")(varer, poster);
+  p("berre lagervarer tel", v.kostverdi, 3890);
+  p("salgsverdi", v.salgsverdi, 12000);
+  p("éi lokasjon", v.lokasjonar.length, 1);
+  p("og den heiter Lager 3", v.lokasjonar[0].lokasjon, "Lager 3");
+}
+
+console.log("INNKJØPSORDRE");
+{
+  const PO = {
+    nr: 68, leverandor: "Zhejiang Tianjie", valuta: "CNY", kurs: 1.45, sendt: "2026-06-10",
+    lokasjon: "Lager 3",
+    linjer: [
+      { artnr: "7551", deiraArtnr: "5050", bestilt: 1873, enhetspris: 25.23, levDato: "2026-08-05" },
+      { artnr: "7522", deiraArtnr: "1515", bestilt: 7492, enhetspris: 3.89, levDato: "2026-09-02" },
+    ],
+  };
+  p("sendt, ingenting motteke", G("vindexPostatus")(PO), "sendt");
+  p("utkast før den er sendt", G("vindexPostatus")({ ...PO, sendt: null }), "utkast");
+
+  // Kvar linje har si eiga leveringsdato — på PO 68 kom stolpen i august og
+  // resten i september. Difor blir ankomst meldt per linje.
+  const delvis = { ...PO, linjer: [{ ...PO.linjer[0], motteke: 1873 }, PO.linjer[1]] };
+  p("delvis mottatt", G("vindexPostatus")(delvis), "delvis");
+  const alt = { ...PO, linjer: PO.linjer.map((l) => ({ ...l, motteke: l.bestilt })) };
+  p("alt mottatt", G("vindexPostatus")(alt), "mottatt");
+
+  // PI-korrigering: leverandøren sender eit anna tal enn vi bad om.
+  const pi = { ...PO, linjer: [{ ...PO.linjer[0], bekrefta: 1800, motteke: 1800 }, PO.linjer[1]] };
+  const rest = G("vindexPorestanse")(pi);
+  p("bestilt blir teke vare på", rest[0].bestilt, 1873);
+  p("bekrefta er det leverandøren sa", rest[0].bekrefta, 1800);
+  p("og linja er gjort opp", rest[0].restar, 0);
+  p("den andre står att", rest[1].restar, 7492);
+  // Utan PI er bekrefta det same som bestilt.
+  p("utan PI er bekrefta = bestilt", G("vindexPorestanse")(PO)[0].bekrefta, 1873);
+
+  const verdi = G("vindexPoverdi")(PO);
+  p("verdi i CNY", verdi.iValuta, Math.round((1873 * 25.23 + 7492 * 3.89) * 100) / 100);
+  p("og i kroner", verdi.iKroner, Math.round(verdi.iValuta * 1.45 * 100) / 100);
+
+  // Ankomst lagar lagerpostar, ikkje ei endring av eit tal.
+  const postar = G("vindexAnkomstpostar")(PO, { 7551: 1873 }, "2026-08-05T10:00:00Z");
+  p("éin post", postar.length, 1);
+  p("med referanse tilbake", postar[0].ref, "PO-68");
+  p("og rett lokasjon", postar[0].lokasjon, "Lager 3");
+  p("null blir ikkje post", G("vindexAnkomstpostar")(PO, { 7551: 0 }).length, 0);
+}
+
 console.log("OPPFØLGING OG FRIST");
 {
   const naa = Date.parse("2026-09-22T12:00:00Z");

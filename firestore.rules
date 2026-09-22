@@ -286,5 +286,79 @@ service cloud.firestore {
       allow read: if erSeljar();
       allow write: if erAdmin();
     }
+
+    // ========================================================================
+    // LAGER OG INNKJØP
+    // ------------------------------------------------------------------------
+    // Innkjøpsprisane er det mest følsame selskapet har. Dei er delte i to
+    // samlingar med vilje, og skiljet er ikkje kosmetisk:
+    //
+    // Firestore-reglar verkar på DOKUMENT, ikkje på felt. Ein regel kan ikkje
+    // seie «du får lese denne varen, men ikkje feltet innkjøpspris» — får du
+    // lese dokumentet, får du heile dokumentet, uansett kva grensesnittet
+    // vel å teikne. Difor kan ikkje innkjøpsprisen liggje på varen.
+    //
+    //   varer/{artnr}     namn, gruppe, enhet, mål, veil.pris, struktur
+    //                     -> seljar les (tilbodet treng varenamn og kodar)
+    //   innkjop/{artnr}   innkjøpspris, valuta, kurs, kostfaktor, kostpris
+    //                     -> berre hovudkontoret, aldri seljar
+    //
+    // Same artikkelnummer i begge, men to dokument. Ein seljar som hentar heile
+    // `varer` får ikkje ei einaste innkjøpsline med på lasset.
+    // ========================================================================
+
+    // Varekortet slik seljaren treng det. Innkjøpsfelta er nemnde ved namn og
+    // avviste her òg — ikkje fordi verktøyet ville skrive dei, men fordi ein
+    // feil ein gong i framtida elles ville lekke prisane stille inn i ei
+    // samling alle les.
+    function utanInnkjopstal(d) {
+      return !d.keys().hasAny([
+        'innkjopspris', 'innkjop', 'kostpris', 'kostfaktor', 'valuta', 'kurs',
+        'paaslag', 'leverandorpris', 'kostverdi'
+      ]);
+    }
+
+    match /varer/{artnr} {
+      allow read: if erSeljar();
+      allow create, update: if erAdmin() && utanInnkjopstal(request.resource.data);
+      allow delete: if erAdmin();
+    }
+
+    // Innkjøpsprisen og heile kjeda fram til kostpris. Ingen andre enn
+    // hovudkontoret, og ingen unntak: ikkje lager, ikkje seljar, ikkje
+    // innlogga-og-elles-snill. Dette er den eine regelen i fila som ikkje
+    // skal mjuknast utan at nokon seier det høgt.
+    match /innkjop/{artnr} {
+      allow read, write: if erAdmin();
+    }
+
+    // Lagerrørsler. Saldoen er ikkje eit tal som ligg lagra nokon stad — han
+    // er summen av desse linjene. Det er difor vi kan svare på kva som stod på
+    // lager 31.12., og difor to ordrar som blir stadfesta samtidig ikkje kan
+    // skrive over kvarandre.
+    //
+    // Ei rørsle blir aldri endra eller sletta. Ein feil blir retta med ei ny
+    // linje som peikar på den gamle, slik ein rettar i eit rekneskap. Difor
+    // står det create her og ikkje write.
+    function gyldigRorsle(d) {
+      return d.artnr is string
+             && d.antall is number
+             && d.type in ['innkjop', 'ordre', 'telling', 'produksjon', 'retur', 'svinn']
+             && d.tid is string
+             // Kostpris høyrer ikkje heime på rørsla: lageret les desse.
+             && utanInnkjopstal(d);
+    }
+
+    match /lagerpost/{postId} {
+      allow read: if erAdmin() || erLager();
+      allow create: if (erAdmin() || erLager()) && gyldigRorsle(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    // Innkjøpsordrane. Linjene har einingsprisar i leverandørens valuta, så
+    // dette er like følsamt som `innkjop` og blir behandla likt.
+    match /bestilling/{ponr} {
+      allow read, write: if erAdmin();
+    }
   }
 }
