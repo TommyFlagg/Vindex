@@ -476,6 +476,27 @@ console.log("ORDRESEDLAR OG UTSKRIFT");
         }, n);
         await p.waitForTimeout(350);
       }
+      // Rulleposisjonen skal stå når dialogen blir teikna på nytt.
+      //
+      // Tilbodsdialogen blir teikna heilt på nytt kvar gong ei linje blir lagt
+      // til, flytta, kopiert eller sletta. Utan dette hamna seljaren øvst kvar
+      // einaste gong: han jobba seg nedover i ei liste på tjue linjer, kopierte
+      // ei, og var tilbake på toppen.
+      await p.evaluate(() => {
+        const el = document.querySelector("#modalInnhald");
+        el.scrollTop = el.scrollHeight;
+      });
+      await p.waitForTimeout(250);
+      const rullaTil = await p.$eval("#modalInnhald", (e) => e.scrollTop);
+      sjekk("dialogen let seg rulle", rullaTil > 100);
+      await p.evaluate(() => document.querySelector("#tilbodsrader [data-kopier='1']").click());
+      await p.waitForTimeout(400);
+      sjekk("rullinga står etter omteikning",
+        Math.abs((await p.$eval("#modalInnhald", (e) => e.scrollTop)) - rullaTil) < 40);
+      // Rydd opp kopien igjen, så resten av testen ser lista den ventar.
+      await p.evaluate(() => document.querySelector("#tilbodsrader [data-slett='2']").click());
+      await p.waitForTimeout(400);
+
       const namn = () => p.$$eval("#tilbodsrader [data-felt='navn']", (a) => a.map((e) => e.value));
       const før = await namn();
       sjekk("to linjer i delelista", før.length >= 2);

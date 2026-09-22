@@ -761,14 +761,32 @@ export function melding(tekst, type = "good") {
 // Dialog
 // ---------------------------------------------------------------------------
 export function opneModal(tittel, innhald, botn) {
+  const modal = $("#modal");
+  const innhaldsboks = $("#modalInnhald");
+
+  // Blir den same dialogen teikna på nytt, skal rulleposisjonen stå.
+  //
+  // Tilbodsdialogen blir teikna heilt på nytt kvar gong ei linje blir lagt
+  // til, flytta, kopiert eller sletta. Med nullstilling hamna seljaren øvst
+  // kvar einaste gong — han jobba seg nedover i ei liste på tjue linjer, kopla
+  // ei linje, og var tilbake på toppen. Det er ein liten ting som gjer
+  // verktøyet slitsamt å bruke i det verkelege.
+  //
+  // Ein ny dialog skal derimot opne seg øvst. Bekreftelsesdialogen legg seg
+  // oppå ordreskjemaet medan det står ope, og skal ikkje arve rullinga
+  // derifrå — då opnar den seg forbi åtvaringa den finst for.
+  //
+  // Skiljet er tittelen: same tittel = same dialog.
+  const alleredeOpe = !modal.classList.contains("hidden");
+  const sameDialog = alleredeOpe && $("#modalTittel").textContent === tittel;
+  const rulling = sameDialog ? innhaldsboks.scrollTop : 0;
+
   $("#modalTittel").textContent = tittel;
-  $("#modalInnhald").innerHTML = innhald;
+  innhaldsboks.innerHTML = innhald;
   $("#modalBotn").innerHTML = botn || "";
-  // Dialogen blir gjenbrukt, så rulleposisjonen frå førre innhald heng igjen.
-  // Utan dette kan bekreftelsesdialogen opne seg rulla forbi åtvaringa øvst.
-  $("#modalInnhald").scrollTop = 0;
-  $("#modal").scrollTop = 0;
-  $("#modal").classList.remove("hidden");
+  innhaldsboks.scrollTop = rulling;
+  if (!sameDialog) modal.scrollTop = 0;
+  modal.classList.remove("hidden");
   document.body.style.overflow = "hidden";
 }
 /**
