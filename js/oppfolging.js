@@ -400,12 +400,29 @@ function vindexRegnTilbod(tilbod = {}, val = {}) {
   const linjesum = linjer.reduce((n, l) => n + l.sum, 0);
   const listesum = linjer.reduce((n, l) => n + l.listesum, 0);
 
-  // Rabatten blir gitt per linje, og kvar linje har si grense. Skriv seljaren
-  // 40 % på eit tilbod med produserte seksjonar, får seksjonane 25 og resten
-  // det dei toler — og vi seier frå om at det blei avkorta.
+  // Rabatten blir gitt per linje, og kvar linje har si grense.
+  //
+  // Seljaren kan setje rabatten på den einskilde linja. Gjer han ikkje det,
+  // gjeld talet han har sett for heile tilbodet. Skilnaden er viktig: eit
+  // gjerde toler 35 %, men den same modellen kappa etter mål toler 25, og
+  // stolpeføter toler ingenting. Eitt tal for heile tilbodet måtte anten vere
+  // det lågaste — og då gir seljaren bort mindre enn han kunne — eller bli
+  // avkorta per linje, og då stemmer ikkje talet han skreiv med det kunden får.
+  //
+  // Difor: linja vinn når den er sett, tilbodet gjeld elles, og grensa
+  // gjeld alltid.
   const onskaProsent = Math.max(0, parseFloat(tilbod.rabattProsent) || 0);
   linjer.forEach((l) => {
-    l.rabattProsent = Math.min(onskaProsent, l.maksRabatt);
+    const eigen = l.rabatt === "" || l.rabatt === null || l.rabatt === undefined
+      ? null
+      : parseFloat(l.rabatt);
+    const onska = eigen !== null && !isNaN(eigen) ? Math.max(0, eigen) : onskaProsent;
+    l.eigenRabatt = eigen !== null && !isNaN(eigen);
+    l.onskaRabatt = onska;
+    l.rabattProsent = Math.min(onska, l.maksRabatt);
+    // Sett seljaren meir enn linja toler, skal han sjå det på linja — ikkje
+    // berre i ei samla melding nedst.
+    l.rabattAvkorta = onska > l.maksRabatt;
     l.rabattKr = Math.round((l.sum * l.rabattProsent) / 100);
   });
   const maksRabattKr = linjer.reduce((n, l) => n + Math.round((l.sum * l.maksRabatt) / 100), 0);
@@ -419,7 +436,7 @@ function vindexRegnTilbod(tilbod = {}, val = {}) {
   const onska = harKronerabatt ? Math.round(onskaKr) : frProsent;
   const rabattKr = Math.min(onska, maksRabattKr);
   const rabattAvkorta = onska > rabattKr;
-  const avkortaLinjer = linjer.filter((l) => l.navn && onskaProsent > l.maksRabatt).length;
+  const avkortaLinjer = linjer.filter((l) => l.navn && l.rabattAvkorta).length;
   const rabattProsent = onskaProsent;
   const etterRabatt = Math.max(0, linjesum - rabattKr);
 

@@ -143,8 +143,13 @@ console.log("ORDRESEDDEL OG SPROSSETILBOD");
     .concat([{ kode: "4401", navn: "Strømforsyning 30 W", antall: 1, enhet: "stk" },
              { kode: "4415", navn: "Strømforsyning 60 W", antall: 1, enhet: "stk" },
              { kode: "7227", navn: "Spisse topper", antall: 1, enhet: "stk" }]);
+  // Stubben må leggjast tilbake etterpå. Sto den igjen, testa alt som kom
+  // seinare i fila ein funksjon som berre gir frå seg linjene sine uendra —
+  // og då kan rabattreglane vere kva som helst utan at nokon merkar det.
+  const ekteRegnTilbod = ctx.g("globalThis").vindexRegnTilbod;
   ctx.g("globalThis").vindexRegnTilbod = () => ({ linjer });
   const r = G("vindexTilbodTilOrdre")({}, "rekkverk");
+  ctx.g("globalThis").vindexRegnTilbod = ekteRegnTilbod;
   p("tilleggsdelar finn feltet sitt", Object.keys(r.felt).length, 24);
   p("hengsler sort", r.felt.hengsler_sort, 2);
   p("veggfeste A19", r.felt.veggfeste_a19, 2);
@@ -243,6 +248,46 @@ sjekk("rapporterte år er ikkje merkte demo", () =>
 // tilbake frå kontrollen, og når ordren blir laga ut frå eit tilbod. Ein test
 // på objektet i staden for id-en valde då oppdatering av orders/undefined.
 // Følgjelinjer: stolpar, topp, krans og veggfeste under kvar modell.
+// Rabatt per linje.
+console.log("RABATT PER LINJE");
+{
+  const R = G("vindexRegnTilbod");
+  const linje = (kode, pris, ekstra) =>
+    Object.assign({ navn: "x", kode, antall: 1, enhet: "stk", enhetspris: pris }, ekstra || {});
+
+  // 7500 er ein vanleg stolpe (standard, 35 %), 7501 spesialstolpen som blir
+  // laga per ordre (produsert, 25 %), 7359 ein av dei utan rabatt.
+  const t = { linjer: [linje("7500", 1000), linje("7501", 1000), linje("7359", 1000)] };
+
+  const utan = R(t, {});
+  p("grensene er ulike", utan.linjer.map((l) => l.maksRabatt), [35, 25, 0]);
+  p("ingen rabatt utan at nokon ber om det", utan.linjer.map((l) => l.rabattProsent), [0, 0, 0]);
+
+  // Eitt tal for heile tilbodet blir avkorta per linje.
+  const samla = R({ ...t, rabattProsent: 40 }, {});
+  p("40 % blir avkorta til det kvar linje toler",
+    samla.linjer.map((l) => l.rabattProsent), [35, 25, 0]);
+  p("alle tre er avkorta", samla.avkortaLinjer, 3);
+
+  // Rabatt sett på linja vinn over talet for tilbodet.
+  const eigen = R({
+    ...t,
+    rabattProsent: 10,
+    linjer: [linje("7500", 1000, { rabatt: 30 }), linje("7501", 1000), linje("7359", 1000, { rabatt: 20 })],
+  }, {});
+  p("linja vinn der den er sett", eigen.linjer.map((l) => l.rabattProsent), [30, 10, 0]);
+  p("men grensa gjeld framleis", eigen.linjer[2].rabattAvkorta, true);
+  p("kroner per linje", eigen.linjer.map((l) => l.rabattKr), [300, 100, 0]);
+
+  // Null på linja er eit val, ikkje «ikkje sett».
+  const null0 = R({ ...t, rabattProsent: 35, linjer: [linje("7500", 1000, { rabatt: 0 })] }, {});
+  p("null på linja gir null", null0.linjer[0].rabattProsent, 0);
+
+  // Tom streng er «ikkje sett», og då gjeld tilbodet sitt tal.
+  const tom = R({ ...t, rabattProsent: 20, linjer: [linje("7500", 1000, { rabatt: "" })] }, {});
+  p("tom betyr ikkje sett", tom.linjer[0].rabattProsent, 20);
+}
+
 console.log("FØLGJELINJER I DELELISTA");
 {
   const F = G("vindexFolgelinjer");

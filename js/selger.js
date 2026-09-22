@@ -3693,12 +3693,12 @@ function monteringsfeltHtml(m, r) {
         <p class="hint">${vindexKr(sats.reisetid.pris)} pr. time (${sats.reisetid.kode})</p></div>
       <div class="field"><label for="tbMontMenn">Antall montører</label>
         <input id="tbMontMenn" type="number" min="1" step="1" value="${m.menn}" placeholder="1"></div>
-      <div class="field"><label for="tbMontRabatt">Rabatt på montering (%)</label>
-        <input id="tbMontRabatt" type="number" min="0" max="${r.maksRabatt}" step="1" value="${m.rabattProsent}">
-        <p class="hint">Maks ${r.maksRabatt} % — og bare over ${sats.rabattFraTimar} timer pr. mann.</p></div>
       <div class="field brei"><label for="tbMontFast">Fast sum for montering (kr)</label>
         <input id="tbMontFast" type="number" min="0" step="100" value="${m.fastsum}">
-        <p class="hint">Fylles denne ut, overstyrer den timeberegningen.</p></div>
+        <p class="hint">Fylles denne ut, overstyrer den timeberegningen. Montering har
+          ikke eget rabattfelt — enten regner du timer og antall montører, eller så
+          setter du en sum. Skal kunden ha det billigere, er det summen som endres.</p></div>
+      <input type="hidden" id="tbMontRabatt" value="0">
     </div>
     <div id="montSum">${monteringSumHtml(r)}</div>
     <p class="hint mb-0">${sats.inkluderer} ${sats.reisemerknad}</p>
@@ -3839,9 +3839,22 @@ function teiknTilbodsdialog(lead) {
   const u = tilbodsutkast;
   const r = vindexRegnTilbod(u, tilbodskontekst());
 
+  // Lysdelane skal ha luft rundt seg. Dei høyrer til eit eige spørsmål — vil
+  // kunden ha lys? — og har si eiga rabattgrense og si eiga provisjon. Står
+  // dei midt i stolpane, blir dei lesne som ein stolpe til.
+  const forrigeVaregruppe = [];
   const rader = u.linjer
-    .map(
-      (linje, i) => `<tr data-linje="${i}">
+    .map((linje, i) => {
+      const lys = linje.varegruppe === "lys";
+      const forrige = i > 0 ? u.linjer[i - 1] : null;
+      const nyttBolk = lys && (!forrige || forrige.varegruppe !== "lys");
+      return (nyttBolk
+        ? `<tr class="linjebolk"><td colspan="7">
+             <span class="bolknamn">Belysning</span>
+             <span class="hint">Egen rabattgrense: inntil 40 %. Over 35 % faller
+               provisjonen til 0,8 %.</span>
+           </td></tr>`
+        : "") + `<tr data-linje="${i}"${lys ? ' class="lyslinje"' : ""}>
         <td>${
           linje.varegruppe
             ? // Følgjelinjer: artikkelen er eit val i si eiga gruppe, ikkje
@@ -3874,7 +3887,26 @@ function teiknTilbodsdialog(lead) {
               ).join("")}</select>`
         }</td>
         <td style="width:7rem"><input data-felt="enhetspris" type="number" min="0" step="10" value="${linje.enhetspris}"></td>
-        <td class="tal linjesum">${kr(r.linjer[i].sum)}</td>
+        <td class="rabattcelle">${
+          // Grensa står på linja, ikkje berre i ei fotnote. Seljaren skal sjå
+          // at stolpeføter er null og at ein seksjon etter mål er 25 medan den
+          // same frå hylla er 35 — i det han skriv talet, ikkje etterpå.
+          r.linjer[i].maksRabatt === 0
+            ? `<span class="hint">ingen rabatt</span>`
+            : `<input data-felt="rabatt" type="number" min="0" max="${r.linjer[i].maksRabatt}"
+                 step="1" class="${r.linjer[i].rabattAvkorta ? "over-grensa" : ""}"
+                 placeholder="${r.rabattProsent || 0}"
+                 value="${linje.rabatt === undefined || linje.rabatt === null ? "" : linje.rabatt}"
+                 aria-label="Rabatt i prosent, maks ${r.linjer[i].maksRabatt}">
+               <span class="hint">maks ${r.linjer[i].maksRabatt} %</span>`
+        }</td>
+        <td class="tal linjesum">${
+          r.linjer[i].rabattKr
+            ? `<span class="hint strok">${kr(r.linjer[i].sum)}</span><br>${kr(
+                r.linjer[i].sum - r.linjer[i].rabattKr
+              )}`
+            : kr(r.linjer[i].sum)
+        }</td>
         <td class="linjeknappar">
           <button class="btn btn-ghost btn-sm" data-opp="${i}" ${i === 0 ? "disabled" : ""}
             aria-label="Flytt linjen opp" title="Flytt opp">↑</button>
@@ -3886,8 +3918,8 @@ function teiknTilbodsdialog(lead) {
           <button class="btn btn-ghost btn-sm" data-slett="${i}"
             aria-label="Slett linjen" title="Slett">✕</button>
         </td>
-      </tr>`
-    )
+      </tr>`;
+    })
     .join("");
 
   const innhald = `
@@ -3929,9 +3961,38 @@ function teiknTilbodsdialog(lead) {
       <table class="linjer">
         <thead><tr>
           <th>Hva</th><th class="tal">Antall</th><th>Enhet / plassering</th>
-          <th class="tal">Pris per enhet</th><th class="tal">Sum</th><th></th>
+          <th class="tal">Pris per enhet</th><th>Rabatt</th><th class="tal">Sum</th><th></th>
         </tr></thead>
         <tbody id="tilbodsrader">${rader}</tbody>
+        <tfoot>
+          ${
+            // Montering og frakt høyrer til tilbodet, men ikkje til rabatten.
+            // Dei sto berre i eigne felt under tabellen, og då las seljaren
+            // delelista som om det var heile tilbodet. No står dei her, med
+            // luft over og med grunnen skriven ut — så ingen prøver å gi
+            // rabatt på ein fraktpris som er ei rekning frå transportøren.
+            r.montering && r.montering.sum
+              ? `<tr class="utanforrabatt">
+                   <td colspan="4"><span class="bolknamn">Montering</span>
+                     <span class="hint">${vindexT(r.montering.forklaring || "Arbeid, ikke materiell")}</span></td>
+                   <td><span class="hint">ingen rabatt</span></td>
+                   <td class="tal linjesum">${kr(r.montering.sum)}</td><td></td>
+                 </tr>`
+              : ""
+          }
+          ${
+            r.frakt && r.frakt.pris
+              ? `<tr class="utanforrabatt">
+                   <td colspan="4"><span class="bolknamn">Frakt</span>
+                     <span class="hint">${
+                       r.frakt.pakker ? r.frakt.pakker + " pakker — " : ""
+                     }regning fra transportøren, ikke vår margin</span></td>
+                   <td><span class="hint">ingen rabatt</span></td>
+                   <td class="tal linjesum">${kr(r.frakt.pris)}</td><td></td>
+                 </tr>`
+              : ""
+          }
+        </tfoot>
       </table>
     </div>
     <div class="btn-row mt-1">
@@ -3986,8 +4047,13 @@ function teiknTilbodsdialog(lead) {
   // Les alt inn i utkastet og teikn på nytt, så summen følgjer med medan
   // seljaren skriv. Fokuset blir sett tilbake der han var.
   const les = () => {
-    $$("#tilbodsrader tr").forEach((rad, i) => {
+    // Berre rader som faktisk er ei linje. Tabellen har òg bolkskilje
+    // («Belysning») og fotrader for montering og frakt, og indeksen i tabellen
+    // er difor ikkje den same som indeksen i lista. Den står på rada.
+    $$("#tilbodsrader tr[data-linje]").forEach((rad) => {
+      const i = parseInt(rad.dataset.linje, 10);
       const linje = u.linjer[i];
+      if (!linje) return;
       const foerUtforing = linje.utforing;
       const foerVare = linje.kode;
       rad.querySelectorAll("[data-felt]").forEach((felt) => {
@@ -3999,7 +4065,7 @@ function teiknTilbodsdialog(lead) {
           return;
         }
         linje[felt.dataset.felt] =
-          felt.dataset.felt === "antall" || felt.dataset.felt === "enhetspris"
+          ["antall", "enhetspris", "rabatt"].includes(felt.dataset.felt)
             ? verdi === "" ? "" : parseFloat(verdi)
             : verdi;
       });
@@ -4080,8 +4146,19 @@ function teiknTilbodsdialog(lead) {
   const oppdaterSummar = () => {
     const rekna = vindexRegnTilbod(u, tilbodskontekst());
     rekna.linjer.forEach((l, i) => {
-      const celle = document.querySelector(`tr[data-linje="${i}"] .linjesum`);
-      if (celle) celle.textContent = kr(l.sum);
+      const rad = document.querySelector(`tr[data-linje="${i}"]`);
+      if (!rad) return;
+      // Summen må vise rabatten i det han blir skriven, ikkje først når
+      // dialogen blir teikna på nytt. Ser seljaren same tal etter å ha skrive
+      // 30 %, trur han feltet ikkje verka og skriv det ein gong til.
+      const celle = rad.querySelector(".linjesum");
+      if (celle)
+        celle.innerHTML = l.rabattKr
+          ? `<span class="hint strok">${kr(l.sum)}</span><br>${kr(l.sum - l.rabattKr)}`
+          : kr(l.sum);
+      // Og grensa skal vise seg på feltet med ein gong den er broten.
+      const rabattfelt = rad.querySelector('[data-felt="rabatt"]');
+      if (rabattfelt) rabattfelt.classList.toggle("over-grensa", !!l.rabattAvkorta);
     });
     const summar = $("#tbSummar");
     if (summar) summar.innerHTML = tilbodsumHtml(rekna);
