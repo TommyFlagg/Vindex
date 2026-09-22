@@ -2947,6 +2947,14 @@ const terrassekladdnokkel = (lead) => "terrasse:" + lead.id;
 
 function opneTerrassetilbod(lead) {
   const lagra = lead.terrassetilbod || {};
+  // Eit nytt tilbod startar tomt. Før kom skruar og bjelkar med av seg sjølve,
+  // og då sto det ein sum i ruta før seljaren hadde teke eit einaste val — og
+  // ein sum du ikkje har valt, er ein sum du ikkje kontrollerer.
+  //
+  // Eit lagra tilbod blir opna slik det vart lagra, og eit uferdig utkast blir
+  // henta fram att lenger nede. Det er berre den heilt tomme starten som er
+  // endra.
+  const nytt = !lead.terrassetilbod;
   terrasseutkast = {
     lengd: lagra.lengd || "",
     breidd: lagra.breidd || "",
@@ -2954,17 +2962,18 @@ function opneTerrassetilbod(lead) {
     friForm: !!lagra.friForm,
     fyllprofil: lagra.fyllprofil || "3311",
     prisEining: lagra.prisEining || "m2",
-    skruer: lagra.skruer !== false,
-    bjelkar: lagra.bjelkar !== false,
+    skruer: nytt ? false : lagra.skruer !== false,
+    bjelkar: nytt ? false : lagra.bjelkar !== false,
     bjelkeMeter: lagra.bjelkeMeter || "",
-    langsideList: lagra.langsideList || "3314",
+    langsideList: nytt ? "" : lagra.langsideList || "3314",
     langsideMeter: lagra.langsideMeter || "",
-    endeList: lagra.endeList || "3316",
+    endeList: nytt ? "" : lagra.endeList || "3316",
     endeMeter: lagra.endeMeter || "",
     dekklist: lagra.dekklist || "",
     oringar: lagra.oringar || "",
     skruerManuell: lagra.skruerManuell || "",
     merknader: lagra.merknader || "",
+    rabatt: lagra.rabatt === undefined ? "" : lagra.rabatt,
   };
   const kladd = hentKladd(terrassekladdnokkel(lead));
   let fraKladd = null;
@@ -3014,14 +3023,30 @@ function terrassesumHtml(r) {
       .map(
         (l) => `<div><span>${vindexT(l.navn)} <span class="hint">${l.antall} ${l.enhet}${
           l.merknad ? " · " + l.merknad : ""
-        }</span></span><span class="linjesum">${kr(l.sum)}</span></div>`
+        }${l.rabattProsent ? ` · ÷ ${l.rabattProsent} %` : l.rabattGjeld ? "" : " · ingen rabatt"}</span></span>
+        <span class="linjesum">${
+          l.rabattKr
+            ? `<span class="hint strok">${kr(l.sum)}</span> ${kr(l.nettosum)}`
+            : kr(l.sum)
+        }</span></div>`
       )
       .join("")}
     <div><span>Materiell</span><span class="linjesum">${kr(r.sum)}</span></div>
     ${
-      r.frakt && r.frakt.pris !== null
+      r.rabattKr
+        ? `<div><span>Rabatt${r.rabattAvkorta ? ` <span class="tekst-warn">(avkortet til ${r.maksRabatt} %)</span>` : ""}</span><span class="linjesum">− ${kr(r.rabattKr)}</span></div>`
+        : ""
+    }
+    ${
+      r.frakt && r.frakt.overTabellen
+        ? `<div><span>Frakt (${r.frakt.pakker} pakker)
+             <span class="tekst-warn">Fraktlisten stopper på ${r.frakt.satsFor} pakker.
+               Høyeste sats er brukt — den faktiske frakten blir høyere og må hentes inn
+               før tilbudet sendes.</span></span>
+           <span class="linjesum">${kr(r.frakt.pris)}</span></div>`
+        : r.frakt && r.frakt.pris !== null
         ? `<div><span>Frakt (${r.frakt.pakker} pakker)</span><span class="linjesum">${kr(r.frakt.pris)}</span></div>`
-        : `<div><span class="tekst-warn">Frakt over 25 pakker står ikke i fraktlisten</span><span>må hentes inn</span></div>`
+        : `<div><span class="tekst-warn">Frakt står ikke i fraktlisten</span><span>må hentes inn</span></div>`
     }
     <div class="total"><span>Sum</span><span class="linjesum">${kr(r.total)}</span></div>
     <div><span class="hint">Herav uten mva</span><span class="hint">${kr(vindexEksMva(r.total))}</span></div>
@@ -3062,10 +3087,16 @@ function teiknTerrassedialog(lead, fraKladd) {
         <div class="field"><label for="terrBreidd">Bredde (m)</label>
           <input id="terrBreidd" type="number" min="0" step="0.1" value="${u.breidd}"></div>
         <div class="field"><label for="terrM2">Areal (m²)</label>
-          <input id="terrM2" type="number" min="0" step="0.01" value="${f.m2 || ""}"
-            ${u.friForm ? "" : "readonly"}></div>
+          <input id="terrM2" type="number" min="0" step="0.01" value="${f.m2 || ""}">
+          <span class="hint">Skriv arealet rett inn hvis du har det. Fyller du ut lengde og
+            bredde, regnes det ut herfra.</span></div>
         <div class="field"><label class="hakelinje"><input type="checkbox" id="terrFriForm"
-          ${u.friForm ? "checked" : ""}> Ujevn form — skriv arealet selv</label></div>
+          ${u.friForm ? "checked" : ""}> Ujevn form — ikke regn ut fra lengde og bredde</label></div>
+        <div class="field"><label for="terrRabatt">Rabatt på gulvet (%)</label>
+          <input id="terrRabatt" type="number" min="0" max="${VINDEX_TERRASSE_MAKSRABATT}"
+            step="1" value="${u.rabatt === undefined || u.rabatt === null ? "" : u.rabatt}">
+          <span class="hint">Maks ${VINDEX_TERRASSE_MAKSRABATT} % — terrassebordet produseres
+            etter mål. Skruer, lister og bjelker står foreløpig uten rabatt.</span></div>
       </div>
 
       <h3 class="mt-2">Gulvet</h3>
@@ -3158,27 +3189,35 @@ function teiknTerrassedialog(lead, fraKladd) {
       oringar: v("terrOringar"),
       skruerManuell: v("terrSkruer"),
       merknader: v("terrMerknader"),
+      rabatt: v("terrRabatt"),
     });
   };
 
   // Berre summen blir teikna på nytt medan seljaren skriv — aldri felta.
   // Same grunn som i delelista: markøren skal bli ståande.
-  $("#terrasseskjema").addEventListener("input", () => {
+  $("#terrasseskjema").addEventListener("input", (hending) => {
     les();
     const ff = terrasseframlegg(terrasseutkast);
-    if (!terrasseutkast.friForm && $("#terrM2")) $("#terrM2").value = ff.m2 || "";
 
-    // Framlegga skal stå i felta og ikkje berre i summen. Elles ser seljaren
-    // tomme felt og ein sum som likevel inneheld dei — og då veit han ikkje
-    // kva han har lova. Berre tomme felt blir fylte; har han skrive eit tal
-    // sjølv, står det.
+    // Arealet blir rekna ut av lengd og breidd — men ikkje medan seljaren
+    // skriv i arealfeltet sjølv, og ikkje når lengd og breidd står tomme.
+    // Utan desse to skreiv utrekninga over talet han nett hadde tasta inn,
+    // teikn for teikn, og feltet såg ut til å vere øydelagt.
+    const skrivIArealet = hending && hending.target && hending.target.id === "terrM2";
+    const harMaal = (parseFloat(terrasseutkast.lengd) || 0) > 0 && (parseFloat(terrasseutkast.breidd) || 0) > 0;
+    if (!terrasseutkast.friForm && !skrivIArealet && harMaal && $("#terrM2"))
+      $("#terrM2").value = ff.m2 || "";
+
+    // Framlegga står som plasshaldar, ikkje som utfylt verdi.
+    //
+    // Før vart dei skrivne rett inn i tomme felt, og då fekk seljaren ein sum
+    // han ikkje hadde valt. No ser han talet grått i feltet og kan ta det ved
+    // å skrive det — eller la vere. Eit framlegg er eit framlegg; det som står
+    // i tilbodet skal vere valt.
     [["terrBjelkeMeter", "bjelkeMeter"], ["terrLangsideMeter", "langsideMeter"],
      ["terrEndeMeter", "endeMeter"]].forEach(([id, nokkel]) => {
       const el = $("#" + id);
-      if (el && !el.value && ff[nokkel]) {
-        el.value = ff[nokkel];
-        terrasseutkast[nokkel] = String(ff[nokkel]);
-      }
+      if (el && ff[nokkel]) el.placeholder = "forslag: " + ff[nokkel];
     });
 
     $("#terrSumBoks").innerHTML = terrassesumHtml(
@@ -3194,8 +3233,9 @@ function teiknTerrassedialog(lead, fraKladd) {
   });
   $("#terrasseskjema").addEventListener("change", () => {
     les();
-    if ($("#terrFriForm").checked) $("#terrM2").removeAttribute("readonly");
-    else $("#terrM2").setAttribute("readonly", "");
+    // Feltet blir aldri låst. Seljaren har ofte arealet frå kunden og vil
+    // skrive det rett inn; låser vi det til ein hake, må han finne haken
+    // først. Hakar han av, sluttar vi berre å rekne det ut på nytt.
     // Utan fyllprofil er gulvet prisa per løpemeter, og då finst det ikkje
     // noko val mellom m² og pakke å ta.
     $("#terrPrisEining").disabled = terrasseutkast.fyllprofil === "ingen";

@@ -95,7 +95,33 @@ const t30 = G("vindexTerrasseberegning")(30);
 p("30 m² → pakker", t30.pakker, 19);
 p("30 m² → skruar", t30.skruar, 690);
 p("30 m² → skrupakkar", t30.skrupakkar, 3);
-sjekk("frakt over 25 pakker er utanfor tabellen", () => G("vindexTerrassefrakt")(30).utanforTabellen === true);
+// Over 25 pakker sto fraktlinja tom til nokon hugsa å hente eit tal, og eit
+// tomt felt blir gløymt. No blir høgste sats brukt — men merkt, fordi det er
+// eit golv og ikkje eit svar: tretti pakker kostar meir å sende enn tjuefem.
+{
+  const f30 = G("vindexTerrassefrakt")(30);
+  sjekk("over tabellen er merkt", () => f30.overTabellen === true);
+  p("høgste sats blir brukt", f30.pris, G("VINDEX_TERRASSEFRAKT").slice(-1)[0].pris);
+  p("og vi seier kva sats", f30.satsFor, 25);
+  sjekk("ingen tom fraktlinje lenger", () => f30.pris > 0);
+  // Innanfor tabellen skal ingenting vere merkt.
+  sjekk("25 pakker er innanfor", () => !G("vindexTerrassefrakt")(25).overTabellen);
+}
+
+// Rabatt på terrassetilbodet: gulvet toler 25 %, resten står utan til nokon
+// har sagt frå kva dei toler.
+{
+  const r = G("vindexTerrasselinjer")({ m2: 40, fyllprofil: "3311", skruer: true, rabatt: 30 });
+  p("avkorta til 25", r.linjer.find((l) => l.kode === "3010").rabattProsent, 25);
+  sjekk("og vi seier frå om avkortinga", () => r.rabattAvkorta === true);
+  p("skruar står utan rabatt", r.linjer.find((l) => l.kode === "4308").rabattProsent, 0);
+  p("netto = sum minus rabatt", r.netto, r.sum - r.rabattKr);
+  // Frakta er aldri rabattert.
+  p("total = netto + frakt", r.total, r.netto + r.frakt.pris);
+  // Utan rabatt skal ingenting endre seg.
+  const utan = G("vindexTerrasselinjer")({ m2: 40, fyllprofil: "3311", skruer: true });
+  p("ingen rabatt gir netto = sum", utan.netto, utan.sum);
+}
 sjekk("med fyllprofil = artikkel 3010 (per m²)", () =>
   G("vindexTerrasselinjer")({ m2: 30 }).linjer.some((l) => l.kode === "3010"));
 sjekk("utan fyllprofil = artikkel 3310 (per lm)", () =>

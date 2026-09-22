@@ -52,9 +52,24 @@ function vindexTerrassefrakt(pakker) {
   const n = Math.max(0, Math.ceil(pakker || 0));
   if (!n) return null;
   const band = VINDEX_TERRASSEFRAKT.find((b) => n <= b.maksPakker);
-  // Over 25 pakker seier arket ingenting. Då er det ikkje null kroner i frakt
-  // — det er eit tal nokon må hente inn.
-  return band ? { pris: band.pris, pakker: n } : { pris: null, pakker: n, utanforTabellen: true };
+  if (band) return { pris: band.pris, pakker: n };
+
+  // Over 25 pakker seier arket ingenting, og då sto tilbodet med tom fraktlinje
+  // til nokon hugsa å hente eit tal. Eit tomt felt blir gløymt.
+  //
+  // No blir høgste sats brukt, så tilbodet iallfall har ein pris i seg. Men
+  // det er eit golv og ikkje eit svar: frakta veks med talet på pakker, og
+  // tretti pakker kostar meir å sende enn tjuefem. Difor `overTabellen`, som
+  // set eit varsel på linja heilt fram til seljaren har skrive inn det ekte
+  // talet.
+  const hogste = VINDEX_TERRASSEFRAKT[VINDEX_TERRASSEFRAKT.length - 1];
+  if (!hogste) return { pris: null, pakker: n, utanforTabellen: true };
+  return {
+    pris: hogste.pris,
+    pakker: n,
+    overTabellen: true,
+    satsFor: hogste.maksPakker,
+  };
 }
 
 /**
@@ -100,6 +115,10 @@ const vindexLengder = (meter, lengd) =>
  * dei, men kor mange rader som trengst kjem an på korleis gulvet ligg, og det
  * veit seljaren. Talet kan overstyrast.
  */
+// Terrassebordet blir produsert etter mål og toler den same grensa som andre
+// produserte seksjonar.
+const VINDEX_TERRASSE_MAKSRABATT = 25;
+
 function vindexTerrasselinjer(val = {}) {
   const b = vindexTerrasseberegning(val.m2);
   if (!b) return null;
@@ -172,7 +191,41 @@ function vindexTerrasselinjer(val = {}) {
     legg("4308", skrupakkar, `${b.skruar} skruer trengs · ${VINDEX_TERRASSE.skruar_per_pakning} per pakning`);
   }
 
+  // Rabatt.
+  //
+  // Terrassebordet er produsert etter mål og toler 25 %, som andre produserte
+  // seksjonar. Kva dei andre delane toler — bjelkar, lister, skruar, o-ringar
+  // — er ikkje avklart enno, og då set vi ikkje eit tal på dei. Ein grense vi
+  // har funne på er verre enn ingen: seljaren stoler på den.
+  //
+  // Difor gjeld rabatten førebels berre gulvlinjene, og det står på kvar linje
+  // om den er med eller ikkje.
+  const GULVKODAR = ["3010", "3310"];
+  const onska = Math.max(0, parseFloat(val.rabatt) || 0);
+  linjer.forEach((l) => {
+    l.rabattGjeld = GULVKODAR.includes(l.kode);
+    l.maksRabatt = l.rabattGjeld ? VINDEX_TERRASSE_MAKSRABATT : 0;
+    l.rabattProsent = Math.min(onska, l.maksRabatt);
+    l.rabattKr = Math.round((l.sum * l.rabattProsent) / 100);
+    l.nettosum = l.sum - l.rabattKr;
+  });
+  const rabattKr = linjer.reduce((n, l) => n + l.rabattKr, 0);
+  const rabattAvkorta = onska > VINDEX_TERRASSE_MAKSRABATT;
+
   const sum = linjer.reduce((n, l) => n + l.sum, 0);
+  const netto = sum - rabattKr;
   const frakt = vindexTerrassefrakt(b.pakker);
-  return { beregning: b, linjer, sum, frakt, total: sum + ((frakt && frakt.pris) || 0) };
+  return {
+    beregning: b,
+    linjer,
+    sum,
+    rabattProsent: onska,
+    rabattKr,
+    rabattAvkorta,
+    maksRabatt: VINDEX_TERRASSE_MAKSRABATT,
+    netto,
+    frakt,
+    // Frakt er aldri rabattert — det er ei rekning frå transportøren.
+    total: netto + ((frakt && frakt.pris) || 0),
+  };
 }
