@@ -1009,6 +1009,25 @@ function visDetalj(id) {
           : ""
       }
 
+      ${(() => {
+        // Kor mange gonger saka er fylgd opp, og kva klokka faktisk tel mot.
+        // Før stod det berre «overskredet» utan at seljaren kunne sjå om han
+        // hadde gjort noko med det — og utan å kunne styre det.
+        const t = vindexTemperatur(l);
+        const tal = vindexOppfolgingar(l);
+        if (!tal && t.id !== "planlagt") return "";
+        return `<p class="hint mt-1 oppfolgingslinje">
+          ${tal ? `Fulgt opp <strong>${tal}</strong> ${tal === 1 ? "gang" : "ganger"}.` : ""}
+          ${
+            t.id === "planlagt"
+              ? `Neste kontakt <strong>${datoTekst(t.frist)}</strong> — klokka teller mot den datoen.`
+              : t.frist
+              ? `Fristen ${datoTekst(t.frist)} er passert.`
+              : ""
+          }
+        </p>`;
+      })()}
+
       <div class="statusknappar no-print">
         ${VINDEX_STATUSAR.map(
           (s) => `<button class="statusknapp ${s.id === l.status ? "aktiv" : ""} ${s.id === "solgt" ? "solgt" : ""} ${s.id === "avslatt" ? "avslag" : ""}"
@@ -1112,7 +1131,10 @@ function visDetalj(id) {
       <h3 class="mt-2">Oppfølging og notat</h3>
       <div class="feltrutenett no-print">
         <div class="field"><label for="byttFrist">Neste oppfølging</label>
-          <input id="byttFrist" type="date" value="${tid(l.oppfolgingFrist) && !isNaN(tid(l.oppfolgingFrist)) ? tid(l.oppfolgingFrist).toISOString().slice(0, 10) : ""}"></div>
+          <input id="byttFrist" type="date" value="${tid(l.oppfolgingFrist) && !isNaN(tid(l.oppfolgingFrist)) ? tid(l.oppfolgingFrist).toISOString().slice(0, 10) : ""}">
+          <span class="hint">Denne datoen styrer nedtellingen. Har kunden sagt «ring meg
+            om tre uker», setter du den her, og saken står ikke som overskredet før da.
+            Trykker du «Oppfulgt» uten å sette dato, flyttes fristen ett døgn.</span></div>
         ${seljarVal}
         <div class="field brei"><label for="nyttNotat">Notat</label>
           <textarea id="nyttNotat" placeholder="Hva ble avtalt?" style="min-height:70px"></textarea></div>
@@ -1174,7 +1196,25 @@ function koplaDetalj(l) {
       if (ny === l.status) return;
       // Vinn eller tap: spør om årsaka med ein gong. Ventar vi, blir ho borte.
       if (ny === "solgt" || ny === "avslatt") return sporGrunn(l, ny);
-      await lagreLead(l, { status: ny }, [`Status endret fra «${vindexStatusNavn(l.status)}» til «${vindexStatusNavn(ny)}».`]);
+
+      // Eit statusbytte er ei handling, og ei handling er kontakt. Gjekk saka
+      // frå «tilbud sendt» til «oppfulgt», har seljaren nettopp gjort noko med
+      // den — då skal den ikkje framleis stå som overskriden. Klokka blir
+      // stilt, og fristen flytta eit døgn fram.
+      //
+      // «Ny» og «sett» tel ikkje: å sjå eit lead er ikkje å ringje det.
+      const erKontakt = vindexStatusErKontakt(ny);
+      const endring = { status: ny };
+      if (erKontakt) {
+        endring.sisteKontakt = new Date().toISOString();
+        endring.oppfolgingFrist = vindexNyFrist(l, ny);
+      }
+
+      const hendingar = [`Status endret fra «${vindexStatusNavn(l.status)}» til «${vindexStatusNavn(ny)}».`];
+      if (erKontakt && endring.oppfolgingFrist !== l.oppfolgingFrist)
+        hendingar.push(`Neste oppfølging satt til ${datoTekst(endring.oppfolgingFrist)}.`);
+
+      await lagreLead(l, endring, hendingar);
       teikn();
     })
   );

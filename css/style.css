@@ -1848,6 +1848,19 @@ body.tema-mork {
 .temp-gron { background: var(--temp-gron-mjuk); color: var(--temp-gron-blekk); }
 .temp-oransje { background: var(--temp-oransje-mjuk); color: var(--temp-oransje-blekk); }
 .temp-raud { background: var(--temp-raud-mjuk); color: var(--temp-raud-blekk); }
+/* Avtalt oppfølging: saka ventar med vilje. Blå, ikkje grøn — grøn seier
+   «nyleg kontakta», og dette seier «vi har ein avtale». Prikken er open, så
+   den skil seg frå dei andre òg utan farge. */
+.temp-planlagt {
+  background: var(--primary-soft); color: var(--primary-dark);
+  border-color: var(--primary);
+}
+.temp-planlagt::before { background: transparent; box-shadow: inset 0 0 0 2px currentColor; }
+body.tema-mork .temp-planlagt { background: #12242e; color: #7fb6cc; border-color: #2a4a5c; }
+
+/* Linja over statusknappane: kor mange gonger saka er fylgd opp. */
+.oppfolgingslinje { margin-bottom: 0.2rem; }
+
 /* Gjenoppretting: grøn, men aldri heilt grøn. Stripene gjer skilnaden synleg
    også for den som ikkje ser fargen. */
 .temp-gjenoppretting {

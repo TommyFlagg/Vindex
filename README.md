@@ -786,6 +786,38 @@ også i svart-hvitt.
 Tellerne over arbeidslista **er** filteret: tallet du ser er knappen du trykker
 på. Lista sorteres på hastegrad, så det som har ventet lengst ligger øverst.
 
+### En avtalt dato styrer klokka
+
+Et statusbytte er en handling, og en handling er kontakt. Går saken fra «tilbud
+sendt» til «oppfulgt», har selgeren nettopp gjort noe med den — da skal den ikke
+fortsatt stå som overskredet. Klokka stilles, og fristen flyttes et døgn fram.
+
+«Ny» og «sett» teller ikke: å se et lead er ikke å ringe det.
+
+Har kunden sagt «ring meg om tre uker», setter selgeren datoen i **Neste
+oppfølging**, og den overstyrer alt annet. Saken står som **Utsatt** til datoen
+kommer, uansett hvor lenge det er siden sist. Det er dette som gjør at man kan
+trykke «Oppfulgt» flere enn to ganger uten at tellingen blir meningsløs — det er
+ikke antall trykk som styrer, det er datoen.
+
+En brutt avtale er strengere enn vanlig stillhet:
+
+| | Oransje etter | Rød etter |
+|---|---|---|
+| Ingen avtale — teller fra siste kontakt | 24 t | 72 t |
+| Avtalt dato passert — teller fra datoen | med en gang | 24 t |
+
+Der ingen har lovet noe, er et døgns stillhet greit. Har selgeren sagt at han
+ringer på fredag, er lørdag allerede for sent.
+
+Timene regnes fra fristen, ikke fra siste kontakt. En dag på overtid er en dag,
+ikke tre uker — ellers ville en sak med lang, avtalt pause sett ut som en
+katastrofe i det øyeblikket fristen gikk ut.
+
+Antall oppfølginger leses av loggen og står over statusknappene. Tallet kommer
+fra loggen og ikke fra en teller på dokumentet: loggen er fasiten, den står der
+med tid og navn, og kan ikke komme i utakt med seg selv slik et tall kan.
+
 ### Tilbud bygd på en deleliste
 
 Selgeren setter opp linjene selv — hva prosjektet består av, antall, enhet og

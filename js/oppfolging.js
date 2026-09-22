@@ -58,6 +58,15 @@ const VINDEX_TEMPERATURAR = [
     rekkefolge: 3,
   },
   {
+    id: "planlagt",
+    navn: "Avtalt oppfølging",
+    kort: "Utsatt",
+    forklaring:
+      "Selgeren har satt en dato for neste kontakt, og den er ikke kommet ennå. " +
+      "Klokka teller mot den datoen i stedet for mot siste kontakt.",
+    rekkefolge: 0,
+  },
+  {
     id: "avslutta",
     navn: "Avsluttet",
     kort: "Avsluttet",
@@ -65,6 +74,48 @@ const VINDEX_TEMPERATURAR = [
     rekkefolge: 4,
   },
 ];
+
+// Eit statusbytte er ei handling, og ei handling er kontakt.
+//
+// Går leadet frå «tilbud sendt» til «oppfulgt», har seljaren nettopp gjort
+// noko med saka — då skal den ikkje framleis stå som overskriden. Fristen blir
+// flytta eit døgn fram, og kunden får svar innan då.
+//
+// Unntaket er «ny» og «sett», som ikkje er kontakt med kunden: å sjå eit lead
+// er ikkje å ringje det.
+const VINDEX_STATUS_SOM_ER_KONTAKT = ["kontaktet", "tilbud_sendt", "oppfulgt"];
+const VINDEX_UTSETT_TIMAR = 24;
+
+/** Er dette statusbyttet ei handling mot kunden? */
+function vindexStatusErKontakt(status) {
+  return VINDEX_STATUS_SOM_ER_KONTAKT.includes(status);
+}
+
+/**
+ * Ny frist etter eit statusbytte.
+ *
+ * Har seljaren sjølv sett ein dato fram i tid, står den — han veit når kunden
+ * skal ringjast, og verktøyet skal ikkje overprøve det. Elles blir det eit
+ * døgn frå no.
+ */
+function vindexNyFrist(lead, status, naa = Date.now()) {
+  if (!vindexStatusErKontakt(status)) return (lead || {}).oppfolgingFrist || null;
+  const sett = vindexNaar((lead || {}).oppfolgingFrist);
+  if (sett && sett.getTime() > naa) return lead.oppfolgingFrist;
+  return new Date(naa + VINDEX_UTSETT_TIMAR * 3600000).toISOString();
+}
+
+/**
+ * Kor mange gonger saka er fylgd opp.
+ *
+ * Talet blir lese av loggen og ikkje av ein teljar på dokumentet. Loggen er
+ * fasiten — den står der med tid og namn, og kan ikkje kome i utakt med seg
+ * sjølv slik eit tal kan.
+ */
+const VINDEX_OPPFOLGINGSLOGG = /til «Oppfulgt»/i;
+function vindexOppfolgingar(lead) {
+  return ((lead || {}).logg || []).filter((h) => VINDEX_OPPFOLGINGSLOGG.test(h.tekst || "")).length;
+}
 
 const vindexTemperaturDef = (id) =>
   VINDEX_TEMPERATURAR.find((t) => t.id === id) || VINDEX_TEMPERATURAR[0];
@@ -113,6 +164,34 @@ function vindexTemperatur(lead, naa = Date.now()) {
   const sist = vindexSisteKontakt(lead);
   const start = sist || vindexNaar(lead.opprettet) || new Date(naa);
   const timar = Math.max(0, (naa - start.getTime()) / 3600000);
+
+  // Ein avtalt dato styrer klokka.
+  //
+  // Har seljaren sagt at kunden skal ringjast på fredag, er ikkje saka
+  // forseinka på onsdag — same kor lenge det er sidan sist. Då tel vi mot
+  // fredagen i staden. Er fredagen passert, er det fristen som er broten, og
+  // timane blir rekna derifrå: ein dag på overtid er ein dag, ikkje tre veker.
+  const frist = vindexNaar(lead.oppfolgingFrist);
+  if (!avslutta && frist) {
+    const tilFristen = (frist.getTime() - naa) / 3600000;
+    if (tilFristen > 0)
+      return { id: "planlagt", timar, brote: !!lead.fristBrote, sisteKontakt: sist, frist, tilFristen };
+    // Ein broten avtale er strengare enn vanleg stillheit.
+    //
+    // Den vanlege skalaen gir eit døgn før det blir oransje og tre før det
+    // blir raudt — der har ingen lova noko. Her har seljaren sagt til kunden
+    // at han ringjer på fredag. Er fredagen passert, er det oransje med ein
+    // gong, og raudt etter eitt døgn.
+    const over = -tilFristen;
+    return {
+      id: over > VINDEX_TIMAR_GRON ? "raud" : "oransje",
+      timar: over,
+      brote: true,
+      sisteKontakt: sist,
+      frist,
+      overFristen: over,
+    };
+  }
 
   // Merket sit på leadet, ikkje på utrekninga: har det ein gong passert 72
   // timar, står det der til saka er avgjort.

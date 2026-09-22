@@ -275,6 +275,62 @@ sjekk("rapporterte år er ikkje merkte demo", () =>
 // på objektet i staden for id-en valde då oppdatering av orders/undefined.
 // Følgjelinjer: stolpar, topp, krans og veggfeste under kvar modell.
 // Rabatt per linje.
+// Oppfølging: statusbytte er kontakt, og ein avtalt dato styrer klokka.
+console.log("OPPFØLGING OG FRIST");
+{
+  const naa = Date.parse("2026-09-22T12:00:00Z");
+  const t = (timar) => new Date(naa - timar * 3600000).toISOString();
+  const om = (timar) => new Date(naa + timar * 3600000).toISOString();
+  const T = (l) => G("vindexTemperatur")(l, naa);
+
+  // Utan frist er det som før: klokka går frå siste kontakt.
+  p("under eit døgn er grøn", T({ status: "tilbud_sendt", sisteKontakt: t(5) }).id, "gron");
+  p("over tre døgn er raud", T({ status: "tilbud_sendt", sisteKontakt: t(90) }).id, "raud");
+
+  // Ein avtalt dato fram i tid stoppar klokka — same kor lenge det er sidan sist.
+  const avtalt = { status: "oppfulgt", sisteKontakt: t(500), oppfolgingFrist: om(72) };
+  p("avtalt dato gir planlagt", T(avtalt).id, "planlagt");
+  sjekk("og vi veit når", () => T(avtalt).frist.toISOString() === avtalt.oppfolgingFrist);
+
+  // Passert frist: timane blir rekna frå fristen, ikkje frå siste kontakt.
+  // Ein dag på overtid er ein dag, ikkje tre veker.
+  // Ein broten avtale er strengare enn vanleg stillheit: oransje med ein gong,
+  // raudt etter eitt døgn. Utan avtale er det eit døgn og tre døgn.
+  const passert = { status: "oppfulgt", sisteKontakt: t(500), oppfolgingFrist: t(30) };
+  p("eit døgn over er raud", T(passert).id, "raud");
+  sjekk("timane blir rekna frå fristen", () => Math.round(T(passert).timar) === 30);
+  const nyleg = { status: "oppfulgt", sisteKontakt: t(500), oppfolgingFrist: t(5) };
+  p("fem timar over er oransje", T(nyleg).id, "oransje");
+  // Til samanlikning: 30 timar utan avtale er berre oransje.
+  p("utan avtale er 30 timar oransje", T({ status: "oppfulgt", sisteKontakt: t(30) }).id, "oransje");
+
+  // Statusbytte som tel som kontakt.
+  sjekk("oppfulgt er kontakt", () => G("vindexStatusErKontakt")("oppfulgt") === true);
+  sjekk("kontaktet er kontakt", () => G("vindexStatusErKontakt")("kontaktet") === true);
+  sjekk("sett er ikkje kontakt", () => G("vindexStatusErKontakt")("sett") === false);
+  sjekk("ny er ikkje kontakt", () => G("vindexStatusErKontakt")("ny") === false);
+
+  // Ny frist: eit døgn fram, med mindre seljaren har sett ein seinare sjølv.
+  const utan = G("vindexNyFrist")({}, "oppfulgt", naa);
+  p("eit døgn fram", Math.round((Date.parse(utan) - naa) / 3600000), 24);
+  const eigen = { oppfolgingFrist: om(500) };
+  p("seljaren sin dato står", G("vindexNyFrist")(eigen, "oppfulgt", naa), eigen.oppfolgingFrist);
+  // Ein frist som alt er passert blir flytta.
+  const gammal = { oppfolgingFrist: t(50) };
+  sjekk("passert frist blir flytta", () => G("vindexNyFrist")(gammal, "oppfulgt", naa) !== gammal.oppfolgingFrist);
+  // Eit statusbytte som ikkje er kontakt rører ikkje fristen.
+  p("sett rører ikkje fristen", G("vindexNyFrist")(eigen, "sett", naa), eigen.oppfolgingFrist);
+
+  // Talet på oppfølgingar blir lese av loggen.
+  const logg = { logg: [
+    { tekst: "Status endret fra «Tilbud sendt» til «Oppfulgt»." },
+    { tekst: "Ringte kunden." },
+    { tekst: "Status endret fra «Kontaktet» til «Oppfulgt»." },
+  ] };
+  p("to oppfølgingar", G("vindexOppfolgingar")(logg), 2);
+  p("ingen logg gir null", G("vindexOppfolgingar")({}), 0);
+}
+
 console.log("RABATT PER LINJE");
 {
   const R = G("vindexRegnTilbod");
