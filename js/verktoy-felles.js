@@ -23,7 +23,7 @@ export let fb = null;
 // melding, berre eit innloggingsskjema som ikkje gjer noko når du trykkjer.
 if (!VINDEX_DEMOMODUS) {
   try {
-    fb = await import("./firebase-init.js?v=842fa32f");
+    fb = await import("./firebase-init.js?v=33bcc045");
   } catch (err) {
     console.error("Fekk ikkje lasta Firebase:", err);
     // Modulen er defer, så DOMContentLoaded kan alt ha gått. Då skal varselet

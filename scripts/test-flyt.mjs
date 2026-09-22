@@ -805,6 +805,22 @@ console.log("LAGER OG INNKJØP");
   sjekk("saldoen kom med",
     utanMellomrom((await alle('tr[data-vare="9001"] td')).at(-1)) === "1250");
 
+  // Same lista limt inn ein gong til. Varekorta skal oppdaterast, men
+  // opningstellinga skal IKKJE førast om att — elles ville beholdninga
+  // dobla seg kvar gong nokon importerte på nytt.
+  await p.evaluate(() => document.querySelector("#importer").click());
+  await p.waitForTimeout(250);
+  await p.fill("#imp_tekst", [
+    "Artikkelnr\tBenevning\tArtikkelgruppe\tEnhet\tLokasjon\tSaldo\tKostpris\tSalgspris",
+    "9001\tPorthengsel tung\t5\tstk\tLager 3\t1 250\t88,50\t240,00",
+  ].join("\n"));
+  await p.waitForTimeout(250);
+  await p.evaluate(() => document.querySelector("#imp_lagre").click());
+  await p.waitForTimeout(600);
+  sjekk("import nummer to doblar ikkje beholdninga",
+    utanMellomrom((await alle('tr[data-vare="9001"] td')).at(-1)) === "1250");
+  sjekk("og lagar ingen ny artikkel", (await p.$$("#lagerinnhald [data-vare]")).length === 7);
+
   await p.evaluate(() => document.querySelector('[data-lagerfane="beholdning"]').click());
   await p.waitForTimeout(250);
   const rader = await alle("#lagerinnhald tbody tr");

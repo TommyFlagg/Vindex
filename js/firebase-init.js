@@ -37,6 +37,7 @@ import {
   arrayUnion,
   arrayRemove,
   Timestamp,
+  writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import {
   getStorage,
@@ -212,6 +213,7 @@ export {
   arrayUnion,
   arrayRemove,
   Timestamp,
+  writeBatch,
   tipsDoc,
   signInWithEmailAndPassword,
   signOut,

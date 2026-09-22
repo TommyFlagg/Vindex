@@ -13,7 +13,7 @@
 
 import {
   $, $$, app, fb, melding, opneModal, lukkModal,
-} from "./verktoy-felles.js?v=28f51b2a";
+} from "./verktoy-felles.js?v=d1a9cb19";
 
 // Alt som er henta, samla ein stad. Fyllast i lastLager og lesast av resten.
 const VINDEX_KOSTFAKTORDOK = "_kostfaktor";
@@ -605,37 +605,56 @@ async function kjorImport() {
   const knapp = $("#imp_lagre");
   knapp.disabled = true;
 
+  // Artiklar som alt har rørsler skal ikkje få ei ny opningstelling — elles
+  // ville ein andre import lagt heile beholdninga oppå den som låg der.
+  // Regelen står her, over begge greinene: demo og drift som gjorde dette
+  // ulikt er nøyaktig det som har sloppe feil gjennom før.
+  const tid = new Date().toISOString();
+  const ref = "Import " + tid.slice(0, 10);
+  const harRorsler = new Set(lagerdata.poster.map((p) => String(p.artnr)));
+  const delte = r.varer.map(vindexDelImportrad).map((d) => {
+    const nyPost = d.post && !harRorsler.has(d.vare.artnr);
+    if (nyPost) harRorsler.add(d.vare.artnr);
+    return { ...d, post: nyPost ? { ...d.post, tid, ref } : null };
+  });
+
   if (VINDEX_DEMOMODUS) {
-    r.varer.forEach((rad) => {
-      const d = vindexDelImportrad(rad);
+    delte.forEach((d) => {
       const j = lagerdata.varer.findIndex((v) => String(v.artnr) === d.vare.artnr);
       if (j >= 0) lagerdata.varer[j] = d.vare; else lagerdata.varer.push(d.vare);
       lagerdata.innkjop[d.vare.artnr] = d.innkjop;
-      if (d.post) lagerdata.poster.push({ id: "i" + d.vare.artnr, ...d.post, tid: new Date().toISOString() });
+      if (d.post) lagerdata.poster.push({ id: "i" + d.vare.artnr, ...d.post });
     });
     importtekst = ""; importkolonnar = null;
     lukkModal(); teiknLagerside();
-    melding(`Leste inn ${r.varer.length} artikler (demomodus).`);
+    melding(`Leste inn ${delte.length} artikler (demomodus).`);
     return;
   }
 
+  // 788 artiklar blir til godt over tusen skrivingar. Ei og ei ville teke
+  // minutt; samla i bolkar tek det sekund. Firestore tek 500 operasjonar per
+  // bolk, så vi held oss godt under — då er det plass til varekortet,
+  // innkjøpslina og opningstellinga for same artikkelen i same bolken.
+  const PER_BOLK = 150;
   let inn = 0, feila = 0, sisteFeil = "";
-  const tid = new Date().toISOString();
-  for (const rad of r.varer) {
-    const d = vindexDelImportrad(rad);
+
+  for (let i = 0; i < delte.length; i += PER_BOLK) {
+    const bolk = delte.slice(i, i + PER_BOLK);
+    const batch = fb.writeBatch(fb.db);
+    bolk.forEach((d) => {
+      batch.set(fb.vareDoc(d.vare.artnr), d.vare, { merge: true });
+      batch.set(fb.innkjopDoc(d.vare.artnr), d.innkjop, { merge: true });
+      if (d.post) batch.set(fb.doc(fb.lagerpostCol()), d.post);
+    });
     try {
-      await fb.setDoc(fb.vareDoc(d.vare.artnr), d.vare, { merge: true });
-      await fb.setDoc(fb.innkjopDoc(d.vare.artnr), d.innkjop, { merge: true });
-      // Ei importert saldo er ei opningstelling, og skal berre førast dersom
-      // artikkelen ikkje alt har rørsler. Elles ville ein andre import lagt
-      // heile beholdninga oppå den som alt låg der.
-      if (d.post && !lagerdata.poster.some((p) => String(p.artnr) === d.vare.artnr)) {
-        await fb.addDoc(fb.lagerpostCol(), { ...d.post, tid, ref: "Import " + tid.slice(0, 10) });
-      }
-      inn++;
-      knapp.textContent = `Legger inn … ${inn} av ${r.varer.length}`;
+      // Ein bolk går heilt gjennom eller ikkje i det heile. Stoppar det
+      // midtvegs, er det ingen halve artiklar — varekortet og innkjøpslina
+      // høyrer saman, og ein vare utan innkjøpsline ville stått med strek.
+      await batch.commit();
+      inn += bolk.length;
+      knapp.textContent = `Legger inn … ${inn} av ${delte.length}`;
     } catch (e) {
-      feila++;
+      feila += bolk.length;
       sisteFeil = e && e.message ? e.message : String(e);
     }
   }
