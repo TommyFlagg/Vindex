@@ -155,6 +155,19 @@ const prisdataDoc = (id) => dok("prisdata", id);
 const omsetningDoc = (uid) => dok("omsetning", uid);
 const omsetningCol = () => collection(db, "omsetning");
 
+// Lager og innkjøp. Artikkelnummeret er dokument-id i begge dei to første, og
+// det er med vilje: varekortet og innkjøpsprisen høyrer til same artikkelen,
+// men må liggje i kvar si samling. Firestore-reglar verkar på dokument og
+// ikkje på felt, så ein seljar som får lese varekortet ville fått
+// innkjøpsprisen med dersom dei låg saman.
+const varerCol = () => collection(db, "varer");
+const vareDoc = (artnr) => dok("varer", String(artnr));
+const innkjopCol = () => collection(db, "innkjop");
+const innkjopDoc = (artnr) => dok("innkjop", String(artnr));
+const lagerpostCol = () => collection(db, "lagerpost");
+const bestillingCol = () => collection(db, "bestilling");
+const bestillingDoc = (nr) => dok("bestilling", String(nr));
+
 export {
   db,
   auth,
@@ -173,6 +186,13 @@ export {
   prisdataDoc,
   omsetningDoc,
   omsetningCol,
+  varerCol,
+  vareDoc,
+  innkjopCol,
+  innkjopDoc,
+  lagerpostCol,
+  bestillingCol,
+  bestillingDoc,
   doc,
   getDoc,
   setDoc,

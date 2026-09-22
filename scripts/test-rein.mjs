@@ -305,7 +305,7 @@ console.log("KOSTFAKTOR OG KOSTPRIS");
 
   const K = G("vindexKostpris");
   // PO 68, linje 1: Post 127x127 til 25,23 CNY. Med kurs 1,45 og 12 % påslag.
-  const r = K({ pris: 25.23, valuta: "CNY", kurs: 1.45 }, { type: "prosent", verdi: 12 });
+  const r = K({ innkjopspris: 25.23, valuta: "CNY", kurs: 1.45 }, { type: "prosent", verdi: 12 });
   p("i kroner før påslag", Math.round(r.iKroner * 100) / 100, 36.58);
   p("påslaget", Math.round(r.paaslag * 100) / 100, 4.39);
   p("kostpris", Math.round(r.kostpris * 100) / 100, 40.97);
@@ -313,11 +313,11 @@ console.log("KOSTFAKTOR OG KOSTPRIS");
   sjekk("valutaen følgjer med", () => r.valuta === "CNY" && r.kurs === 1.45);
 
   // Kroner i staden for prosent — «fem kroner frakt per stk».
-  const kr5 = K({ pris: 100, kurs: 1 }, { type: "kroner", verdi: 5 });
+  const kr5 = K({ innkjopspris: 100, kurs: 1 }, { type: "kroner", verdi: 5 });
   p("kronepåslag", kr5.kostpris, 105);
 
   // Ein vare kjøpt i kroner har ingen kurs. Den skal ikkje bli gratis.
-  p("manglande kurs er 1", K({ pris: 50 }, null).kostpris, 50);
+  p("manglande kurs er 1", K({ innkjopspris: 50 }, null).kostpris, 50);
 }
 
 console.log("LAGERSALDO AV RØRSLER");
@@ -437,6 +437,86 @@ console.log("INNKJØPSORDRE");
   p("med referanse tilbake", postar[0].ref, "PO-68");
   p("og rett lokasjon", postar[0].lokasjon, "Lager 3");
   p("null blir ikkje post", G("vindexAnkomstpostar")(PO, { 7551: 0 }).length, 0);
+}
+
+console.log("IMPORT FRÅ REKNEARK");
+{
+  const T = G("vindexTal");
+  p("norsk tal med mellomrom", T("3 766 437,45"), 3766437.45);
+  p("hardt mellomrom òg", T("1\u00a0234,50"), 1234.5);
+  p("punktum som tusenskilje", T("1.234"), 1234);
+  p("punktum som desimal", T("43.4497"), 43.4497);
+  p("negativt", T("-12"), -12);
+  p("kroner blir stripa", T("kr 50,04"), 50.04);
+  p("tomt er null", T(""), 0);
+  // Tekst med tal i blir eit tal, og det er greitt: vindexTal skal berre lese
+  // eit talfelt. Det er ikkje den som avgjer om rada er ei vare — «Side 4 av
+  // 41» blir forkasta i vindexImportrader, på artikkelnummeret.
+  p("tekst med tal gir tala", T("Side 4 av 41"), 441);
+  p("rein tekst er null", T("Benevning"), 0);
+
+  const K = G("vindexTolkKolonnar");
+  p("overskrifter frå Bravo",
+    K(["Artikkelnr", "Benevning", "Lokasjon", "Saldo", "Kostpris", "Kostverdi"]),
+    ["artnr", "benevning", "lokasjon", "saldo", "kostpris", "kostverdi"]);
+  // «Salgsverdi» skal ikkje bli «pris» fordi «pris» er kortare.
+  p("lengste treff vinn", K(["Salgspris", "Salgsverdi"]), ["veilPris", "salgsverdi"]);
+  p("ukjend kolonne står tom", K(["Artikkelnr", "Tull"]), ["artnr", ""]);
+  p("same felt ikkje to gonger", K(["Saldo", "Saldo"]), ["saldo", ""]);
+
+  const L = G("vindexLesTabell");
+  p("tabulator blir valt", L("a\tb\nc\td").skiljeteikn, "\t");
+  p("semikolon når det ikkje er tab", L("a;b\nc;d").skiljeteikn, ";");
+  // Eit norsk rekneark skriv 1 234,56 — komma er det siste vi deler på.
+  p("semikolon vinn over komma i tala", L("a;1,5\nb;2,5").rader[1], ["b", "2.5".replace(".", ",")]);
+  p("hermeteikn held på skiljeteiknet", L('a;"b;c"').rader[0], ["a", "b;c"]);
+
+  const I = G("vindexImportrader");
+  const limt = [
+    "Artikkelnr\tBenevning\tArtikkelgruppe\tEnhet\tLokasjon\tSaldo\tKostpris\tSalgspris",
+    "7522\tPicket A11 127x127\t1\tstk\tLager 3\t7 492\t3,89\t12,00",
+    "3030\tArbeidskost\t16\tmin\t\t0\t8,30\t6,66",
+    "Side 4 av 41",
+    "",
+    "\tSum\t\t\t\t\t3 766 437,45\t",
+  ].join("\n");
+  const r = I(limt);
+  p("to artiklar", r.varer.length, 2);
+  p("sidetal og sumline hoppa over", r.hoppa.length, 2);
+  p("talet blei tal", r.varer[0].saldo, 7492);
+  p("og prisen", r.varer[0].kostpris, 3.89);
+
+  const D = G("vindexDelImportrad");
+  const delt = D(r.varer[0]);
+  // Dette er heile sikringa: innkjøpstal skal ALDRI havne på varekortet.
+  sjekk("varekortet har ingen innkjøpstal", () =>
+    !("kostpris" in delt.vare) && !("innkjopspris" in delt.vare) && !("kostverdi" in delt.vare));
+  p("men det har veiledende pris", delt.vare.veilPris, 12);
+  p("innkjøpslina tok vare på Bravo-kostprisen", delt.innkjop.bravoKostpris, 3.89);
+  p("og har same artikkelnummer", delt.innkjop.artnr, delt.vare.artnr);
+  sjekk("saldoen blir ei telling", () => delt.post.type === "telling" && delt.post.antall === 7492);
+
+  // Rundturen. Dette er feilen som slapp gjennom: dialogen bygde sitt eige
+  // objekt og rekna rett, medan lista las dokumentet slik det faktisk blir
+  // lagra — og fekk null. Eit felt som heiter to ting er ikkje eit felt.
+  const frå = G("vindexKostpris")(delt.innkjop, null);
+  p("det importen lagrar kan motoren lese", frå.pris, 3.89);
+  p("og gir ein kostpris", frå.kostpris, 3.89);
+  // Lagerlista frå Bravo har kostpris og ingen innkjøpspris. Utan fallback
+  // ville alle 788 artiklane stått med strek rett etter ein vellukka import.
+  p("den kom frå Bravo, og det står det", delt.innkjop.kjelde, "bravo");
+  p("og er i kroner, ikkje i leverandørens valuta", frå.kurs, 1);
+  // Står det ein ekte innkjøpspris, er det den som gjeld.
+  const ekte = D({ artnr: "1", benevning: "x", innkjopspris: 25.23, valuta: "CNY", kostpris: 40.97 });
+  p("ekte innkjøpspris vinn", ekte.innkjop.innkjopspris, 25.23);
+  p("og valutaen blir med", ekte.innkjop.valuta, "CNY");
+  p("kjelda er ikkje Bravo då", ekte.innkjop.kjelde, "innkjop");
+  p("men Bravo-talet står framleis", ekte.innkjop.bravoKostpris, 40.97);
+
+  // Arbeidskost: ingen lokasjon, ingen saldo. 363 av 788 artiklar er slike.
+  const arbeid = D(r.varer[1]);
+  p("arbeid er ikkje lagervare", arbeid.vare.lagervare, false);
+  p("og får ingen lagerpost", arbeid.post, null);
 }
 
 console.log("OPPFØLGING OG FRIST");

@@ -733,6 +733,132 @@ console.log("LAGER");
   await p.close();
 }
 
+console.log("LAGER OG INNKJØP");
+{
+  // Heile vegen gjennom det som skal erstatte Bravo: varekort, import,
+  // telling, innkjøpsordre og ankomst. Tala er dei same som i demodataa, og
+  // dei er henta frå ein verkeleg innkjøpsordre.
+  const p = await side("/admin.html", "admin");
+  const finst = (v) => p.$(v).then((x) => x !== null);
+  const tekst = (v) => p.$eval(v, (e) => e.textContent.trim());
+  const alle = (v) => p.$$eval(v, (e) => e.map((x) => x.textContent.trim()));
+  const utanMellomrom = (t) => t.replace(/[\s\u00a0]/g, "");
+
+  sjekk("lagerseksjonen er teikna", await finst("#lagerside .fanerad"));
+  sjekk("snarvegen finst", await finst('#snarvegar [data-hopp="seksjonLager"]'));
+  sjekk("strukturvara er merkt", (await tekst('tr[data-vare="3010"] .merke')) === "struktur");
+  // 7492 inn, 120 ut. Saldoen er summen av rørslene, ikkje eit lagra tal.
+  sjekk("saldoen er summen av rørslene",
+    utanMellomrom((await alle('tr[data-vare="7522"] td')).at(-1)) === "7372");
+  sjekk("arbeidskost har ingen saldo", (await alle('tr[data-vare="3030"] td')).at(-1) === "");
+
+  // Kostprisen i lista blir rekna av det som faktisk ligg lagra. Feltet heitte
+  // ein gong to ting, og då viste dialogen rett medan lista viste strek.
+  sjekk("kostprisen blir rekna av det lagra dokumentet",
+    (await alle('tr[data-vare="7522"] td'))[4].includes("5,64"));
+
+  await p.evaluate(() => document.querySelector('tr[data-vare="7522"]').click());
+  await p.waitForTimeout(250);
+  sjekk("varekortet opnar", await p.$eval("#vf_artnr", (e) => e.disabled));
+  sjekk("kostprisrekninga står der", (await tekst("#vf_kostpris")).includes("5,64"));
+  await p.selectOption("#vf_faktortype", "prosent");
+  await p.fill("#vf_faktor", "10");
+  sjekk("påslaget slår ut med ein gong", (await tekst("#vf_kostpris")).includes("6,20"));
+  await p.evaluate(() => document.querySelector("#vf_lagre").click());
+  await p.waitForTimeout(400);
+  sjekk("og følgjer med ut i lista", (await alle('tr[data-vare="7522"] td'))[4].includes("6,20"));
+
+  // Importen er det som gjer 788 artiklar mogleg utan eksportfil frå Bravo.
+  await p.evaluate(() => document.querySelector("#importer").click());
+  await p.waitForTimeout(250);
+  sjekk("knappen er sperra før noko er limt inn", await p.$eval("#imp_lagre", (e) => e.disabled));
+  await p.fill("#imp_tekst", [
+    "Artikkelnr\tBenevning\tArtikkelgruppe\tEnhet\tLokasjon\tSaldo\tKostpris\tSalgspris",
+    "9001\tPorthengsel tung\t5\tstk\tLager 3\t1 250\t88,50\t240,00",
+    "9002\tMonteringstime\t16\ttime\t\t0\t690,00\t890,00",
+    "Side 41 av 41",
+    "\tSum\t\t\t\t\t3 766 437,45\t",
+  ].join("\n"));
+  await p.waitForTimeout(250);
+  const fasit = await tekst("#imp_fasit");
+  sjekk("to artiklar blir lesne", fasit.includes("2 artikler leses inn"));
+  sjekk("sidetal og sumline blir hoppa over", fasit.includes("2 linjer hoppes over"));
+  sjekk("kolonnane blei tolka", (await p.$eval("#imp_k0", (e) => e.value)) === "artnr");
+  // Ein monteringstime har verken lokasjon eller saldo. 363 av dei 788
+  // artiklane i Bravo er slike, og dei skal ikkje ut i ei plukkliste.
+  sjekk("monteringstimen er ikkje lagervare",
+    (await p.$$eval("#imp_fasit tbody tr", (r) => r[1].children[2].textContent.trim())) === "nei");
+  await p.evaluate(() => document.querySelector("#imp_lagre").click());
+  await p.waitForTimeout(600);
+  sjekk("sju artiklar etter import", (await p.$$("#lagerinnhald [data-vare]")).length === 7);
+  sjekk("saldoen kom med",
+    utanMellomrom((await alle('tr[data-vare="9001"] td')).at(-1)) === "1250");
+
+  await p.evaluate(() => document.querySelector('[data-lagerfane="beholdning"]').click());
+  await p.waitForTimeout(250);
+  const rader = await alle("#lagerinnhald tbody tr");
+  sjekk("kostverdien blir vist", (await tekst("#lagerinnhald")).includes("Kostverdi"));
+  // Ei strukturvare ville blitt talt i tillegg til delene ho består av.
+  sjekk("strukturvara tel ikkje dobbelt", rader.every((r) => !r.startsWith("3010")));
+  sjekk("arbeid tel ikkje med", rader.every((r) => !r.includes("Arbeidskost")));
+
+  // Ei telling blir ført som differanse, ikkje som eit nytt tal.
+  await p.evaluate(() => document.querySelector("#nyTelling").click());
+  await p.waitForTimeout(250);
+  await p.fill("#tf_artnr", "7522");
+  await p.fill("#tf_lokasjon", "Lager 3");
+  await p.fill("#tf_antall", "7350");
+  await p.waitForTimeout(150);
+  sjekk("differansen blir vist, ikkje talet", (await tekst("#tf_svar")).includes("\u221222"));
+  await p.evaluate(() => document.querySelector("#tf_lagre").click());
+  await p.waitForTimeout(400);
+  await p.evaluate(() => document.querySelector('[data-lagerfane="varer"]').click());
+  await p.waitForTimeout(250);
+  sjekk("saldoen er retta",
+    utanMellomrom((await alle('tr[data-vare="7522"] td')).at(-1)) === "7350");
+
+  await p.evaluate(() => document.querySelector('[data-lagerfane="innkjop"]').click());
+  await p.waitForTimeout(250);
+  sjekk("innkjøpsordren står der", await finst('[data-po="68"]'));
+  sjekk("statusen er rekna av linjene", (await tekst('[data-po="68"] .merke')) === "delvis");
+  await p.evaluate(() => document.querySelector('[data-po="68"]').click());
+  await p.waitForTimeout(250);
+  sjekk("leverandørens eige varenummer står på lina",
+    (await p.$eval('#pfLinjer tr[data-linje="1"] [data-f="deiraArtnr"]', (e) => e.value)) === "1515");
+
+  await p.evaluate(() => document.querySelector("#pf_ankomst").click());
+  await p.waitForTimeout(250);
+  const ank = await alle("#modalInnhald tbody tr");
+  sjekk("den oppgjorde lina har null i restanse", utanMellomrom(ank[0]).includes("18731873"));
+  sjekk("den andre står att", utanMellomrom(ank[1]).includes("7492"));
+  await p.fill('[data-ank="7522"]', "5000");
+  await p.evaluate(() => document.querySelector("#ank_lagre").click());
+  await p.waitForTimeout(600);
+  await p.evaluate(() => document.querySelector('[data-lagerfane="varer"]').click());
+  await p.waitForTimeout(250);
+  sjekk("mottaket la seg på lager",
+    utanMellomrom((await alle('tr[data-vare="7522"] td')).at(-1)) === "12350");
+  await p.evaluate(() => document.querySelector('[data-lagerfane="innkjop"]').click());
+  await p.waitForTimeout(250);
+  // Delleveransen skal sjå ut som ein delleveranse, ikkje som ein feil.
+  sjekk("restansen står att", utanMellomrom((await alle('[data-po="68"] td')).at(-1)) === "2492");
+  sjekk("og ordren er framleis delvis", (await tekst('[data-po="68"] .merke')) === "delvis");
+  await p.close();
+}
+
+{
+  // Innkjøpstala skal ikkje finnast i seljarverktøyet i det heile. Reglane er
+  // det som faktisk stoppar dei — ei eiga samling han ikkje slepp inn i — men
+  // sida skal heller ikkje be om dei.
+  const p = await side("/selger.html", "selger");
+  sjekk("ingen lagerdel i seljarverktøyet", await p.$("#lagerside") === null);
+  const kjelder = await p.evaluate(() =>
+    [...document.scripts].map((s) => s.src).join(" ")
+  );
+  sjekk("seljarsida lastar ikkje lagersida", !kjelder.includes("lagerside.js"));
+  await p.close();
+}
+
 console.log(`\n${ok} sjekkar OK` + (feil ? `, ${feil} FEILA` : ", ingen feil"));
 await b.close();
 process.exit(feil ? 1 : 0);

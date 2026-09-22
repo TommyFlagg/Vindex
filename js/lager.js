@@ -75,7 +75,11 @@ function vindexGyldigFaktor(f) {
  * eit rekneskap.
  */
 function vindexKostpris(innkjop = {}, faktor) {
-  const pris = parseFloat(innkjop.pris) || 0;
+  // Feltet heiter `innkjopspris` i basen. Det stod `pris` her ein gong, og
+  // det var ingen som merka det: dialogen rekna rett fordi han bygde sitt
+  // eige objekt, medan lista viste strek fordi ho las dokumentet slik det
+  // faktisk er lagra. Eitt namn, éin stad.
+  const pris = parseFloat(innkjop.innkjopspris) || 0;
   // Kurs 1 når varen er kjøpt i kroner. Ein manglande kurs skal ikkje bli null
   // — då ville alt vore gratis.
   const kurs = innkjop.kurs === undefined || innkjop.kurs === null || innkjop.kurs === ""
@@ -361,4 +365,206 @@ function vindexAnkomstpostar(bestilling, mottak = {}, tid) {
       ref: "PO-" + ((bestilling || {}).nr || "?"),
       tid: naa,
     }));
+}
+
+// ===========================================================================
+// IMPORT FRÅ REKNEARK
+// ---------------------------------------------------------------------------
+// 788 artiklar skal ikkje skrivast inn for hand. Bravo skriv ut PDF, og ein
+// PDF kan ikkje lesast pålitleg — vi prøvde, og 141 av 164 rader stemte ikkje
+// når kostpris × saldo blei samanlikna med kostverdien på same rad. Kolonnane
+// i ein PDF er teikna, ikkje lagra; det som ser ut som ei tabell er posisjonar
+// på eit ark.
+//
+// Men alt som kan visast i Bravo kan markerast og kopierast, og det som blir
+// kopiert frå eit rekneark er tabulatordelt tekst med kolonnane intakte. Difor
+// tek importen imot lim-inn og ikkje ei fil: det finst alltid, uansett om
+// eksportknappen gjer det.
+// ===========================================================================
+
+/**
+ * Norsk tal frå eit rekneark: mellomrom som tusenskilje, komma som desimal.
+ *
+ * «3 766 437,45» og «1 234.56» og «-12» skal alle bli tal. Hardt mellomrom
+ * (U+00A0) er det Excel faktisk limer inn, og det ser ut som eit mellomrom
+ * utan å vere det — utan den i lista blir kvar einaste sum NaN.
+ */
+function vindexTal(verdi) {
+  if (typeof verdi === "number") return verdi;
+  if (verdi == null) return 0;
+  const reint = String(verdi)
+    .replace(/[\s  ]/g, "")
+    .replace(/[^0-9,.\-]/g, "")
+    .replace(/\.(?=\d{3}\b)/g, "")   // 1.234 er tusen, ikkje 1,234
+    .replace(",", ".");
+  const t = parseFloat(reint);
+  return Number.isFinite(t) ? t : 0;
+}
+
+/** Kolonnenamn vi kjenner igjen, og kva dei heiter hos oss. */
+const VINDEX_IMPORTKOLONNAR = [
+  { felt: "artnr", ord: ["artikkelnr", "artikkelnummer", "artnr", "varenr", "artikkel"] },
+  { felt: "benevning", ord: ["benevning", "betegnelse", "beskrivelse", "navn", "varetekst"] },
+  { felt: "gruppe", ord: ["artikkelgruppe", "varegruppe", "gruppe"] },
+  { felt: "enhet", ord: ["enhet", "benevn", "eining"] },
+  { felt: "lokasjon", ord: ["lokasjon", "lager", "plassering", "hylle"] },
+  { felt: "saldo", ord: ["saldo", "beholdning", "antall", "lagerantall"] },
+  { felt: "kostpris", ord: ["kostpris", "kost", "snittpris"] },
+  { felt: "kostverdi", ord: ["kostverdi", "lagerverdi"] },
+  { felt: "veilPris", ord: ["salgspris", "utpris", "veil", "veiledende", "pris"] },
+  { felt: "salgsverdi", ord: ["salgsverdi"] },
+  { felt: "leverandor", ord: ["leverandor", "leverandør", "lev"] },
+  { felt: "innkjopspris", ord: ["innkjopspris", "innkjøpspris", "innpris", "kjopspris"] },
+  { felt: "valuta", ord: ["valuta"] },
+];
+
+/** Same ord uavhengig av store bokstavar, punktum og mellomrom. */
+function vindexNormaliser(ord) {
+  return String(ord || "").toLowerCase().replace(/[\s.\-_]/g, "").replace(/ø/g, "o").replace(/æ/g, "a").replace(/å/g, "a");
+}
+
+/**
+ * Gjett kva kvar kolonne er.
+ *
+ * Gissinga er eit framlegg, ikkje ein konklusjon — importdialogen viser kva
+ * den kom fram til og lèt deg rette det. Ein feiltolka kolonne er verre enn
+ * ein utolka: «saldo» lagt inn som «kostpris» ser ikkje gale ut før nokon
+ * lurer på kvifor lageret er verdt fire millionar for mykje.
+ */
+function vindexTolkKolonnar(overskrifter) {
+  const brukt = [];
+  return (overskrifter || []).map((h) => {
+    const n = vindexNormaliser(h);
+    if (!n) return "";
+    // Lengste treff vinn: «salgsverdi» skal ikkje bli «pris» fordi «pris»
+    // tilfeldigvis er kortare og står først i lista.
+    let best = "", lengd = 0;
+    VINDEX_IMPORTKOLONNAR.forEach((k) => {
+      if (brukt.includes(k.felt)) return;
+      k.ord.forEach((o) => {
+        if (n.includes(vindexNormaliser(o)) && o.length > lengd) { best = k.felt; lengd = o.length; }
+      });
+    });
+    if (best) brukt.push(best);
+    return best;
+  });
+}
+
+/**
+ * Del opp limt tekst i rader og kolonnar.
+ *
+ * Tabulator først, deretter semikolon, deretter komma. Rekkefølgja er ikkje
+ * tilfeldig: eit norsk rekneark skriv «1 234,56», så komma er det siste vi
+ * vil dele på. Eit felt i hermeteikn kan innehalde skiljeteiknet.
+ */
+function vindexLesTabell(tekst) {
+  const linjer = String(tekst || "").replace(/\r\n?/g, "\n").split("\n").filter((l) => l.trim() !== "");
+  if (!linjer.length) return { skiljeteikn: "", rader: [] };
+  const skiljeteikn = linjer[0].includes("\t") ? "\t" : linjer[0].includes(";") ? ";" : ",";
+  const rader = linjer.map((l) => vindexDelLinje(l, skiljeteikn));
+  return { skiljeteikn, rader };
+}
+
+function vindexDelLinje(linje, skiljeteikn) {
+  const ut = [];
+  let felt = "", iHermeteikn = false;
+  for (let i = 0; i < linje.length; i++) {
+    const t = linje[i];
+    if (t === '"') {
+      if (iHermeteikn && linje[i + 1] === '"') { felt += '"'; i++; }
+      else iHermeteikn = !iHermeteikn;
+    } else if (t === skiljeteikn && !iHermeteikn) { ut.push(felt.trim()); felt = ""; }
+    else felt += t;
+  }
+  ut.push(felt.trim());
+  return ut;
+}
+
+/**
+ * Gjer rådene om til noko som kan lagrast.
+ *
+ * Kvar rad blir til TO dokument, og det er heile poenget: varekortet, som
+ * seljaren får lese, og innkjøpslina, som berre hovudkontoret ser. Dei har
+ * same artikkelnummer og ligg i kvar si samling, fordi Firestore-reglar
+ * verkar på dokument og ikkje på felt.
+ *
+ * Rader utan artikkelnummer blir lagde til side i staden for å bli tvinga
+ * gjennom. Ein PDF-kopi har sidetal, overskrifter og sumlinjer i seg, og dei
+ * skal synast i dialogen som «hoppa over», ikkje bli artikkel nummer 789.
+ */
+function vindexImportrader(tekst, kolonnar) {
+  const { rader } = vindexLesTabell(tekst);
+  if (!rader.length) return { varer: [], hoppa: [], kolonnar: [] };
+
+  const kol = kolonnar && kolonnar.length ? kolonnar : vindexTolkKolonnar(rader[0]);
+  // Har vi tolka overskriftsrada, er ho ikkje ei datarad.
+  const medOverskrift = !kolonnar || !kolonnar.length
+    ? true
+    : vindexTolkKolonnar(rader[0]).filter(Boolean).length >= 2;
+  const data = medOverskrift ? rader.slice(1) : rader;
+
+  const varer = [], hoppa = [];
+  const TAL = ["saldo", "kostpris", "kostverdi", "veilPris", "salgsverdi", "innkjopspris"];
+
+  data.forEach((rad, i) => {
+    const r = {};
+    kol.forEach((felt, j) => { if (felt) r[felt] = rad[j]; });
+    const artnr = String(r.artnr || "").trim();
+    // Eit artikkelnummer er tal eller tal-og-bokstav. «Side 4 av 41» er det
+    // ikkje, og heller ikkje ei tom rad mellom to grupper.
+    if (!artnr || !/^[0-9A-Za-zÆØÅæøå][0-9A-Za-zÆØÅæøå\-. ]{0,19}$/.test(artnr) || !r.benevning) {
+      if (rad.join("").trim()) hoppa.push({ linje: i + (medOverskrift ? 2 : 1), tekst: rad.join(" · ").slice(0, 90) });
+      return;
+    }
+    TAL.forEach((f) => { if (r[f] !== undefined) r[f] = vindexTal(r[f]); });
+    varer.push({ ...r, artnr });
+  });
+
+  return { varer, hoppa, kolonnar: kol };
+}
+
+/**
+ * Del ei importrad i varekort og innkjøpsline.
+ *
+ * Det som kan sjåast av ein seljar til venstre, det som ikkje kan det til
+ * høgre. Skiljet står her, éin stad, slik at det ikkje kan gløymast på ein av
+ * dei stadane som skriv til databasen.
+ */
+function vindexDelImportrad(rad) {
+  const vare = {
+    artnr: rad.artnr,
+    benevning: rad.benevning || "",
+    gruppe: rad.gruppe || "",
+    enhet: rad.enhet || "stk",
+    veilPris: rad.veilPris || 0,
+    // Ein artikkel utan lokasjon OG utan saldo er arbeid, frakt eller
+    // montering. 363 av dei 788 er det. Dei skal ikkje ut i ei plukkliste og
+    // ikkje teljast med i lagerverdien.
+    lagervare: Boolean(rad.lokasjon) || Number(rad.saldo) !== 0,
+  };
+  // Lagerlista frå Bravo har KOSTPRIS, ikkje innkjøpspris — kostpris er
+  // innkjøpsprisen med påslaget alt inni. Vi har ikkje noko anna, og utan
+  // fallback ville alle 788 artiklane stått med strek i kostpriskolonna
+  // rett etter ein vellukka import.
+  //
+  // Så vi set kostprisen som innkjøpspris med kostfaktor null: talet blir
+  // det same som Bravo viser, og det er sant fram til nokon legg inn den
+  // verkelege innkjøpsprisen. At det kom den vegen står på dokumentet, så
+  // ingen forvekslar det med ein pris frå ein leverandør.
+  const fraaBravo = !rad.innkjopspris && !!rad.kostpris;
+  const innkjop = {
+    artnr: rad.artnr,
+    innkjopspris: rad.innkjopspris || rad.kostpris || 0,
+    // Ein kostpris frå Bravo er alt i kroner. Ei valuta på den ville gitt
+    // ein kurs å gange med, og då blei talet eit heilt anna.
+    valuta: fraaBravo ? "NOK" : (rad.valuta || "NOK"),
+    kurs: fraaBravo ? 1 : undefined,
+    kjelde: fraaBravo ? "bravo" : "innkjop",
+    bravoKostpris: rad.kostpris || 0,
+  };
+  if (innkjop.kurs === undefined) delete innkjop.kurs;
+  const post = rad.lokasjon || rad.saldo
+    ? { artnr: rad.artnr, lokasjon: rad.lokasjon || "", antall: rad.saldo || 0, type: "telling" }
+    : null;
+  return { vare, innkjop, post };
 }
