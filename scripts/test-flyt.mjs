@@ -390,6 +390,17 @@ console.log("ORDRESEDLAR OG UTSKRIFT");
   // Feilmeldinga frå den gamle alerten skal ikkje dukke opp.
   sjekk("ingen feilmelding", !/ikke lagret|Prøv igjen|undefined/i.test(kvittering));
 
+  // Ein stadfesta ordre skal ta varene ut av beholdninga. Det er denne
+  // funksjonen som erstattar Bravo, og reknestykket blir lagra PÅ ordren —
+  // elles ville ei ny lagring trekt heile ordren om att i staden for
+  // differansen.
+  const sendt = await p.evaluate(() =>
+    JSON.parse(localStorage.getItem("vindex_demo_ordrar") || "[]")[0] || {}
+  );
+  sjekk("ordren hugsar kva den har trekt", sendt.lagertrekk && Object.keys(sendt.lagertrekk).length > 0);
+  sjekk("og trekket er positive tal",
+    Object.values(sendt.lagertrekk || {}).every((n) => typeof n === "number" && n > 0));
+
   await p.evaluate(() => document.querySelector("#kvitteringLukk").click());
   await p.waitForTimeout(300);
 
@@ -816,6 +827,30 @@ console.log("LAGER OG INNKJØP");
   await p.waitForTimeout(250);
   sjekk("saldoen er retta",
     utanMellomrom((await alle('tr[data-vare="7522"] td')).at(-1)) === "7350");
+
+  // Kostfaktor per gruppe: utgangspunktet for heile gruppa, overstyrt på
+  // enkeltartikkelen.
+  await p.evaluate(() => document.querySelector('[data-lagerfane="varer"]').click());
+  await p.waitForTimeout(200);
+  await p.evaluate(() => document.querySelector("#kostfaktorar").click());
+  await p.waitForTimeout(250);
+  sjekk("gruppene blir lesne ut av registeret", (await p.$$("#modalInnhald tbody tr")).length > 2);
+  await p.selectOption("#gf_1_type", "prosent");
+  await p.fill("#gf_1_verdi", "20");
+  await p.evaluate(() => document.querySelector("#gf_lagre").click());
+  await p.waitForTimeout(400);
+  // 7551 er i gruppe 1 og har ikkje eigen faktor: 25,23 × 1,45 = 36,58 + 20 %
+  sjekk("gruppefaktoren slår ut på artikkelen",
+    (await alle('tr[data-vare="7551"] td'))[4].includes("43,90"));
+  // 7522 fekk sin eigen på 10 % tidlegare, og skal ikkje følgje gruppa.
+  sjekk("men ikkje på den som har sin eigen",
+    (await alle('tr[data-vare="7522"] td'))[4].includes("6,20"));
+  await p.evaluate(() => document.querySelector('tr[data-vare="7551"]').click());
+  await p.waitForTimeout(250);
+  sjekk("varekortet seier kvar faktoren kjem frå",
+    (await tekst("#vf_arv")).includes("artikkelgruppe 1"));
+  await p.evaluate(() => document.querySelector("#vf_avbryt").click());
+  await p.waitForTimeout(200);
 
   await p.evaluate(() => document.querySelector('[data-lagerfane="innkjop"]').click());
   await p.waitForTimeout(250);

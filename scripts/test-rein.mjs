@@ -519,6 +519,67 @@ console.log("IMPORT FRÅ REKNEARK");
   p("og får ingen lagerpost", arbeid.post, null);
 }
 
+console.log("ORDRE TREKKER FRÅ LAGERET");
+{
+  const O = G("vindexOrdrerorsler");
+  const varer = {
+    7522: { artnr: "7522", lokasjon: "Lager 3", lagervare: true },
+    7448: { artnr: "7448", lokasjon: "Stavik", lagervare: true },
+    3030: { artnr: "3030", lagervare: false },
+  };
+
+  // Fyrste gongen ordren blir stadfesta.
+  const ein = O([{ kode: "7522", antall: 7 }, { kode: "7448", antall: 2 }], {}, varer,
+    { ref: "V-1042", ordreId: "abc", tid: "2026-09-22T09:00:00Z" });
+  // Rekkefølgja er artikkelnummer stigande — JS ordnar talnøklar slik av seg
+  // sjølv — så rørslene blir slått opp på nummer og ikkje på plass i lista.
+  const linje = (r, nr) => r.rorsler.find((x) => x.artnr === nr);
+  p("to rørsler", ein.rorsler.length, 2);
+  p("og dei er negative", linje(ein, "7522").antall, -7);
+  p("lokasjonen kjem frå varekortet", linje(ein, "7522").lokasjon, "Lager 3");
+  p("den andre frå sitt", linje(ein, "7448").lokasjon, "Stavik");
+  p("med referanse tilbake til ordren", linje(ein, "7522").ref, "V-1042");
+  p("og ordre-id, som regelen krev", linje(ein, "7522").ordreId, "abc");
+  p("reknestykket blir lagra på ordren", ein.trekt, { 7522: 7, 7448: 2 });
+
+  // Same artikkel på fleire linjer — ni stolpar delt på hjørne og ende er
+  // framleis éin artikkel.
+  const delt = O([{ kode: "7522", antall: 2 }, { kode: "7522", antall: 7 }], {}, varer);
+  p("linjene blir slått saman", delt.rorsler.length, 1);
+  p("til ei rørsle", delt.rorsler[0].antall, -9);
+
+  // Ordren blir lagra på nytt med to stolpar meir. Då skal det trekkast TO,
+  // ikkje ni. Dette er heile grunnen til at ordren hugsar kva han har trekt.
+  const meir = O([{ kode: "7522", antall: 9 }, { kode: "7448", antall: 2 }], ein.trekt, varer);
+  p("berre differansen blir ført", meir.rorsler.length, 1);
+  p("og den er på to", meir.rorsler[0].antall, -2);
+  p("summen er ni", meir.trekt["7522"], 9);
+
+  // Ordren blir redusert. Det er ei rørsle tilbake INN på lageret, ikkje ei
+  // sletting av den gamle linja — rørsler blir aldri sletta.
+  const mindre = O([{ kode: "7522", antall: 4 }, { kode: "7448", antall: 2 }], meir.trekt, varer);
+  p("fem kjem tilbake", mindre.rorsler[0].antall, 5);
+
+  // Ein artikkel blir teken heilt av ordren.
+  const fjerna = O([{ kode: "7522", antall: 4 }], mindre.trekt, varer);
+  p("artikkelen som er borte blir ført tilbake", fjerna.rorsler.length, 1);
+  p("heile talet", fjerna.rorsler[0].antall, 2);
+  p("og er ikkje lenger med i reknestykket", fjerna.trekt["7448"], undefined);
+
+  // Uendra ordre skal ikkje føre noko som helst.
+  p("uendra gir ingen rørsler", O([{ kode: "7522", antall: 4 }], fjerna.trekt, varer).rorsler.length, 0);
+
+  // Arbeid, frakt og montering har ingen beholdning å trekkje frå.
+  p("arbeid blir ikkje trekt", O([{ kode: "3030", antall: 180 }], {}, varer).rorsler.length, 0);
+  // Ein ukjend artikkel blir trekt likevel — han kan vere ny i registeret, og
+  // ei rørsle for mykje er lettare å sjå enn ei som aldri blei ført.
+  p("ukjend artikkel blir ført", O([{ kode: "9999", antall: 3 }], {}, varer).rorsler.length, 1);
+  p("men utan lokasjon", O([{ kode: "9999", antall: 3 }], {}, varer).rorsler[0].lokasjon, "");
+  // Frittskrivne linjer utan artikkelnummer kan ikkje trekkast frå noko.
+  p("linje utan kode blir hoppa over", O([{ navn: "Spesialfeste", antall: 2 }], {}, varer).rorsler.length, 0);
+  p("og linje med null", O([{ kode: "7522", antall: 0 }], {}, varer).rorsler.length, 0);
+}
+
 console.log("OPPFØLGING OG FRIST");
 {
   const naa = Date.parse("2026-09-22T12:00:00Z");

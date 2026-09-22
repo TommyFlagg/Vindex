@@ -568,3 +568,75 @@ function vindexDelImportrad(rad) {
     : null;
   return { vare, innkjop, post };
 }
+
+// ===========================================================================
+// ORDRE TREKKER FRÅ LAGERET
+// ---------------------------------------------------------------------------
+// Dette er funksjonen Bravo gjer i dag: ein stadfesta ordre skal ta varene ut
+// av beholdninga.
+//
+// To ting gjer det vanskelegare enn det høyrest ut som:
+//
+//   Ein ordre kan bli endra.  Blir den lagra på nytt med ni stolpar i staden
+//   for sju, skal det trekkast to til — ikkje ni til. Difor hugsar ordren kva
+//   den alt har trekt, og vi fører differansen. Nøyaktig som ei telling.
+//
+//   Ein ordre kan bli redusert.  Fem stolpar færre er ei rørsle på +5, ikkje
+//   ei sletting av den gamle linja. Rørsler blir aldri sletta; ein feil blir
+//   retta med ei ny linje, slik ein rettar i eit rekneskap.
+// ===========================================================================
+
+/**
+ * Kva som skal førast for denne ordren no.
+ *
+ * `linjer` er delelista slik ho står (kvar med `kode` og `antall`), `alt` er
+ * det ordren har trekt frå før, og `varer` er varekortet — brukt til å finne
+ * lokasjonen og til å la arbeid, frakt og montering vere i fred.
+ *
+ * Returnerer rørslene som skal skrivast, og det nye reknestykket som skal
+ * lagrast på ordren.
+ */
+function vindexOrdrerorsler(linjer, alt = {}, varer = {}, val = {}) {
+  // Same artikkel kan stå på fleire linjer — ni stolpar delt på to hjørne og
+  // sju ende er framleis éin artikkel.
+  const onskt = {};
+  (linjer || []).forEach((l) => {
+    const kode = String(l.kode || "").trim();
+    const antall = parseFloat(l.antall) || 0;
+    if (!kode || !antall) return;
+    const vare = varer[kode];
+    // Arbeid, frakt og montering har kostpris, men ingen beholdning. Å trekkje
+    // 180 minutt frå eit lager som ikkje finst gir berre støy.
+    if (vare && vare.lagervare === false) return;
+    onskt[kode] = (onskt[kode] || 0) + antall;
+  });
+
+  const rorsler = [];
+  const tid = val.tid || new Date().toISOString();
+  const ref = val.ref || "";
+  // Både det som er nytt og det som er borte. Står ein artikkel i `alt` men
+  // ikkje i `onskt`, er han teken av ordren og skal tilbake på lager.
+  const kodar = [...new Set([...Object.keys(onskt), ...Object.keys(alt || {})])];
+
+  kodar.forEach((kode) => {
+    const skalHaTrekt = onskt[kode] || 0;
+    const harTrekt = parseFloat((alt || {})[kode]) || 0;
+    const diff = skalHaTrekt - harTrekt;
+    if (!diff) return;
+    const vare = varer[kode] || {};
+    rorsler.push({
+      artnr: kode,
+      // Lokasjonen står på varekortet. Er den ikkje kjend, blir rørsla ståande
+      // utan — og då synest det i beholdninga at nokon må seie kvar den kom
+      // frå. Det er betre enn å gjette på eit lager.
+      lokasjon: vare.lokasjon || "",
+      antall: -diff,
+      type: "ordre",
+      ref,
+      ordreId: val.ordreId || "",
+      tid,
+    });
+  });
+
+  return { rorsler, trekt: onskt };
+}

@@ -13,12 +13,14 @@
 
 import {
   $, $$, app, fb, melding, opneModal, lukkModal,
-} from "./verktoy-felles.js?v=0e19f7a0";
+} from "./verktoy-felles.js?v=28f51b2a";
 
 // Alt som er henta, samla ein stad. Fyllast i lastLager og lesast av resten.
+const VINDEX_KOSTFAKTORDOK = "_kostfaktor";
+
 export const lagerdata = {
   varer: [], innkjop: {}, poster: [], bestillingar: [],
-  grupper: {}, henta: false, feil: "",
+  grupper: {}, standard: VINDEX_KOSTFAKTOR_STANDARD, henta: false, feil: "",
 };
 
 let fane = "varer";
@@ -55,7 +57,18 @@ export async function lastLager() {
       fb.getDocs(fb.bestillingCol()),
     ]);
     lagerdata.innkjop = {};
-    i.docs.forEach((d) => (lagerdata.innkjop[d.id] = d.data() || {}));
+    // `_kostfaktor` er ikkje ein artikkel. Den ligg i same samlinga fordi
+    // påslag er innkjøpsdata og skal vere like stengt, og blir plukka ut her
+    // så den ikkje dukkar opp som artikkel nummer 789.
+    i.docs.forEach((d) => {
+      if (d.id === VINDEX_KOSTFAKTORDOK) {
+        const k = d.data() || {};
+        lagerdata.grupper = k.grupper || {};
+        lagerdata.standard = k.standard || VINDEX_KOSTFAKTOR_STANDARD;
+      } else {
+        lagerdata.innkjop[d.id] = d.data() || {};
+      }
+    });
     lagerdata.bestillingar = b.docs.map((d) => ({ nr: d.id, ...d.data() }));
   } catch (e) {
     // Ingen melding: ein lagerbrukar SKAL ikkje få desse.
@@ -140,7 +153,7 @@ function kostprisFor(artnr) {
   if (!i) return 0;
   const vare = lagerdata.varer.find((v) => String(v.artnr) === String(artnr)) || {};
   const faktor = vindexKostfaktor(
-    { gruppe: vare.gruppe, kostfaktor: i.kostfaktor }, lagerdata.grupper, VINDEX_KOSTFAKTOR_STANDARD
+    { gruppe: vare.gruppe, kostfaktor: i.kostfaktor }, lagerdata.grupper, lagerdata.standard
   );
   return vindexKostpris(i, faktor).kostpris;
 }
@@ -165,6 +178,7 @@ function teiknVarer(el) {
           style="flex:1;min-width:220px">
         <button class="btn btn-sm" id="nyVare">Ny artikkel</button>
         <button class="btn btn-ghost btn-sm" id="importer">Importer fra regneark</button>
+        <button class="btn btn-ghost btn-sm" id="kostfaktorar">Kostfaktor per gruppe</button>
       </div>
       <p class="hint mt-1">${tal(lagerdata.varer.length)} artikler i registeret.
         ${treff.length > vis.length ? `Viser de ${vis.length} første av ${tal(treff.length)} treff.` : ""}</p>
@@ -189,6 +203,7 @@ function teiknVarer(el) {
   });
   $("#nyVare").addEventListener("click", () => opneVare(null));
   $("#importer").addEventListener("click", opneImport);
+  $("#kostfaktorar").addEventListener("click", opneGruppefaktorar);
   $$("#lagerinnhald [data-vare]").forEach((r) =>
     r.addEventListener("click", () => opneVare(r.dataset.vare))
   );
@@ -344,6 +359,7 @@ function opneVare(artnr) {
       ${felt("vf_faktor", "Påslag", (i.kostfaktor || {}).verdi != null ? i.kostfaktor.verdi : "", 'type="number" step="0.01"')}
     </div>
     <div id="vf_kostpris" class="notice mt-2"></div>
+    <p class="hint" id="vf_arv"></p>
     ${ny ? "" : `<p class="hint mt-2">Beholdning nå: <strong>${tal(saldo)}</strong> ${vindexT(v.enhet || "")}.
       ${v.bestarAv && v.bestarAv.length
         ? `Strukturvare av ${v.bestarAv.length} deler — kostprisen regnes av delene.` : ""}</p>`}
@@ -352,10 +368,17 @@ function opneVare(artnr) {
 
   const vis = () => {
     const type = $("#vf_faktortype").value;
+    // Står feltet på «følg artikkelgruppen», skal det synast KVA den då blir.
+    // Ein tom nedtrekk som ikkje seier noko er det same som å skjule talet.
+    const arva = vindexKostfaktor({ gruppe: v.gruppe }, lagerdata.grupper, lagerdata.standard);
+    $("#vf_arv").textContent = type
+      ? "Påslaget er satt på denne artikkelen, og overstyrer gruppen."
+      : `Følger ${arva.kjelde === "gruppe" ? "artikkelgruppe " + v.gruppe : "standarden"}: ` +
+        `${arva.verdi} ${arva.type === "kroner" ? "kr" : "%"}.`;
     const r = vindexKostpris(
       { innkjopspris: Number($("#vf_innpris").value) || 0, valuta: $("#vf_valuta").value,
         kurs: Number($("#vf_kurs").value) || 1 },
-      type ? { type, verdi: Number($("#vf_faktor").value) || 0 } : null
+      type ? { type, verdi: Number($("#vf_faktor").value) || 0 } : arva
     );
     $("#vf_kostpris").innerHTML =
       `${tal(r.pris, 4)} ${vindexT(r.valuta)} × ${tal(r.kurs, 4)} = <strong>${kroner(r.iKroner)}</strong>` +
@@ -808,6 +831,90 @@ function opneAnkomst(po) {
       melding(`Førte inn ${postar.length} ${postar.length === 1 ? "linje" : "linjer"} på PO-${po.nr}.`);
     } catch (e) {
       melding("Fikk ikke ført ankomsten: " + (e && e.message ? e.message : e), "warn");
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Kostfaktor per artikkelgruppe
+// ---------------------------------------------------------------------------
+// Utgangspunktet blir sett for heile gruppa, og kan overstyrast på enkelt-
+// artikkelen. Gruppene blir ikkje skrivne inn — dei blir lesne ut av
+// registeret, så lista er alltid dei gruppene som faktisk finst.
+// ---------------------------------------------------------------------------
+
+function gruppeliste() {
+  const tal = {};
+  lagerdata.varer.forEach((v) => {
+    const g = String(v.gruppe == null ? "" : v.gruppe);
+    if (!g) return;
+    tal[g] = (tal[g] || 0) + 1;
+  });
+  return Object.keys(tal)
+    .sort((a, b) => (Number(a) || 0) - (Number(b) || 0) || a.localeCompare(b))
+    .map((g) => ({ gruppe: g, artiklar: tal[g] }));
+}
+
+function faktorfelt(id, f) {
+  const type = (f || {}).type || "";
+  return `<td><select id="${id}_type">
+      <option value=""${type ? "" : " selected"}>Ikke satt</option>
+      <option value="prosent"${type === "prosent" ? " selected" : ""}>Prosent</option>
+      <option value="kroner"${type === "kroner" ? " selected" : ""}>Kroner</option>
+    </select></td>
+    <td><input id="${id}_verdi" type="number" step="0.01" style="width:6em"
+      value="${(f || {}).verdi == null ? "" : f.verdi}"></td>`;
+}
+
+function opneGruppefaktorar() {
+  const grupper = gruppeliste();
+  opneModal("Kostfaktor per artikkelgruppe", `
+    <p class="lead">Påslaget som gjelder for hele gruppen. En enkelt artikkel kan overstyre det
+      på varekortet sitt — og null der er et valg, ikke «ikke satt»: en vare uten påslag finnes.</p>
+    <table class="tabell">
+      <thead><tr><th>Gruppe</th><th class="hgr">Artikler</th><th>Type</th><th>Påslag</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Standard</strong><br><span class="hint">gjelder gruppene uten eget påslag</span></td>
+          <td class="hgr"></td>${faktorfelt("gf_std", lagerdata.standard)}</tr>
+        ${grupper.map((g) => `<tr>
+          <td>${vindexT(g.gruppe)}</td><td class="hgr">${tal(g.artiklar)}</td>
+          ${faktorfelt("gf_" + g.gruppe.replace(/[^0-9A-Za-z]/g, "_"), lagerdata.grupper[g.gruppe])}
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    ${!grupper.length ? `<div class="notice mt-2">Ingen artikkelgrupper i registeret ennå.
+      De kommer av seg selv når du importerer varelisten.</div>` : ""}
+    <p class="hint mt-2">Dette lagres sammen med innkjøpsprisene, i en samling bare hovedkontoret
+      kan lese. Påslaget forteller hva vi tjener, og er like følsomt som prisen selv.</p>
+  `, `<button class="btn" id="gf_lagre">Lagre</button>
+      <button class="btn btn-ghost" id="gf_avbryt">Avbryt</button>`);
+
+  $("#gf_avbryt").addEventListener("click", lukkModal);
+  $("#gf_lagre").addEventListener("click", async () => {
+    const les = (id) => {
+      const type = $("#" + id + "_type").value;
+      if (!type) return null;
+      return { type, verdi: Number($("#" + id + "_verdi").value) || 0 };
+    };
+    const grupperUt = {};
+    grupper.forEach((g) => {
+      const f = les("gf_" + g.gruppe.replace(/[^0-9A-Za-z]/g, "_"));
+      if (f) grupperUt[g.gruppe] = f;
+    });
+    const pakke = { grupper: grupperUt, standard: les("gf_std") || VINDEX_KOSTFAKTOR_STANDARD };
+
+    if (VINDEX_DEMOMODUS) {
+      lagerdata.grupper = pakke.grupper;
+      lagerdata.standard = pakke.standard;
+      lukkModal(); teiknLagerside(); melding("Lagret (demomodus).");
+      return;
+    }
+    try {
+      await fb.setDoc(fb.innkjopDoc(VINDEX_KOSTFAKTORDOK), pakke);
+      await lastLager(); lukkModal(); teiknLagerside();
+      melding("Kostfaktorene er lagret.");
+    } catch (e) {
+      melding("Fikk ikke lagret: " + (e && e.message ? e.message : e), "warn");
     }
   });
 }

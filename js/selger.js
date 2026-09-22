@@ -19,7 +19,7 @@ import {
   lastData, startDemo, tid, datoTekst, nesteAvtale,
   lagreLead, melding, opneModal, lukkModal, skrivUtDialog, demoLagreOrdre, demoNullstill,
   lagreKladd, hentKladd, slettKladd, kladdlagrar, sidanTekst,
-} from "./verktoy-felles.js?v=0e19f7a0";
+} from "./verktoy-felles.js?v=28f51b2a";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visVerktoy());
@@ -2289,6 +2289,17 @@ function visKvittering(ordre, lead, { harSpesial, harPlukk }) {
     `<div class="notice notice-good">
        <strong>Ordre ${vindexT(ordre.id)}</strong> er lagret. ${vegen}
      </div>
+     ${
+       // Beholdningen blir trukket fra delelisten, for det er der artikkel-
+       // numrene står. Er ordren fylt ut rett i skjemaet uten en deleliste,
+       // finnes det ingen numre å trekke fra — og da skal det stå her, ikke
+       // oppdages på lageret om tre uker.
+       Object.keys(ordre.lagertrekk || {}).length
+         ? ""
+         : `<div class="notice notice-warn">Lagerbeholdningen ble ikke justert — denne
+              ordren har ingen deleliste med artikkelnumre. Hovedkontoret må føre uttaket
+              manuelt.</div>`
+     }
      <dl class="saksfakta">
        <div><dt>Kunde</dt><dd>${vindexT(k.navn) || "—"}</dd></div>
        <div><dt>Levering</dt><dd>${vindexT(
@@ -2378,6 +2389,9 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
       tid: new Date().toISOString(),
       ...bekreftelse,
     },
+    // Kva ordren har trekt frå lageret. Blir den lagra på nytt med to stolpar
+    // meir, skal det trekkast to — ikkje heile ordren om att.
+    lagertrekk: (eksisterande && eksisterande.lagertrekk) || {},
   };
 
   // Vart ordren skriven før det eventuelt gjekk gale?
@@ -2421,6 +2435,8 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
     // Ordren er lagra — då er det ikkje eit utkast lenger.
     slettKladd(ordrekladdnokkel(lead));
 
+    await trekkFraaLager(ordre, lead);
+
     teikn();
     visKvittering(ordre, lead, { harSpesial, harPlukk });
   } catch (err) {
@@ -2448,6 +2464,69 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
     } else {
       alert(forklaring + "\n\n" + detalj);
     }
+  }
+}
+
+/**
+ * Ein stadfesta ordre tek varene ut av beholdninga.
+ *
+ * Dette er funksjonen Bravo gjer i dag. Den køyrer ETTER at ordren er lagra,
+ * og med vilje: går lagerføringa gale, står ordren likevel. Ein ordre som ikkje
+ * finst er eit problem for kunden; ei rørsle som manglar er eit problem for
+ * lageret, og det siste kan rettast i ro.
+ *
+ * Seljaren kan skrive desse rørslene, men ikkje lese dei. Han får gjere det
+ * han allereie gjer — sende ein ordre — utan å sjå noko han ikkje ser i dag.
+ */
+async function trekkFraaLager(ordre, lead) {
+  const linjer = ((typeof vindexRegnTilbod === "function"
+    ? vindexRegnTilbod(lead.tilbud || {})
+    : {}).linjer) || [];
+  if (!linjer.length) return;
+
+  // Varekortet gir lokasjonen, og seier kva som ikkje er lagervare. Det blir
+  // henta her og ikkje ved innlogging: seljaren treng det éin gong, når han
+  // stadfestar, og ikkje kvar gong han opnar verktøyet.
+  let varer = {};
+  if (!VINDEX_DEMOMODUS) {
+    try {
+      const snap = await fb.getDocs(fb.varerCol());
+      snap.docs.forEach((d) => (varer[d.id] = { artnr: d.id, ...d.data() }));
+    } catch (e) {
+      // Utan varekortet blir rørslene ståande utan lokasjon. Det synest i
+      // beholdninga, og er betre enn å la vere å føre dei.
+      console.warn("Fikk ikke hentet varekortene til lagerføringen.", e);
+    }
+  }
+
+  const { rorsler, trekt } = vindexOrdrerorsler(linjer, ordre.lagertrekk || {}, varer, {
+    ref: "Ordre " + ordre.id,
+    ordreId: ordre.id,
+  });
+  if (!rorsler.length) return;
+
+  try {
+    if (VINDEX_DEMOMODUS) {
+      ordre.lagertrekk = trekt;
+      // Ordren vart lagra før reknestykket fanst. Skriv vi den ikkje på nytt,
+      // står det tomt i lageret — og neste lagring trekkjer heile ordren om
+      // att i staden for differansen.
+      demoLagreOrdre(ordre);
+      return;
+    }
+    for (const r of rorsler) await fb.addDoc(fb.lagerpostCol(), r);
+    // Reknestykket blir lagra FØRST etter at rørslene er skrivne. Stoppar det
+    // mellom, blir noko ført to gonger neste gong — synleg, og til å rette.
+    // Motsett veg ville varene blitt ståande på lager for alltid.
+    await fb.updateDoc(fb.orderDoc(ordre.id), { lagertrekk: trekt });
+    ordre.lagertrekk = trekt;
+  } catch (e) {
+    console.error("Fikk ikke ført ordren ut av lageret.", e);
+    melding(
+      `Ordre ${ordre.id} er lagret, men lagerbeholdningen ble ikke oppdatert. ` +
+        "Si fra til hovedkontoret — ordren går som normalt.",
+      "warn"
+    );
   }
 }
 

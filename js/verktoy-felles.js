@@ -525,7 +525,15 @@ export function demoLeads() {
           tilvalg: {},
         },
         tilbud: f.tilbud
-          ? { sum: f.tilbud, rabattProsent: 10, rabattKr: Math.round(f.tilbud * 0.1), dato: new Date(naa - (f.dagar - 1) * dag).toISOString(), gyldigTil: new Date(naa + 14 * dag).toISOString().slice(0, 10), notat: "" }
+          ? {
+              sum: f.tilbud, rabattProsent: 10, rabattKr: Math.round(f.tilbud * 0.1),
+              dato: new Date(naa - (f.dagar - 1) * dag).toISOString(),
+              gyldigTil: new Date(naa + 14 * dag).toISOString().slice(0, 10), notat: "",
+              // Ei deleliste med artikkelnummer, ikkje berre ein sum. Det er
+              // denne som gjer at ein stadfesta ordre kan ta varene ut av
+              // beholdninga — ein sum aleine kan ingen plukke etter.
+              linjer: vindexDemodeleliste(f),
+            }
           : null,
         avtaler: f.avtale
           ? [{ id: "demo-avtale-" + i, type: "befaring", typeNavn: "Befaring", start: new Date(naa + f.avtale * dag).toISOString(), varighetMin: 60, stad: "Eksempelvegen " + (i + 3) + ", " + f.postnr + " " + f.poststed, notat: "" }]
@@ -690,6 +698,24 @@ export function demoOrdrar() {
 }
 
 /** Ta vare på ein ordre laga i demoen. */
+/**
+ * Ei deleliste til demodataa.
+ *
+ * Artikkelnummera er dei verkelege: 7448 er pyntekransen, 4401 er den minste
+ * strømforsyninga. Talet på stolpar følgjer lengda, slik ei ekte liste gjer.
+ */
+function vindexDemodeleliste(f) {
+  const meter = parseFloat(f.mengde) || 0;
+  if (!meter) return [];
+  // Ein seksjon per 2,4 meter, og ein stolpe mellom kvar — pluss den siste.
+  const seksjonar = Math.max(1, Math.round(meter / 2.4));
+  return [
+    { kode: "7551", navn: "Stolpe 127×127", antall: seksjonar + 1, enhetspris: 289, plassering: "linje" },
+    { kode: "7448", navn: "Pyntekrans", antall: seksjonar + 1, enhetspris: 119 },
+    { kode: "7522", navn: "Picket A11", antall: seksjonar * 12, enhetspris: 12 },
+  ];
+}
+
 export function demoLagreOrdre(ordre) {
   const alle = lesLager(DEMO_ORDRAR, "[]").filter((o) => o.id !== ordre.id);
   alle.unshift(ordre);
