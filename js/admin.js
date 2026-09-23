@@ -1081,6 +1081,7 @@ function teiknApparat() {
       ${aarsveljar(aarListe)}
       <span class="spacer"></span>
       <button class="btn btn-sm" id="nyPerson">+ Legg til selger eller forhandler</button>
+      <button class="btn btn-ghost btn-sm" id="importerPersonar">Les inn fra ordreinngangsarket</button>
     </div>` +
     bolk("Selgere", seljarar, "Egne selgere") +
     bolk("Forhandlere", forhandlarar, "Eksterne, selger på egne vegne") +
@@ -1111,6 +1112,7 @@ function teiknApparat() {
     )
   );
   $("#nyPerson").addEventListener("click", () => opnePersonskjema(null));
+  $("#importerPersonar").addEventListener("click", opnePersonimport);
 
   // Berre dei aktive dekkjer landet. Ein arkivert seljar som framleis stod
   // oppført på Nordland ville sagt at fylket var dekt når det ikkje var det.
@@ -2833,4 +2835,154 @@ async function skrivOmtalerTilNettsida(stille) {
     console.error(err);
     melding("Kunne ikke oppdatere nettsiden: " + err.message);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Les inn seljarar og forhandlarar frå ordreinngangsarket
+// ---------------------------------------------------------------------------
+// Arket har alt: namn, stad og kva kvar av dei har selt per månad. Å skrive
+// det inn ein gong til for hand er både arbeid og ein sjanse til å skrive feil.
+//
+// Det som blir oppretta har INGEN innlogging, og det er meininga: rader utan
+// uid blir haldne utanfor rutinga, så ingen kundar blir tildelte nokon som
+// ikkje finst. Kvar rad kan aktiverast for seg når Firebase-brukaren er laga.
+// ---------------------------------------------------------------------------
+
+let personimporttekst = "";
+
+function opnePersonimport() {
+  opneModal("Les inn fra ordreinngangsarket", `
+    <p class="lead">Marker tabellen i regnearket — <strong>med overskriftsraden</strong> — kopier,
+      og lim inn her. Navn, sted, distrikt og omsetning per måned leses inn i én operasjon.</p>
+    <div class="field"><label for="pi_tekst">Limt inn</label>
+      <textarea id="pi_tekst" style="min-height:130px;font-family:monospace;font-size:12px"
+        placeholder="Selger&#9;Sted&#9;Januar&#9;Februar&#9;…&#9;Sum">${vindexT(personimporttekst)}</textarea></div>
+    <div id="pi_fasit"></div>
+  `, `<button class="btn" id="pi_lagre" disabled>Legg inn</button>
+      <button class="btn btn-ghost" id="pi_avbryt">Avbryt</button>`);
+
+  $("#pi_avbryt").addEventListener("click", () => { personimporttekst = ""; lukkModal(); });
+  $("#pi_tekst").addEventListener("input", () => {
+    personimporttekst = $("#pi_tekst").value;
+    teiknPersonfasit();
+  });
+  $("#pi_lagre").addEventListener("click", kjorPersonimport);
+  if (personimporttekst) teiknPersonfasit();
+}
+
+function teiknPersonfasit() {
+  const boks = $("#pi_fasit");
+  if (!boks) return;
+  if (!personimporttekst.trim()) { boks.innerHTML = ""; $("#pi_lagre").disabled = true; return; }
+
+  const r = vindexPersonrader(personimporttekst);
+  const finst = (n) => app.seljarar.some((s) => (s.navn || "").toLowerCase() === n.toLowerCase());
+  const nye = r.personar.filter((pe) => !finst(pe.navn));
+  const alt = r.personar.filter((pe) => finst(pe.navn));
+
+  boks.innerHTML = `
+    ${
+      r.manaderKunneLesast
+        ? `<div class="notice notice-good mt-2">Månedene kunne leses — kolonnene står der de skal.</div>`
+        : `<div class="notice notice-warn mt-2"><strong>Dette ser ut som tekst kopiert fra en PDF.</strong>
+             Kolonnene i en PDF er tegnet, ikke lagret, og tusenskillet i norske tall er et mellomrom.
+             Da finnes det ingen måte å se hvor ett tall slutter og det neste begynner:
+             <code>2 403 74 587 819 183</code> kan like gjerne være 2 403 · 74 · 587 819 · 183.
+             <br><br>Navn, sted og distrikt leses inn — de er entydige. <strong>Omsetningen gjør vi ikke
+             gjetninger på.</strong> Kopier fra selve regnearket for å få den med.</div>`
+    }
+    <p class="hint mt-1">${nye.length} nye, ${alt.length} finnes fra før${
+      r.hoppa.length ? `, ${r.hoppa.length} linjer lagt til side (summer, totaler, selskapets egne salg)` : ""
+    }. År: <strong>${r.aar}</strong></p>
+    ${
+      r.personar.length
+        ? `<table class="tabell mt-1">
+            <thead><tr><th>Navn</th><th>Sted</th><th>Type</th><th>Distrikt</th>
+              <th class="hgr">${r.aar}</th><th></th></tr></thead>
+            <tbody>${r.personar.map((pe, i) => `<tr>
+              <td>${vindexT(pe.navn)}</td>
+              <td>${vindexT(pe.sted)}</td>
+              <td>${pe.type === "forhandler" ? "Forhandler" : "Selger"}</td>
+              <td><select data-pidistrikt="${i}">
+                <option value="">— ingen —</option>
+                ${VINDEX_DISTRIKT.map(
+                  (d) => `<option value="${d.id}"${pe.distrikt === d.id ? " selected" : ""}>${vindexT(d.navn)}</option>`
+                ).join("")}
+              </select>${pe.ukjendStad ? ' <span class="hint">stedet er ukjent — velg selv</span>' : ""}</td>
+              <td class="hgr">${pe.sum == null ? '<span class="hint">—</span>' : vindexKroner(pe.sum)}</td>
+              <td>${finst(pe.navn) ? '<span class="tag tag-muted">finnes</span>' : ""}</td>
+            </tr>`).join("")}</tbody>
+          </table>`
+        : `<div class="notice notice-warn mt-2">Fant ingen personer i det som er limt inn.</div>`
+    }
+    <p class="hint mt-2">Ingen av dem får innlogging her. Radene holdes utenfor rutingen til du har
+      opprettet Firebase-brukeren og trykket «Aktiver innlogging» på hver enkelt — slik at ingen kunde
+      blir tildelt noen som ikke kan logge inn.</p>`;
+
+  $$("#pi_fasit [data-pidistrikt]").forEach((sel) =>
+    sel.addEventListener("change", () => {
+      r.personar[Number(sel.dataset.pidistrikt)].distrikt = sel.value;
+    })
+  );
+  $("#pi_lagre").disabled = !nye.length;
+  $("#pi_lagre").textContent = `Legg inn ${nye.length} ${nye.length === 1 ? "person" : "personer"}`;
+  personimportfasit = r;
+}
+
+let personimportfasit = null;
+
+function vindexKroner(n) {
+  return (Number(n) || 0).toLocaleString("nb-NO") + " kr";
+}
+
+async function kjorPersonimport() {
+  const r = personimportfasit;
+  if (!r) return;
+  const finst = (n) => app.seljarar.some((s) => (s.navn || "").toLowerCase() === n.toLowerCase());
+  const nye = r.personar.filter((pe) => !finst(pe.navn));
+  if (!nye.length) return;
+
+  const knapp = $("#pi_lagre");
+  knapp.disabled = true;
+
+  let inn = 0, feila = 0, sisteFeil = "";
+  for (const pe of nye) {
+    const data = {
+      navn: pe.navn,
+      sted: pe.sted,
+      telefon: "",
+      epost: "",
+      ansatt: "",
+      type: pe.type,
+      rolle: "selger",
+      distrikt: pe.distrikt ? [pe.distrikt] : [],
+      arkivert: false,
+    };
+    // Omsetninga blir lagra for seg — `sellers` blir lese av alle innlogga, og
+    // då kunne kvar av forhandlarane lese kva alle dei andre hadde selt.
+    const historikk = pe.sum == null ? {} : { [String(r.aar)]: Math.round(pe.sum) };
+    try {
+      if (VINDEX_DEMOMODUS) {
+        app.seljarar.push({ ...data, id: "imp-" + Date.now() + "-" + inn, historikk });
+      } else {
+        const { fb } = await import("./verktoy-felles.js?v=d1a9cb19");
+        const ref = await fb.addDoc(fb.sellersCol(), data);
+        await fb.setDoc(fb.omsetningDoc(ref.id), { historikk });
+        app.seljarar.push({ ...data, id: ref.id, historikk });
+      }
+      inn++;
+      knapp.textContent = `Legger inn … ${inn} av ${nye.length}`;
+    } catch (e) {
+      feila++;
+      sisteFeil = e && e.message ? e.message : String(e);
+    }
+  }
+
+  if (!VINDEX_DEMOMODUS) await byggRuting();
+  personimporttekst = "";
+  personimportfasit = null;
+  lukkModal();
+  teiknAlt();
+  if (feila) melding(`La inn ${inn}. ${feila} feilet — siste feil: ${sisteFeil}`, "warn");
+  else melding(`La inn ${inn} ${inn === 1 ? "person" : "personer"}. Ingen har innlogging ennå — opprett brukerne i Firebase og aktiver hver rad.`);
 }

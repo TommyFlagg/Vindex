@@ -744,6 +744,62 @@ console.log("LAGER");
   await p.close();
 }
 
+console.log("LES INN PERSONAR FRÅ ARKET");
+{
+  const p = await side("/admin.html", "admin");
+  const tal = () => p.evaluate(() => document.querySelectorAll("[data-rediger]").length);
+  const tekst = (v) => p.$eval(v, (e) => e.textContent.trim());
+  const for_ = await tal();
+
+  await p.evaluate(() => document.querySelector("#importerPersonar").click());
+  await p.waitForTimeout(300);
+  sjekk("knappen er sperra før noko er limt inn", await p.$eval("#pi_lagre", (e) => e.disabled));
+
+  // Tekst kopiert frå ein PDF: kolonnane er teikna, ikkje lagra.
+  await p.fill("#pi_tekst", [
+    "ORDREINNGANG 2025 U/FRAKT- EKS.MVA",
+    "Anne Døme Ålesund 84 939 292 191 1 367 719 ",
+    "Sum selgere 308 006 7 513 589 ",
+  ].join("\n"));
+  await p.waitForTimeout(250);
+  const pdffasit = await tekst("#pi_fasit");
+  sjekk("PDF-en blir kjend att", pdffasit.includes("kopiert fra en PDF"));
+  sjekk("og omsetninga blir ikkje gjetta", pdffasit.includes("gjetninger"));
+  sjekk("men personen blir lesen", pdffasit.includes("1 nye"));
+
+  // Frå reknearket: tomme celler står igjen, og månadene kan lesast.
+  await p.fill("#pi_tekst", [
+    "ORDREINNGANG 2025 U/FRAKT- EKS.MVA",
+    ["Selger", "Sted", "Januar", "Februar", "Mars"].join("\t"),
+    ["Anne Døme", "Ålesund", "100", "", "200"].join("\t"),
+    ["Bjørn Prøve", "Brandbu", "", "300", ""].join("\t"),
+    "Forhandlere",
+    ["Døme Montasje", "Fredrikstad", "", "", "50"].join("\t"),
+    ["Sum selgere", "", "100", "300", "250"].join("\t"),
+  ].join("\n"));
+  await p.waitForTimeout(250);
+  const fasit = await tekst("#pi_fasit");
+  sjekk("månadene kunne lesast", fasit.includes("Månedene kunne leses"));
+  sjekk("tre nye", fasit.includes("3 nye"));
+  sjekk("året blei lese frå overskrifta", fasit.includes("2025"));
+  sjekk("summen blir rekna", fasit.includes("300 kr"));
+  sjekk("distriktet blei gjetta frå staden",
+    (await p.$eval('[data-pidistrikt="0"]', (e) => e.value)) === "more-romsdal");
+  sjekk("og på den andre",
+    (await p.$eval('[data-pidistrikt="1"]', (e) => e.value)) === "innlandet");
+  sjekk("forhandlaren er merkt som det", fasit.includes("Forhandler"));
+
+  await p.evaluate(() => document.querySelector("#pi_lagre").click());
+  await p.waitForTimeout(700);
+  sjekk("tre personar lagt til", (await tal()) === for_ + 3);
+  const kort = await p.evaluate(() => {
+    const k = [...document.querySelectorAll(".card")].find((e) => /Anne Døme/.test(e.textContent));
+    return k ? k.textContent : "";
+  });
+  sjekk("og ingen av dei har innlogging", kort.includes("Uten innlogging"));
+  await p.close();
+}
+
 console.log("AKTIVER INNLOGGING")
 {
   // En rad opprettet i verktøyet får en auto-ID på 20 tegn. Den kan ikke logge

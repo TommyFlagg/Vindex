@@ -6,7 +6,7 @@ const les = (f) => fs.readFileSync(R + "/" + f, "utf8").replace(/^export /gm, ""
 const filer = ["js/datafyll.js","js/modellar.js","js/provisjon.js","js/team.js","js/apparattal.js",
   "js/terrasse.js","js/sprosser.js","js/oppfolging.js","js/distrikt.js","js/fylke.js",
   "js/kalender.js","js/kampanje.js","js/anmeldingar.js","js/nokkeltal.js","js/apparat.js",
-  "js/modellfigur.js","js/produkter.js","js/ordre.js","js/kontrollpanel.js","js/lager.js"];
+  "js/modellfigur.js","js/produkter.js","js/ordre.js","js/kontrollpanel.js","js/lager.js","js/personimport.js"];
 const kjelde = filer.map(les).join("\n;\n") + `
 ;vindexSettPrisbok(${fs.readFileSync(R + "/data/prisbok.json","utf8")});
 vindexSettProvisjon(${fs.readFileSync(R + "/data/provisjon.json","utf8")});
@@ -578,6 +578,83 @@ console.log("ORDRE TREKKER FRÅ LAGERET");
   // Frittskrivne linjer utan artikkelnummer kan ikkje trekkast frå noko.
   p("linje utan kode blir hoppa over", O([{ navn: "Spesialfeste", antall: 2 }], {}, varer).rorsler.length, 0);
   p("og linje med null", O([{ kode: "7522", antall: 0 }], {}, varer).rorsler.length, 0);
+}
+
+console.log("LES INN PERSONAR FRÅ EIT REKNEARK");
+{
+  const T = G("vindexPersontal");
+  p("norsk tal", T("1 367 719"), 1367719);
+  p("hardt mellomrom", T("84\u00a0939"), 84939);
+  // (4 000) er −4 000 i eit rekneark. Utan dette blir eit kreditsal til eit
+  // sal, og året ser 8 000 betre ut enn det var.
+  p("parentes er minus", T("(4 000)"), -4000);
+  p("strek er tomt", T("-"), null);
+  p("tomt er tomt", T(""), null);
+  p("tekst er tomt", T("Sum selgere"), null);
+
+  const P = G("vindexPersonrader");
+
+  // --- Frå reknearket: tomme celler står igjen, og månadene kan lesast. ---
+  const ark = [
+    "ORDREINNGANG 2025 U/FRAKT- EKS.MVA",
+    ["Selger", "Sted", ...Array(12).fill("M"), "Sum"].join("\t"),
+    ["Anne Døme", "Ålesund", "100", "", "200", "", "", "", "", "", "", "(50)", "", "", "250"].join("\t"),
+    ["Bjørn Prøve", "Brandbu", "", "", "", "300", "", "", "", "", "", "", "", "", "300"].join("\t"),
+    "Forhandlere",
+    ["Døme Montasje", "Fredrikstad", "", "", "50", "", "", "", "", "", "", "", "", "", "50"].join("\t"),
+    ["Sum selgere", "", "100", "", "250", "300"].join("\t"),
+  ].join("\n");
+  const r = P(ark);
+  p("tre personar", r.personar.length, 3);
+  p("året blir lese frå overskrifta", r.aar, 2025);
+  p("månadene kunne delast", r.manaderKunneLesast, true);
+  p("sumlinja blei lagd til side", r.hoppa.length >= 1, true);
+
+  const anne = r.personar[0];
+  p("januar", anne.manader.januar, 100);
+  p("mars", anne.manader.mars, 200);
+  p("februar finst ikkje", anne.manader.februar, undefined);
+  p("kreditnotaen i oktober", anne.manader.oktober, -50);
+  p("summen frå arket", anne.sum, 250);
+  p("og den vi reknar sjølv", anne.rekna, 250);
+  // Distriktet blir gjetta frå staden, via postnummeret.
+  p("Ålesund blir Møre og Romsdal", anne.distrikt, "more-romsdal");
+  p("Brandbu blir Innlandet", r.personar[1].distrikt, "innlandet");
+  // «Forhandlere» skifter type for alt som kjem etter.
+  p("dei to første er seljarar", r.personar[1].type, "selger");
+  p("den siste er forhandler", r.personar[2].type, "forhandler");
+
+  // --- Frå ein PDF: kolonnane er teikna, ikkje lagra. ---
+  const pdf = [
+    "ORDREINNGANG 2025 U/FRAKT- EKS.MVA",
+    "Anne Døme Ålesund 84 939 292 191 198 496 1 367 719 ",
+    "Bjørn Prøve Brandbu 2 403 74 587 819 183 ",
+    "Sum selgere 308 006 307 433 7 513 589 ",
+  ].join("\n");
+  const u = P(pdf);
+  p("to personar", u.personar.length, 2);
+  // Dette er det viktige: vi PÅSTÅR ikkje ei månadsfordeling vi ikkje har.
+  p("månadene kunne ikkje delast", u.manaderKunneLesast, false);
+  p("og ingen månader blei gjetta", u.personar[0].manader, null);
+  // Namnet er orda før første tal, staden er det siste av dei.
+  p("namnet", u.personar[0].navn, "Anne Døme");
+  p("staden", u.personar[0].sted, "Ålesund");
+  // Og ingen sum heller. I norsk talform er tusenskiljet eit mellomrom, så
+  // «2 403 74 587 819 183» kan like gjerne vere 2 403 · 74 · 587 819 · 183
+  // som 2 403 · 74 587 · 819 183. Ein sum som er gjetta ser heilt rett ut i
+  // eit apparat, og er det ikkje.
+  p("ingen sum blir gjetta", u.personar[0].sum, null);
+  p("og rada er merkt utan tal", u.personar[0].utanTal, true);
+  p("den andre òg", u.personar[1].sum, null);
+
+  // Ein ukjend stad skal synast, ikkje gjettast på.
+  const ukjend = P("Kari Døme Ukjentstad 1 000");
+  p("ukjend stad gir ikkje distrikt", ukjend.personar[0].distrikt, "");
+  p("og blir merkt", ukjend.personar[0].ukjendStad, true);
+
+  // Selskapets eigne sal og totalar er ikkje personar.
+  const rot = P("Vindex AS Farstad 62 089\nTotal Ordreinngang 587 707\n- \n");
+  p("selskapet blir ikkje ein person", rot.personar.length, 0);
 }
 
 console.log("OPPFØLGING OG FRIST");
