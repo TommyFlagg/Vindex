@@ -744,6 +744,61 @@ console.log("LAGER");
   await p.close();
 }
 
+console.log("AKTIVER INNLOGGING")
+{
+  // En rad opprettet i verktøyet får en auto-ID på 20 tegn. Den kan ikke logge
+  // inn, og holdes derfor utenfor rutingen. Når personen senere får en Firebase-
+  // bruker, må raden FLYTTES — dokument-id-en er uid-en, og en id kan ikke endres.
+  const p = await side("/admin.html", "admin");
+  const tekst = (v) => p.$eval(v, (e) => e.textContent.trim());
+
+  const tal = () => p.evaluate(() => document.querySelectorAll("[data-rediger]").length);
+  const kortet = () => p.evaluate(() => {
+    const k = [...document.querySelectorAll(".card")].find((e) => /Prøvesen/.test(e.textContent));
+    return k ? k.textContent : "";
+  });
+  const antalFor = await tal();
+  await p.evaluate(() => document.querySelector("#nyPerson").click());
+  await p.waitForTimeout(300);
+  sjekk("nytt personskjema har uid-felt", await p.$("#pf_uid") !== null);
+  await p.fill("#pf_navn", "Prøve Prøvesen");
+  await p.fill("#pf_sted", "Ålesund");
+  await p.evaluate(() => {
+    const d = document.querySelector("[data-pdistrikt]");
+    if (d) { d.checked = true; }
+    document.querySelector("#pfLagre").click();
+  });
+  await p.waitForTimeout(500);
+  sjekk("personen er lagt til", (await tal()) === antalFor + 1);
+  sjekk("og er merket uten innlogging", (await kortet()).includes("Uten innlogging"));
+
+  // Åpne raden igjen: nå skal den tilby aktivering i stedet for å be deg
+  // opprette personen på nytt.
+  await p.evaluate(() => {
+    const k = [...document.querySelectorAll(".card")].find((e) => /Prøvesen/.test(e.textContent));
+    k.querySelector("[data-rediger]").click();
+  });
+  await p.waitForTimeout(300);
+  sjekk("raden mangler innlogging", (await tekst("#modalInnhald")).includes("ingen innlogging"));
+  sjekk("og tilbyr å aktivere den", await p.$("#pf_aktiver") !== null);
+
+  // En uid som ikke er 28 tegn skal avvises. Reglene krever den lengden, så en
+  // kortere id ville blitt lagret og deretter like ubrukelig som før.
+  await p.fill("#pf_nyuid", "forkort");
+  await p.evaluate(() => document.querySelector("#pf_aktiver").click());
+  await p.waitForTimeout(250);
+  sjekk("for kort uid blir avvist", !(await p.$eval("#pfFeil", (e) => e.classList.contains("hidden"))));
+  sjekk("og sier hvor mange tegn det ble", (await tekst("#pfFeil")).includes("7"));
+
+  await p.fill("#pf_nyuid", "a".repeat(28));
+  await p.evaluate(() => document.querySelector("#pf_aktiver").click());
+  await p.waitForTimeout(600);
+  sjekk("dialogen lukker seg", await p.$eval("#modal", (e) => e.classList.contains("hidden")));
+  sjekk("personen står bare én gang", (await tal()) === antalFor + 1);
+  sjekk("og er ikke lenger merket uten innlogging", !(await kortet()).includes("Uten innlogging"));
+  await p.close();
+}
+
 console.log("LAGER OG INNKJØP");
 {
   // Heile vegen gjennom det som skal erstatte Bravo: varekort, import,

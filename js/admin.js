@@ -1233,16 +1233,25 @@ function opnePersonskjema(person) {
                <span class="hint">La stå tom for en forhandler som ikke skal ha verktøyet.
                  Da står personen i apparatet med sin omsetning, men får ingen saker.</span>
              </div>`
-          : `<p class="notice ${vindexHarInnlogging(p) ? "notice-info" : "notice-warn"} mt-1">
-               ${
-                 vindexHarInnlogging(p)
-                   ? `<strong>Har innlogging.</strong> <code>${vindexT(p.id)}</code>`
-                   : `<strong>Har ingen innlogging.</strong> Raden ble opprettet uten uid, så
-                      ${vindexT(p.navn)} får ingen saker og kan ikke logge inn. ID-en på et
-                      dokument kan ikke endres i etterkant — opprett personen på nytt med
-                      uid-en, og arkiver denne raden.`
-               }
+          : vindexHarInnlogging(p)
+          ? `<p class="notice notice-info mt-1">
+               <strong>Har innlogging.</strong> <code>${vindexT(p.id)}</code>
              </p>`
+          : `<p class="notice notice-warn mt-1">
+               <strong>Har ingen innlogging ennå.</strong> ${vindexT(p.navn)} står i apparatet
+               med sin omsetning, men er holdt utenfor rutingen og får ingen saker.
+             </p>
+             <div class="field">
+               <label for="pf_nyuid">Firebase User UID</label>
+               <input id="pf_nyuid" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="28 tegn, f.eks. nsfTQbSWf4fbQ3tCvIdIoIKT5rM2">
+               <span class="hint">Opprett brukeren i Authentication → Users → Add user, lim
+                 inn User UID her, og trykk «Aktiver innlogging».</span>
+             </div>
+             <button class="btn btn-sm" id="pf_aktiver">Aktiver innlogging</button>
+             <p class="hint mt-1">ID-en på et dokument kan ikke endres, så raden blir flyttet:
+               opplysningene, omsetningen og eventuelle saker følger med til den nye ID-en, og
+               den gamle raden slettes. Distriktene begynner å rute med én gang.</p>`
       }
 
       <h3 class="mt-2">Distrikt</h3>
@@ -1262,6 +1271,97 @@ function opnePersonskjema(person) {
 
   $("#pfAvbryt").addEventListener("click", lukkModal);
   $("#pfLagre").addEventListener("click", () => lagrePerson(p, ny));
+  const aktiver = $("#pf_aktiver");
+  if (aktiver) aktiver.addEventListener("click", () => aktiverInnlogging(p));
+}
+
+/**
+ * Gi en rad uten innlogging den uid-en personen faktisk fikk i Firebase.
+ *
+ * Dokument-id-en ER uid-en — det er slik reglene vet hvem som eier hva — og
+ * en id kan ikke endres. Så raden blir flyttet, ikke rettet.
+ *
+ * Rekkefølgen er valgt: NY rad først, så sakene, så den gamle raden vekk.
+ * Stopper det midtveis, står personen to ganger — det er synlig, og noen kan
+ * rette det. Motsatt vei ville personen vært borte, med omsetningen sin.
+ */
+async function aktiverInnlogging(p) {
+  const feil = $("#pfFeil");
+  const vis = (t) => {
+    feil.textContent = t;
+    feil.classList.remove("hidden");
+  };
+  feil.classList.add("hidden");
+
+  const uid = ($("#pf_nyuid").value || "").trim();
+  // Reglene krever 28 tegn på seljarId. Står det noe annet her, blir raden
+  // lagret og deretter like ubrukelig som før — bare vanskeligere å se.
+  if (uid.length !== VINDEX_UID_LENGD) {
+    vis(`En Firebase-uid er ${VINDEX_UID_LENGD} tegn. Denne er ${uid.length}. Kopier User UID fra Authentication → Users.`);
+    return;
+  }
+  if (app.seljarar.some((s) => s.id === uid)) {
+    vis("Den uid-en er allerede i bruk av " + (app.seljarar.find((s) => s.id === uid) || {}).navn + ".");
+    return;
+  }
+
+  const knapp = $("#pf_aktiver");
+  knapp.disabled = true;
+  knapp.textContent = "Flytter …";
+
+  const gammal = p.id;
+  const { historikk, id, ...resten } = p;
+
+  try {
+    if (VINDEX_DEMOMODUS) {
+      p.id = uid;
+      p.harInnlogging = true;
+    } else {
+      const { fb } = await import("./verktoy-felles.js?v=d1a9cb19");
+      await fb.setDoc(fb.sellerDoc(uid), { ...resten, arkivert: false, harInnlogging: true });
+      await fb.setDoc(fb.omsetningDoc(uid), { historikk: historikk || {} });
+
+      // Saker som er flyttet hit for hånd. De kunne ikke komme fra rutingen —
+      // den holder rader uten innlogging utenfor — men hovedkontoret kan ha
+      // tildelt dem manuelt, og da ville de blitt liggende hos en eier som
+      // ikke finnes.
+      const mine = app.leads.filter((l) => l.seljarId === gammal);
+      for (const l of mine) {
+        await fb.updateDoc(fb.leadDoc(l.id), { seljarId: uid });
+        l.seljarId = uid;
+      }
+      const ordrar = app.ordrar.filter((o) => o.seljarId === gammal);
+      for (const o of ordrar) {
+        await fb.updateDoc(fb.orderDoc(o.id), { seljarId: uid });
+        o.seljarId = uid;
+      }
+
+      await fb.deleteDoc(fb.sellerDoc(gammal));
+      try {
+        await fb.deleteDoc(fb.omsetningDoc(gammal));
+      } catch (e) {
+        // Fantes kanskje aldri. Ikke noe å si fra om.
+      }
+
+      p.id = uid;
+      p.harInnlogging = true;
+      await byggRuting();
+    }
+
+    lukkModal();
+    teiknAlt();
+    melding(
+      `${p.navn} har innlogging nå. ` +
+        ((p.distrikt || []).length
+          ? `Distriktene ruter fra dette øyeblikket.`
+          : `Kryss av distrikt for å gi personen saker.`)
+    );
+  } catch (err) {
+    console.error(err);
+    knapp.disabled = false;
+    knapp.textContent = "Aktiver innlogging";
+    vis("Kunne ikke flytte raden: " + err.message + " — sjekk om personen står to ganger i listen.");
+  }
 }
 
 async function lagrePerson(p, ny) {
