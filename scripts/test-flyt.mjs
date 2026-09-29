@@ -986,17 +986,14 @@ console.log("LAGER OG INNKJØP");
     await p.evaluate(() => document.querySelector("#imp_lagre").click());
     await p.waitForTimeout(1500);
 
+    // Eit register i denne storleiken skal teiknast heilt. Grensa er ein
+    // tryggleiksventil langt over det som er realistisk, ikkje ei sidevising.
     const talNo = (await p.$$("#lagerinnhald [data-vare]")).length;
-    sjekk("lista er korta ned, ikkje kutta", talNo === 600);
+    sjekk("heile registeret blir teikna", talNo >= 620);
     const hint = await tekst("#lagerinnhald");
-    sjekk("og den seier tydeleg frå", hint.includes("kortet ned"));
-    sjekk("med talet på kor mange som finst", /Vis alle\s*\d/.test(hint));
-
-    await p.evaluate(() => document.querySelector("#visAlleVarer").click());
-    await p.waitForTimeout(600);
-    const etter = (await p.$$("#lagerinnhald [data-vare]")).length;
-    sjekk("«vis alle» viser alle", etter > 620);
-    sjekk("og då står det ingen avkortingsmelding", !(await tekst("#lagerinnhald")).includes("kortet ned"));
+    sjekk("ingen avkortingsmelding", !hint.includes("kortet ned"));
+    // Og talet i overskrifta er sanninga, uavhengig av kor mange rader som står.
+    sjekk("talet på artiklar står der", /\d+ artikler i registeret/.test(hint));
 
     // Søk skal finne ein artikkel som ligg langt nede i lista — det var
     // nettopp dei som var usynlege.

@@ -25,11 +25,17 @@ export const lagerdata = {
 
 let fane = "varer";
 let sok = "";
-// Lange lister blir korta ned for å halde teikninga rask. Grensa er høg nok
-// til at eit heilt vareregister får plass — 200 var for lågt, og då såg det ut
-// som om registeret slutta på artikkel 4557. Ei avkorta liste som ikkje seier
-// frå er ikkje ei avkorting, det er ein feil.
-const VINDEX_RADGRENSE = 600;
+// Grensa er ein tryggleiksventil, ikkje ei sidevising.
+//
+// Ho stod på 200, og rad 200 er artikkel 4557 — så det såg ut som om
+// registeret slutta der. Eg heva ho til 600, og då slutta det på 7750 i
+// staden. Feilen var ikkje talet; feilen var at det fanst eit tal i det heile
+// tatt like over det registeret faktisk er.
+//
+// Eit vareregister på 790 rader er ingenting for ein nettlesar. Grensa ligg no
+// så høgt at ho berre slår inn dersom nokon ein gong får eit register i ein
+// heilt annan storleik, og då seier ho tydeleg frå med ein knapp.
+const VINDEX_RADGRENSE = 5000;
 let visAlle = false;
 
 // ---------------------------------------------------------------------------
@@ -188,8 +194,8 @@ function teiknVarer(el) {
         <button class="btn btn-ghost btn-sm" id="importer">Importer fra regneark</button>
         <button class="btn btn-ghost btn-sm" id="kostfaktorar">Kostfaktor per gruppe</button>
       </div>
-      <p class="hint mt-1">${tal(lagerdata.varer.length)} artikler i registeret${
-        sok.trim() ? `, ${tal(treff.length)} treff på søket` : ""}.
+      <p class="hint mt-1"><strong>${tal(lagerdata.varer.length)} artikler i registeret</strong>${
+        sok.trim() ? ` · ${tal(treff.length)} treff på søket` : ""}.
         ${treff.length > vis.length
           ? `<strong>Listen er kortet ned til ${tal(vis.length)} rader.</strong>
              <button class="btn btn-ghost btn-sm" id="visAlleVarer">Vis alle ${tal(treff.length)}</button>`
