@@ -483,6 +483,19 @@ console.log("IMPORT FRÅ REKNEARK");
   const r = I(limt);
   p("to artiklar", r.varer.length, 2);
   p("sidetal og sumline hoppa over", r.hoppa.length, 2);
+  // Grunnen skal følgje med. «Hoppa over» utan grunn er ikkje ei opplysning:
+  // ein står att med to tal som ikkje går opp og ingen måte å sjå kvifor.
+  sjekk("kvar hoppa linje har ein grunn", () => r.hoppa.every((h) => !!h.grunn));
+
+  // Eit artikkelnummer utan benevning er eit hol i nummerrekkja i det gamle
+  // systemet. To slike fanst i den verkelege lista, og dei er grunnen til at
+  // registeret blei 788 og ikkje 790.
+  const hol = I(["Artikkelnr\tBenevning\tSaldo", "7221\t\t0", "7222\tEkte vare\t5"].join("\n"));
+  p("holet blir ikkje ein artikkel", hol.varer.length, 1);
+  p("men det blir teke vare på", hol.hoppa.length, 1);
+  p("og grunnen er sagt med ord", hol.hoppa[0].grunn, "artikkelnummer uten benevning — tom rad i det gamle systemet");
+  p("ikkje-artikkelnummer får si eiga grunngiving",
+    I("Artikkelnr\tBenevning\n Side 4 av 41\t\n").hoppa[0].grunn, "ikke et artikkelnummer");
   p("talet blei tal", r.varer[0].saldo, 7492);
   p("og prisen", r.varer[0].kostpris, 3.89);
 

@@ -673,8 +673,14 @@ function teiknImportfasit() {
     </div>
     ${manglar ? `<div class="notice notice-warn mt-2">Artikkelnummer og benevning må være valgt.</div>` : ""}
     <h3 class="mt-2">Slik blir det</h3>
-    <p class="hint">${tal(r.varer.length)} artikler leses inn.
-      ${r.hoppa.length ? `${r.hoppa.length} linjer hoppes over — sidetall, mellomrom og sumlinjer.` : ""}</p>
+    <p class="hint"><strong>${tal(r.varer.length)} artikler leses inn</strong>${
+      r.hoppa.length
+        ? ` · ${r.hoppa.length} linjer hoppes over · <strong>til sammen ${tal(r.varer.length + r.hoppa.length)}</strong>`
+        : ""}.
+      ${r.hoppa.length
+        ? `Regnestykket skal gå opp mot det du limte inn. Gjør det ikke det, er det noe her som
+           ikke er lest — åpne listen under for å se nøyaktig hvilke linjer det gjelder og hvorfor.`
+        : ""}</p>
     ${r.varer.length ? `<table class="tabell">
       <thead><tr><th>Artnr</th><th>Benevning</th><th>Lagervare</th><th class="hgr">Saldo</th>
         <th class="hgr">Innkjøp</th></tr></thead>
@@ -688,7 +694,9 @@ function teiknImportfasit() {
       }).join("")}</tbody></table>
       ${r.varer.length > 6 ? `<p class="hint">… og ${tal(r.varer.length - 6)} til.</p>` : ""}` : ""}
     ${r.hoppa.length ? `<details class="mt-2"><summary>Linjer som hoppes over</summary>
-      <ul class="hint">${r.hoppa.slice(0, 20).map((h) => `<li>Linje ${h.linje}: ${vindexT(h.tekst)}</li>`).join("")}</ul>
+      <ul class="hint">${r.hoppa.slice(0, 40).map((h) => `<li>Linje ${h.linje}: ${vindexT(h.tekst)}${
+        h.grunn ? ` — <em>${vindexT(h.grunn)}</em>` : ""}</li>`).join("")}${
+        r.hoppa.length > 40 ? `<li>… og ${r.hoppa.length - 40} til</li>` : ""}</ul>
       </details>` : ""}
     <p class="hint mt-2">Innkjøpstallene havner i en egen samling som bare hovedkontoret kan lese.
       Varekortet — det selgerne ser — får aldri med seg en innkjøpspris.</p>`;

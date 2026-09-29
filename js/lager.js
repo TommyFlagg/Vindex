@@ -512,8 +512,30 @@ function vindexImportrader(tekst, kolonnar) {
     const artnr = String(r.artnr || "").trim();
     // Eit artikkelnummer er tal eller tal-og-bokstav. «Side 4 av 41» er det
     // ikkje, og heller ikkje ei tom rad mellom to grupper.
-    if (!artnr || !/^[0-9A-Za-zÆØÅæøå][0-9A-Za-zÆØÅæøå\-. ]{0,19}$/.test(artnr) || !r.benevning) {
-      if (rad.join("").trim()) hoppa.push({ linje: i + (medOverskrift ? 2 : 1), tekst: rad.join(" · ").slice(0, 90) });
+    //
+    // Grunnen blir teken vare på. «Hoppa over» utan grunn er ikkje ei
+    // opplysning — då står ein att med to tal som ikkje går opp og ingen måte
+    // å sjå kvifor. Eit varenummer utan benevning er ei tom rad i det gamle
+    // systemet, eit hol i nummerrekkja, og det skal seiast med ord.
+    // Mønsteret tillét mellomrom ein gong, og då gjekk «Side 4 av 41» gjennom
+    // som eit artikkelnummer. Rada blei stoppa likevel — ho hadde inga
+    // benevning — men ho blei stoppa med feil grunn, og ei feil grunngiving er
+    // verre enn inga: den sender deg til å leite etter eit hol i Bravo som
+    // ikkje finst.
+    //
+    // Eit artikkelnummer har ikkje mellomrom i seg. 7522 og 9100L har det
+    // ikkje, og ei sidetalslinje har det alltid.
+    const gyldigNr = artnr && /^[0-9A-Za-zÆØÅæøå][0-9A-Za-zÆØÅæøå\-.]{0,19}$/.test(artnr);
+    if (!gyldigNr || !r.benevning) {
+      if (rad.join("").trim()) {
+        hoppa.push({
+          linje: i + (medOverskrift ? 2 : 1),
+          tekst: rad.join(" · ").slice(0, 90),
+          grunn: !gyldigNr
+            ? "ikke et artikkelnummer"
+            : "artikkelnummer uten benevning — tom rad i det gamle systemet",
+        });
+      }
       return;
     }
     TAL.forEach((f) => { if (r[f] !== undefined) r[f] = vindexTal(r[f]); });
