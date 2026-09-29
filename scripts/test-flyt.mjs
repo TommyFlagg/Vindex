@@ -916,9 +916,48 @@ console.log("LAGER OG INNKJØP");
   sjekk("saldoen kom med",
     utanMellomrom((await alle('tr[data-vare="9001"] td')).at(-1)) === "1250");
 
+  // Ein artikkel som alt har eit UTTAK, men inga opningstelling, skal
+  // framleis få opningsbeholdninga si. Dette skjer i praksis: ein ordre blir
+  // stadfesta før varelista er importert, og då ville artikkelen stått igjen
+  // med berre minusen — lageret for lågt akkurat på dei varene som er i bruk.
+  await p.evaluate(() => {
+    // Eit uttak som om ein ordre var stadfesta før importen.
+    const el = document.querySelector('[data-lagerfane="varer"]');
+    if (el) el.click();
+  });
+  await p.waitForTimeout(200);
+  await p.evaluate(() => {
+    window.__testUttak = true;
+  });
+  // Uttaket blir lagt inn gjennom tellingsdialogen, som fører differansen.
+  await p.evaluate(() => document.querySelector('[data-lagerfane="beholdning"]').click());
+  await p.waitForTimeout(200);
+  await p.evaluate(() => document.querySelector("#nyTelling").click());
+  await p.waitForTimeout(250);
+  await p.fill("#tf_artnr", "9500");
+  await p.fill("#tf_antall", "-40");
+  await p.evaluate(() => document.querySelector("#tf_lagre").click());
+  await p.waitForTimeout(400);
+
+  await p.evaluate(() => document.querySelector('[data-lagerfane="varer"]').click());
+  await p.waitForTimeout(200);
+  await p.evaluate(() => document.querySelector("#importer").click());
+  await p.waitForTimeout(250);
+  await p.fill("#imp_tekst", [
+    "Artikkelnr\tBenevning\tArtikkelgruppe\tEnhet\tLokasjon\tSaldo\tKostpris\tSalgspris",
+    "9500\tSolgt før import\t5\tstk\tLager 3\t100\t10,00\t25,00",
+  ].join("\n"));
+  await p.waitForTimeout(250);
+  await p.evaluate(() => document.querySelector("#imp_lagre").click());
+  await p.waitForTimeout(600);
+  // 100 inn, 40 alt ute = 60.
+  sjekk("opningsbeholdninga kjem med sjølv om artikkelen alt har eit uttak",
+    utanMellomrom((await alle('tr[data-vare="9500"] td')).at(-1)) === "60");
+
   // Same lista limt inn ein gong til. Varekorta skal oppdaterast, men
   // opningstellinga skal IKKJE førast om att — elles ville beholdninga
   // dobla seg kvar gong nokon importerte på nytt.
+  const forImport = (await p.$$("#lagerinnhald [data-vare]")).length;
   await p.evaluate(() => document.querySelector("#importer").click());
   await p.waitForTimeout(250);
   await p.fill("#imp_tekst", [
@@ -930,7 +969,7 @@ console.log("LAGER OG INNKJØP");
   await p.waitForTimeout(600);
   sjekk("import nummer to doblar ikkje beholdninga",
     utanMellomrom((await alle('tr[data-vare="9001"] td')).at(-1)) === "1250");
-  sjekk("og lagar ingen ny artikkel", (await p.$$("#lagerinnhald [data-vare]")).length === 7);
+  sjekk("og lagar ingen ny artikkel", (await p.$$("#lagerinnhald [data-vare]")).length === forImport);
 
   await p.evaluate(() => document.querySelector('[data-lagerfane="beholdning"]').click());
   await p.waitForTimeout(250);

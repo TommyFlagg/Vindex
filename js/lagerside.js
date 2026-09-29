@@ -684,17 +684,26 @@ async function kjorImport() {
   const knapp = $("#imp_lagre");
   knapp.disabled = true;
 
-  // Artiklar som alt har rørsler skal ikkje få ei ny opningstelling — elles
-  // ville ein andre import lagt heile beholdninga oppå den som låg der.
-  // Regelen står her, over begge greinene: demo og drift som gjorde dette
-  // ulikt er nøyaktig det som har sloppe feil gjennom før.
+  // Ein artikkel skal ha opningstellinga si ÉIN gong. Ein andre import skal
+  // ikkje leggje heile beholdninga oppå den som alt låg der.
+  //
+  // Men vilkåret er «har alt ei opningstelling», ikkje «har rørsler». Det stod
+  // det siste, og det er ein annan ting: blir ein ordre stadfesta før
+  // varelista er importert, får artikkelen eit uttak — og då ville importen
+  // hoppa over opningsbeholdninga hans. Artikkelen ville stått igjen med
+  // berre minusen, og lageret ville vore for lågt akkurat på dei varene som
+  // faktisk er i bruk.
   const tid = new Date().toISOString();
   const ref = "Import " + tid.slice(0, 10);
-  const harRorsler = new Set(lagerdata.poster.map((p) => String(p.artnr)));
+  const harOpning = new Set(
+    lagerdata.poster
+      .filter((pp) => pp.opning === true || /^Import /.test(String(pp.ref || "")))
+      .map((pp) => String(pp.artnr))
+  );
   const delte = r.varer.map(vindexDelImportrad).map((d) => {
-    const nyPost = d.post && !harRorsler.has(d.vare.artnr);
-    if (nyPost) harRorsler.add(d.vare.artnr);
-    return { ...d, post: nyPost ? { ...d.post, tid, ref } : null };
+    const nyPost = d.post && !harOpning.has(d.vare.artnr);
+    if (nyPost) harOpning.add(d.vare.artnr);
+    return { ...d, post: nyPost ? { ...d.post, tid, ref, opning: true } : null };
   });
 
   if (VINDEX_DEMOMODUS) {
