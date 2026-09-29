@@ -117,6 +117,7 @@ function demolager() {
 const FANER = [
   { id: "varer", navn: "Varer" },
   { id: "beholdning", navn: "Beholdning" },
+  { id: "bevegelser", navn: "Bevegelser" },
   { id: "innkjop", navn: "Innkjøpsordrer" },
 ];
 
@@ -139,6 +140,7 @@ export function teiknLagerside() {
   const inn = $("#lagerinnhald");
   if (fane === "varer") teiknVarer(inn);
   else if (fane === "beholdning") teiknBeholdning(inn);
+  else if (fane === "bevegelser") teiknBevegelser(inn);
   else teiknInnkjop(inn);
 }
 
@@ -265,6 +267,83 @@ function teiknBeholdning(el) {
       </div>
     </div>`;
   $("#nyTelling").addEventListener("click", opneTelling);
+}
+
+// -- Bevegelsar --------------------------------------------------------------
+//
+// Beholdningsfana viser kva saldoen ER. Denne viser KVIFOR. Det er to ulike
+// spørsmål, og det andre er det ein stiller når noko ser rart ut.
+//
+// Den viser òg rørsler på artiklar som ikkje står i varekortregisteret.
+// Beholdningsfana kan ikkje gjere det — ho går gjennom varene — og då ville
+// eit uttak på eit artikkelnummer vi ikkje kjenner vore usynleg. Ei rørsle som
+// ikkje finst nokon stad er verre enn ei som står feil.
+
+function teiknBevegelser(el) {
+  const t = sok.trim().toLowerCase();
+  const namn = {};
+  lagerdata.varer.forEach((v) => (namn[String(v.artnr)] = v.benevning || ""));
+
+  const alle = lagerdata.poster
+    .filter((pp) => !t || String(pp.artnr).toLowerCase().includes(t)
+      || String(namn[pp.artnr] || "").toLowerCase().includes(t)
+      || String(pp.ref || "").toLowerCase().includes(t))
+    .sort((a, b) => String(b.tid || "").localeCompare(String(a.tid || "")));
+  const vis = alle.slice(0, 300);
+
+  // Rørsler på artikkelnummer vi ikkje kjenner. Dei tel ikkje med i
+  // lagerverdien og er usynlege i beholdningsfana, så dei skal seiast frå om.
+  const ukjende = [...new Set(
+    lagerdata.poster.filter((pp) => !namn[String(pp.artnr)]).map((pp) => String(pp.artnr))
+  )];
+
+  el.innerHTML = `
+    <div class="panel">
+      <div class="knapperad">
+        <input id="lagerSok" placeholder="Søk artikkelnummer, benevning eller referanse"
+          value="${vindexT(sok)}" style="flex:1;min-width:220px">
+      </div>
+      <p class="hint mt-1">${tal(lagerdata.poster.length)} bevegelser totalt.
+        ${alle.length > vis.length ? `Viser de ${vis.length} nyeste av ${tal(alle.length)} treff.` : ""}
+        En bevegelse blir aldri endret eller slettet — en feil rettes med en ny linje.</p>
+      ${ukjende.length
+        ? `<div class="notice notice-warn mt-2"><strong>${ukjende.length}
+             ${ukjende.length === 1 ? "artikkelnummer har" : "artikkelnumre har"} bevegelser, men
+             finnes ikke i vareregisteret:</strong> ${vindexT(ukjende.slice(0, 12).join(", "))}${
+               ukjende.length > 12 ? " …" : ""}.
+             De teller ikke med i lagerverdien og vises ikke under Beholdning. Legg inn
+             varekortet, så kommer de på plass — bevegelsene står allerede.</div>`
+        : ""}
+      ${!vis.length
+        ? `<div class="notice mt-2">${lagerdata.poster.length
+             ? "Ingen treff." : "Ingen bevegelser registrert ennå."}</div>`
+        : `<table class="tabell mt-2">
+            <thead><tr><th>Når</th><th>Artnr</th><th>Benevning</th><th>Lokasjon</th>
+              <th class="hgr">Antall</th><th>Type</th><th>Referanse</th></tr></thead>
+            <tbody>${vis.map((pp) => `<tr>
+              <td>${vindexT(String(pp.tid || "").slice(0, 16).replace("T", " "))}</td>
+              <td><code>${vindexT(pp.artnr)}</code></td>
+              <td>${namn[String(pp.artnr)]
+                ? vindexT(namn[String(pp.artnr)])
+                : '<span class="hint">ukjent artikkel</span>'}</td>
+              <td>${pp.lokasjon ? vindexT(pp.lokasjon) : '<span class="hint">ikke stedfestet</span>'}</td>
+              <td class="hgr"><strong style="color:var(--${Number(pp.antall) < 0 ? "bad" : "good"})">
+                ${Number(pp.antall) > 0 ? "+" : ""}${tal(pp.antall)}</strong></td>
+              <td>${vindexT(pp.type || "")}</td>
+              <td>${vindexT(pp.ref || "")}</td>
+            </tr>`).join("")}</tbody>
+          </table>`}
+    </div>`;
+
+  const sokfelt = $("#lagerSok");
+  sokfelt.addEventListener("input", () => {
+    sok = sokfelt.value;
+    const pos = sokfelt.selectionStart;
+    teiknBevegelser(el);
+    const nytt = $("#lagerSok");
+    nytt.focus();
+    nytt.setSelectionRange(pos, pos);
+  });
 }
 
 // -- Innkjøpsordrar ----------------------------------------------------------

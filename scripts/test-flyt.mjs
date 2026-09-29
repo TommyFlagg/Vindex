@@ -979,6 +979,31 @@ console.log("LAGER OG INNKJØP");
   await p.evaluate(() => document.querySelector("#vf_avbryt").click());
   await p.waitForTimeout(200);
 
+  // Bevegelsesfana svarar på KVIFOR saldoen er som han er. Den viser òg
+  // rørsler på artiklar som ikkje står i registeret — beholdningsfana går
+  // gjennom varene, så der ville dei vore usynlege.
+  await p.evaluate(() => document.querySelector('[data-lagerfane="bevegelser"]').click());
+  await p.waitForTimeout(250);
+  const bev = await tekst("#lagerinnhald");
+  sjekk("bevegelsene blir vist", (await p.$$("#lagerinnhald tbody tr")).length > 0);
+  sjekk("uttaket på ordren står der", bev.includes("PO-68") || bev.includes("Telling"));
+  sjekk("fortegnet blir vist", bev.includes("−") || bev.includes("+"));
+
+  // Legg inn ei rørsle på eit artikkelnummer som ikkje finst i registeret.
+  await p.evaluate(() => document.querySelector('[data-lagerfane="beholdning"]').click());
+  await p.waitForTimeout(200);
+  await p.evaluate(() => document.querySelector("#nyTelling").click());
+  await p.waitForTimeout(250);
+  await p.fill("#tf_artnr", "99999");
+  await p.fill("#tf_antall", "5");
+  await p.evaluate(() => document.querySelector("#tf_lagre").click());
+  await p.waitForTimeout(400);
+  await p.evaluate(() => document.querySelector('[data-lagerfane="bevegelser"]').click());
+  await p.waitForTimeout(250);
+  sjekk("rørsle på ukjend artikkel blir varsla om",
+    (await tekst("#lagerinnhald")).includes("finnes ikke i vareregisteret"));
+  sjekk("og står i lista", (await tekst("#lagerinnhald")).includes("99999"));
+
   await p.evaluate(() => document.querySelector('[data-lagerfane="innkjop"]').click());
   await p.waitForTimeout(250);
   sjekk("innkjøpsordren står der", await finst('[data-po="68"]'));
