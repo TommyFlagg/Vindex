@@ -1085,6 +1085,41 @@ console.log("LAGER OG INNKJØP");
   sjekk("leverandørens eige varenummer står på lina",
     (await p.$eval('#pfLinjer tr[data-linje="1"] [data-f="deiraArtnr"]', (e) => e.value)) === "1515");
 
+  // Ein ordre som kom inn FØR systemet blei teke i bruk skal kunne gjerast opp
+  // utan å føre varene inn ein gong til — dei er alt talde med i
+  // opningsbeholdninga.
+  sjekk("«mottatt» kan skrivast inn direkte", await finst('#pfLinjer [data-f="motteke"]'));
+  sjekk("og det står tydeleg at det ikkje fører lager",
+    (await tekst("#modalInnhald")).includes("fører ingenting på"));
+
+  // Innkjøpsordren er den einaste staden den verkelege innkjøpsprisen står.
+  // Etter Bravo-importen står det kostprisen der, med påslaget alt inni.
+  await p.evaluate(() => document.querySelector("#pf_prisar").click());
+  await p.waitForTimeout(300);
+  const pp = await tekst("#modalInnhald");
+  sjekk("prisoverføringa viser kva som står i dag", pp.includes("Står i dag"));
+  sjekk("og kva det blir", pp.includes("25,23") || pp.includes("3,89"));
+  await p.evaluate(() => document.querySelector("#pp_ja").click());
+  await p.waitForTimeout(600);
+  await p.evaluate(() => document.querySelector('[data-lagerfane="varer"]').click());
+  await p.waitForTimeout(300);
+  await p.fill("#lagerSok", "7551");
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.querySelector('tr[data-vare="7551"]').click());
+  await p.waitForTimeout(300);
+  sjekk("innkjøpsprisen kom frå ordren",
+    (await p.$eval("#vf_innpris", (e) => e.value)) === "25.23");
+  sjekk("med valutaen frå ordren", (await p.$eval("#vf_valuta", (e) => e.value)) === "CNY");
+  sjekk("og gul rute om Bravo-tal er borte", !(await tekst("#modalInnhald")).includes("kostprisen fra Bravo"));
+  await p.evaluate(() => document.querySelector("#vf_avbryt").click());
+  await p.waitForTimeout(200);
+  await p.fill("#lagerSok", "");
+  await p.waitForTimeout(200);
+  await p.evaluate(() => document.querySelector('[data-lagerfane="innkjop"]').click());
+  await p.waitForTimeout(250);
+  await p.evaluate(() => document.querySelector('[data-po="68"]').click());
+  await p.waitForTimeout(300);
+
   await p.evaluate(() => document.querySelector("#pf_ankomst").click());
   await p.waitForTimeout(250);
   const ank = await alle("#modalInnhald tbody tr");

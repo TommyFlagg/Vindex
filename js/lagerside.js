@@ -809,7 +809,7 @@ function polinje(l, i, valuta) {
       placeholder="—" style="width:6em"></td>
     <td><input data-f="enhetspris" type="number" step="0.0001" value="${l.enhetspris || 0}" style="width:7em"></td>
     <td><input data-f="levDato" type="date" value="${l.levDato || ""}"></td>
-    <td class="hgr">${tal(l.motteke || 0)}</td>
+    <td><input data-f="motteke" type="number" value="${l.motteke || 0}" style="width:6em"></td>
     <td><button class="btn btn-ghost btn-sm" data-slett="${i}">✕</button></td>
   </tr>`;
 }
@@ -849,9 +849,15 @@ function opnePo(b) {
       <p class="hint mt-1">Bekreftet er det leverandøren sier han kan levere — ofte et annet tall
         enn det vi bestilte. Står feltet tomt, gjelder det bestilte. Hver linje har sin egen
         leveringsdato, for på en container kommer sjelden alt samtidig.</p>
+      <div class="notice notice-warn mt-1"><strong>«Mottatt» skrevet inn her fører ingenting på
+        lager.</strong> Feltet er for ordrer som kom inn før systemet ble tatt i bruk — varene er
+        allerede talt med i åpningsbeholdningen, og å registrere ankomst på dem ville lagt dem inn
+        en gang til. Kommer varene <em>nå</em>, bruk <strong>Registrer ankomst</strong>; den fører
+        bevegelsene.</div>
       <div class="notice mt-2">Ordreverdi: <strong>${tal(verdi.iValuta, 2)} ${vindexT(po.valuta)}</strong>
         · ${kroner(verdi.iKroner)}</div>
-    `, `${ny ? "" : `<button class="btn btn-ghost" id="pf_ankomst">Registrer ankomst</button>`}
+    `, `${ny ? "" : `<button class="btn btn-ghost" id="pf_prisar">Bruk prisene som innkjøpspris</button>
+        <button class="btn btn-ghost" id="pf_ankomst">Registrer ankomst</button>`}
         <button class="btn" id="pf_lagre">Lagre</button>
         <button class="btn btn-ghost" id="pf_avbryt">Avbryt</button>`);
 
@@ -868,7 +874,7 @@ function opnePo(b) {
         tr.querySelectorAll("[data-f]").forEach((i) => {
           const f = i.dataset.f;
           if (f === "bekrefta") l[f] = i.value === "" ? null : Number(i.value);
-          else if (f === "bestilt" || f === "enhetspris") l[f] = Number(i.value) || 0;
+          else if (f === "bestilt" || f === "enhetspris" || f === "motteke") l[f] = Number(i.value) || 0;
           else l[f] = i.value.trim();
         });
       });
@@ -883,7 +889,10 @@ function opnePo(b) {
     });
     $("#pf_avbryt").addEventListener("click", lukkModal);
     $("#pf_lagre").addEventListener("click", () => { les(); lagrePo(po); });
-    if (!ny) $("#pf_ankomst").addEventListener("click", () => { les(); opneAnkomst(po); });
+    if (!ny) {
+      $("#pf_ankomst").addEventListener("click", () => { les(); opneAnkomst(po); });
+      $("#pf_prisar").addEventListener("click", () => { les(); brukPoprisar(po); });
+    }
   };
   teikn();
 }
@@ -1056,5 +1065,81 @@ function opneGruppefaktorar() {
     } catch (e) {
       melding("Fikk ikke lagret: " + (e && e.message ? e.message : e), "warn");
     }
+  });
+}
+
+/**
+ * Sett einingsprisane på ordren som innkjøpspris på artiklane.
+ *
+ * Etter importen frå Bravo står innkjøpsprisen som Bravos KOSTPRIS — altså
+ * innkjøpsprisen med påslaget alt inni, i kroner, uten valuta. Det er det
+ * beste vi hadde, og varekortet seier frå om det.
+ *
+ * Innkjøpsordren er den einaste staden den verkelege prisen står: 25,23 CNY
+ * hos leverandøren, med kursen som gjaldt. Herifrå kan kjeda reknast slik ho
+ * er meint — pris, kurs, påslag, kostpris — i staden for å byrje midt i.
+ */
+async function brukPoprisar(po) {
+  const linjer = (po.linjer || []).filter((l) => l.artnr && l.enhetspris);
+  if (!linjer.length) {
+    melding("Ingen linjer med både artikkelnummer og enhetspris.", "warn");
+    return;
+  }
+  const namn = {};
+  lagerdata.varer.forEach((v) => (namn[String(v.artnr)] = v.benevning || ""));
+
+  opneModal("Bruk prisene som innkjøpspris", `
+    <p class="lead">Enhetsprisene på PO-${vindexT(po.nr)} blir innkjøpsprisen på disse artiklene,
+      med valuta ${vindexT(po.valuta)} og kurs ${tal(po.kurs, 4)}.</p>
+    <table class="tabell">
+      <thead><tr><th>Artnr</th><th>Vare</th><th class="hgr">Står i dag</th>
+        <th class="hgr">Blir</th></tr></thead>
+      <tbody>${linjer.map((l) => {
+        const no = lagerdata.innkjop[String(l.artnr)] || {};
+        return `<tr>
+          <td><code>${vindexT(l.artnr)}</code></td>
+          <td>${vindexT(namn[String(l.artnr)] || "ukjent artikkel")}</td>
+          <td class="hgr">${no.innkjopspris
+            ? `${tal(no.innkjopspris, 2)} ${vindexT(no.valuta || "NOK")}${
+                no.kjelde === "bravo" ? ' <span class="hint">(fra Bravo)</span>' : ""}`
+            : '<span class="hint">—</span>'}</td>
+          <td class="hgr"><strong>${tal(l.enhetspris, 4)} ${vindexT(po.valuta)}</strong></td>
+        </tr>`;
+      }).join("")}</tbody>
+    </table>
+    <p class="hint mt-2">Kostfaktoren blir stående som den er — den er et påslag på toppen, og
+      hører til artikkelen, ikke til ordren. Veiledende pris og beholdning røres ikke.</p>
+  `, `<button class="btn" id="pp_ja">Skriv inn på ${linjer.length} artikler</button>
+      <button class="btn btn-ghost" id="pp_nei">Avbryt</button>`);
+
+  $("#pp_nei").addEventListener("click", () => opnePo(po));
+  $("#pp_ja").addEventListener("click", async () => {
+    let inn = 0, feila = 0, sisteFeil = "";
+    for (const l of linjer) {
+      const data = {
+        artnr: String(l.artnr),
+        innkjopspris: Number(l.enhetspris) || 0,
+        valuta: po.valuta || "NOK",
+        kurs: Number(po.kurs) || 1,
+        kjelde: "innkjop",
+        kjeldeRef: "PO-" + po.nr,
+      };
+      try {
+        if (VINDEX_DEMOMODUS) {
+          lagerdata.innkjop[String(l.artnr)] = { ...(lagerdata.innkjop[String(l.artnr)] || {}), ...data };
+        } else {
+          await fb.setDoc(fb.innkjopDoc(String(l.artnr)), data, { merge: true });
+        }
+        inn++;
+      } catch (e) {
+        feila++;
+        sisteFeil = e && e.message ? e.message : String(e);
+      }
+    }
+    if (!VINDEX_DEMOMODUS) await lastLager();
+    lukkModal();
+    teiknLagerside();
+    if (feila) melding(`Skrev ${inn}. ${feila} feilet — siste feil: ${sisteFeil}`, "warn");
+    else melding(`Innkjøpsprisen er satt på ${inn} ${inn === 1 ? "artikkel" : "artikler"} fra PO-${po.nr}.`);
   });
 }
