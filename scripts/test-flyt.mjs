@@ -971,6 +971,42 @@ console.log("LAGER OG INNKJØP");
     utanMellomrom((await alle('tr[data-vare="9001"] td')).at(-1)) === "1250");
   sjekk("og lagar ingen ny artikkel", (await p.$$("#lagerinnhald [data-vare]")).length === forImport);
 
+  // Eit heilt vareregister er 790 artiklar. Lista teikna 200, og sa det så
+  // stille at det såg ut som om registeret slutta på artikkel 4557. Ei
+  // avkorta liste som ikkje seier tydeleg frå er ikkje ei avkorting.
+  {
+    const mange = ["Artikkelnr\tBenevning\tArtikkelgruppe\tEnhet\tLokasjon\tSaldo\tKostpris\tSalgspris"];
+    for (let i = 0; i < 620; i++) mange.push(`8${String(i).padStart(3, "0")}\tMassevare ${i}\t9\tstk\t\t0\t1,00\t2,00`);
+    await p.evaluate(() => document.querySelector('[data-lagerfane="varer"]').click());
+    await p.waitForTimeout(200);
+    await p.evaluate(() => document.querySelector("#importer").click());
+    await p.waitForTimeout(250);
+    await p.fill("#imp_tekst", mange.join("\n"));
+    await p.waitForTimeout(400);
+    await p.evaluate(() => document.querySelector("#imp_lagre").click());
+    await p.waitForTimeout(1500);
+
+    const talNo = (await p.$$("#lagerinnhald [data-vare]")).length;
+    sjekk("lista er korta ned, ikkje kutta", talNo === 600);
+    const hint = await tekst("#lagerinnhald");
+    sjekk("og den seier tydeleg frå", hint.includes("kortet ned"));
+    sjekk("med talet på kor mange som finst", /Vis alle\s*\d/.test(hint));
+
+    await p.evaluate(() => document.querySelector("#visAlleVarer").click());
+    await p.waitForTimeout(600);
+    const etter = (await p.$$("#lagerinnhald [data-vare]")).length;
+    sjekk("«vis alle» viser alle", etter > 620);
+    sjekk("og då står det ingen avkortingsmelding", !(await tekst("#lagerinnhald")).includes("kortet ned"));
+
+    // Søk skal finne ein artikkel som ligg langt nede i lista — det var
+    // nettopp dei som var usynlege.
+    await p.fill("#lagerSok", "8619");
+    await p.waitForTimeout(300);
+    sjekk("søk finn ein artikkel bak grensa", (await p.$$("#lagerinnhald [data-vare]")).length === 1);
+    await p.fill("#lagerSok", "");
+    await p.waitForTimeout(300);
+  }
+
   await p.evaluate(() => document.querySelector('[data-lagerfane="beholdning"]').click());
   await p.waitForTimeout(250);
   const rader = await alle("#lagerinnhald tbody tr");

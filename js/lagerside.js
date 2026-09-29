@@ -25,6 +25,12 @@ export const lagerdata = {
 
 let fane = "varer";
 let sok = "";
+// Lange lister blir korta ned for å halde teikninga rask. Grensa er høg nok
+// til at eit heilt vareregister får plass — 200 var for lågt, og då såg det ut
+// som om registeret slutta på artikkel 4557. Ei avkorta liste som ikkje seier
+// frå er ikkje ei avkorting, det er ein feil.
+const VINDEX_RADGRENSE = 600;
+let visAlle = false;
 
 // ---------------------------------------------------------------------------
 // Henting
@@ -134,7 +140,7 @@ export function teiknLagerside() {
     <div id="lagerinnhald" class="mt-2"></div>`;
 
   $$("[data-lagerfane]").forEach((k) =>
-    k.addEventListener("click", () => { fane = k.dataset.lagerfane; teiknLagerside(); })
+    k.addEventListener("click", () => { fane = k.dataset.lagerfane; visAlle = false; teiknLagerside(); })
   );
 
   const inn = $("#lagerinnhald");
@@ -172,7 +178,7 @@ function trefflista() {
 
 function teiknVarer(el) {
   const treff = trefflista();
-  const vis = treff.slice(0, 200);
+  const vis = visAlle ? treff : treff.slice(0, VINDEX_RADGRENSE);
   el.innerHTML = `
     <div class="panel">
       <div class="knapperad">
@@ -182,8 +188,12 @@ function teiknVarer(el) {
         <button class="btn btn-ghost btn-sm" id="importer">Importer fra regneark</button>
         <button class="btn btn-ghost btn-sm" id="kostfaktorar">Kostfaktor per gruppe</button>
       </div>
-      <p class="hint mt-1">${tal(lagerdata.varer.length)} artikler i registeret.
-        ${treff.length > vis.length ? `Viser de ${vis.length} første av ${tal(treff.length)} treff.` : ""}</p>
+      <p class="hint mt-1">${tal(lagerdata.varer.length)} artikler i registeret${
+        sok.trim() ? `, ${tal(treff.length)} treff på søket` : ""}.
+        ${treff.length > vis.length
+          ? `<strong>Listen er kortet ned til ${tal(vis.length)} rader.</strong>
+             <button class="btn btn-ghost btn-sm" id="visAlleVarer">Vis alle ${tal(treff.length)}</button>`
+          : ""}</p>
       ${!lagerdata.varer.length
         ? `<div class="notice mt-2">Registeret er tomt. Marker listen i Bravo, kopier,
              og trykk <strong>Importer fra regneark</strong> — det trengs ingen eksportfil.</div>`
@@ -203,6 +213,8 @@ function teiknVarer(el) {
     nytt.focus();
     nytt.setSelectionRange(p, p);
   });
+  const alleKnapp = $("#visAlleVarer");
+  if (alleKnapp) alleKnapp.addEventListener("click", () => { visAlle = true; teiknVarer(el); });
   $("#nyVare").addEventListener("click", () => opneVare(null));
   $("#importer").addEventListener("click", opneImport);
   $("#kostfaktorar").addEventListener("click", opneGruppefaktorar);
@@ -289,7 +301,7 @@ function teiknBevegelser(el) {
       || String(namn[pp.artnr] || "").toLowerCase().includes(t)
       || String(pp.ref || "").toLowerCase().includes(t))
     .sort((a, b) => String(b.tid || "").localeCompare(String(a.tid || "")));
-  const vis = alle.slice(0, 300);
+  const vis = visAlle ? alle : alle.slice(0, VINDEX_RADGRENSE);
 
   // Rørsler på artikkelnummer vi ikkje kjenner. Dei tel ikkje med i
   // lagerverdien og er usynlege i beholdningsfana, så dei skal seiast frå om.
@@ -303,8 +315,12 @@ function teiknBevegelser(el) {
         <input id="lagerSok" placeholder="Søk artikkelnummer, benevning eller referanse"
           value="${vindexT(sok)}" style="flex:1;min-width:220px">
       </div>
-      <p class="hint mt-1">${tal(lagerdata.poster.length)} bevegelser totalt.
-        ${alle.length > vis.length ? `Viser de ${vis.length} nyeste av ${tal(alle.length)} treff.` : ""}
+      <p class="hint mt-1">${tal(lagerdata.poster.length)} bevegelser totalt${
+        sok.trim() ? `, ${tal(alle.length)} treff på søket` : ""}.
+        ${alle.length > vis.length
+          ? `<strong>Listen er kortet ned til de ${tal(vis.length)} nyeste.</strong>
+             <button class="btn btn-ghost btn-sm" id="visAlleBev">Vis alle ${tal(alle.length)}</button>`
+          : ""}
         En bevegelse blir aldri endret eller slettet — en feil rettes med en ny linje.</p>
       ${ukjende.length
         ? `<div class="notice notice-warn mt-2"><strong>${ukjende.length}
@@ -334,6 +350,9 @@ function teiknBevegelser(el) {
             </tr>`).join("")}</tbody>
           </table>`}
     </div>`;
+
+  const alleBev = $("#visAlleBev");
+  if (alleBev) alleBev.addEventListener("click", () => { visAlle = true; teiknBevegelser(el); });
 
   const sokfelt = $("#lagerSok");
   sokfelt.addEventListener("input", () => {
