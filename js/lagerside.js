@@ -37,6 +37,10 @@ let sok = "";
 // heilt annan storleik, og då seier ho tydeleg frå med ein knapp.
 const VINDEX_RADGRENSE = 5000;
 let visAlle = false;
+// 364 av 790 artiklar er arbeid, frakt og montering. Dei har kostpris, men
+// ingen beholdning, og dei er ikkje det folk leitar etter når dei opnar
+// varelista. Dei er framleis eitt klikk unna.
+let berreLagervarer = true;
 
 // ---------------------------------------------------------------------------
 // Henting
@@ -176,8 +180,14 @@ function kostprisFor(artnr) {
 
 function trefflista() {
   const t = sok.trim().toLowerCase();
-  if (!t) return lagerdata.varer;
-  return lagerdata.varer.filter(
+  // Filteret gjeld lista, ikkje søket. Søkjer du på eit artikkelnummer som
+  // ikkje er lagervare, skal du finne det — elles er svaret «finst ikkje»,
+  // og det er feil svar.
+  const grunnlag = berreLagervarer && !t
+    ? lagerdata.varer.filter((v) => v.lagervare !== false)
+    : lagerdata.varer;
+  if (!t) return grunnlag;
+  return grunnlag.filter(
     (v) => String(v.artnr).toLowerCase().includes(t) || String(v.benevning || "").toLowerCase().includes(t)
   );
 }
@@ -195,8 +205,12 @@ function teiknVarer(el) {
         <button class="btn btn-ghost btn-sm" id="kostfaktorar">Kostfaktor per gruppe</button>
         <button class="btn btn-ghost btn-sm" id="importerStruktur">Importer strukturer</button>
       </div>
+      <label class="hakelinje mt-1"><input type="checkbox" id="berreLager"
+        ${berreLagervarer ? "checked" : ""}> Vis kun lagervarer
+        <span class="hint">— arbeid, frakt og montering er skjult. Søk finner dem uansett.</span></label>
       <p class="hint mt-1"><strong>${tal(lagerdata.varer.length)} artikler i registeret</strong>${
-        sok.trim() ? ` · ${tal(treff.length)} treff på søket` : ""}.
+        sok.trim() ? ` · ${tal(treff.length)} treff på søket`
+          : berreLagervarer ? ` · ${tal(treff.length)} er lagervarer` : ""}.
         ${treff.length > vis.length
           ? `<strong>Listen er kortet ned til ${tal(vis.length)} rader.</strong>
              <button class="btn btn-ghost btn-sm" id="visAlleVarer">Vis alle ${tal(treff.length)}</button>`
@@ -219,6 +233,10 @@ function teiknVarer(el) {
     const nytt = $("#lagerSok");
     nytt.focus();
     nytt.setSelectionRange(p, p);
+  });
+  $("#berreLager").addEventListener("change", (e) => {
+    berreLagervarer = e.target.checked;
+    teiknVarer(el);
   });
   const alleKnapp = $("#visAlleVarer");
   if (alleKnapp) alleKnapp.addEventListener("click", () => { visAlle = true; teiknVarer(el); });

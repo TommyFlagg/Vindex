@@ -872,6 +872,24 @@ console.log("LAGER OG INNKJØP");
   // 7492 inn, 120 ut. Saldoen er summen av rørslene, ikkje eit lagra tal.
   sjekk("saldoen er summen av rørslene",
     utanMellomrom((await alle('tr[data-vare="7522"] td')).at(-1)) === "7372");
+  // Filteret «vis kun lagervarer» er på frå start. Arbeid og frakt er skjult,
+  // men søket skal framleis finne dei — elles er svaret «finst ikkje», og det
+  // er feil svar.
+  sjekk("filteret er på frå start", await p.$eval("#berreLager", (e) => e.checked));
+  sjekk("arbeidskost er skjult av filteret", (await p.$$('tr[data-vare="3030"]')).length === 0);
+  sjekk("men lagervarene står der", (await p.$$('tr[data-vare="7522"]')).length === 1);
+  await p.fill("#lagerSok", "3030");
+  await p.waitForTimeout(300);
+  sjekk("søket finn den likevel", (await p.$$('tr[data-vare="3030"]')).length === 1);
+  await p.fill("#lagerSok", "");
+  await p.waitForTimeout(250);
+  await p.evaluate(() => {
+    const h = document.querySelector("#berreLager");
+    h.checked = false;
+    h.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await p.waitForTimeout(250);
+  sjekk("hakar du den av, kjem alt fram", (await p.$$('tr[data-vare="3030"]')).length === 1);
   sjekk("arbeidskost har ingen saldo", (await alle('tr[data-vare="3030"] td')).at(-1) === "");
 
   // Kostprisen i lista blir rekna av det som faktisk ligg lagra. Feltet heitte
