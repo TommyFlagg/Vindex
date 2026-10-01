@@ -169,6 +169,11 @@ const lagerpostCol = () => collection(db, "lagerpost");
 const bestillingCol = () => collection(db, "bestilling");
 const bestillingDoc = (nr) => dok("bestilling", String(nr));
 
+// Kunderegisteret. Kundenummeret er dokument-id: éi nummerrekkje for alle,
+// uansett om kunden kom frå regnskapet eller blei oppretta her.
+const kundarCol = () => collection(db, "kundar");
+const kundeDoc = (nr) => dok("kundar", String(nr));
+
 export {
   db,
   auth,
@@ -194,6 +199,8 @@ export {
   lagerpostCol,
   bestillingCol,
   bestillingDoc,
+  kundarCol,
+  kundeDoc,
   doc,
   getDoc,
   setDoc,

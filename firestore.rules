@@ -377,5 +377,22 @@ service cloud.firestore {
     match /bestilling/{ponr} {
       allow read, write: if erAdmin();
     }
+
+    // -- Kunderegisteret ------------------------------------------------------
+    //
+    // Hovudkontoret åleine. Ikkje seljarane, og det er ei avgjerd som blei
+    // teken med vilje:
+    //
+    // Elleve av dei som loggar inn er eksterne forhandlarar — sjølvstendige
+    // firma. I dag ser kvar av dei berre sine eigne saker. Eit søkbart
+    // kunderegister ville late dei bla gjennom heile kundemassen til Vindex:
+    // kven som har kjøpt kva, i kvarandre sine distrikt. Det er både eit
+    // personvernspørsmål og eit forretningsspørsmål.
+    //
+    // Seljaren mistar ingenting på dette. Kundeopplysningane han treng ligg
+    // på hans eigne saker, slik dei alltid har gjort.
+    match /kundar/{kundenr} {
+      allow read, write: if erAdmin();
+    }
   }
 }

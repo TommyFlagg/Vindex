@@ -6,7 +6,7 @@ const les = (f) => fs.readFileSync(R + "/" + f, "utf8").replace(/^export /gm, ""
 const filer = ["js/datafyll.js","js/modellar.js","js/provisjon.js","js/team.js","js/apparattal.js",
   "js/terrasse.js","js/sprosser.js","js/oppfolging.js","js/distrikt.js","js/fylke.js",
   "js/kalender.js","js/kampanje.js","js/anmeldingar.js","js/nokkeltal.js","js/apparat.js",
-  "js/modellfigur.js","js/produkter.js","js/ordre.js","js/kontrollpanel.js","js/lager.js","js/personimport.js"];
+  "js/modellfigur.js","js/produkter.js","js/ordre.js","js/kontrollpanel.js","js/lager.js","js/personimport.js","js/kunde.js"];
 const kjelde = filer.map(les).join("\n;\n") + `
 ;vindexSettPrisbok(${fs.readFileSync(R + "/data/prisbok.json","utf8")});
 vindexSettProvisjon(${fs.readFileSync(R + "/data/provisjon.json","utf8")});
@@ -745,6 +745,79 @@ console.log("STRUKTURVARER FRÅ UTSKRIFTA");
 
   // Overskriftsrader er ikkje komponentar.
   sjekk("overskrifter blir ikkje delar", () => r.hoppa.length === 0);
+}
+
+console.log("KUNDEREGISTERET");
+{
+  const A = G("vindexDelAdresse");
+  // Regnskapseksporten gir adressa som éin streng. Postnummeret må stå for
+  // seg: det er det som avgjer distrikt, og det leveringa blir sortert på.
+  p("adresse med komma", A("Eksempelvegen 12, 6823 Sandane"),
+    { adresse: "Eksempelvegen 12", postnr: "6823", poststed: "Sandane" });
+  p("og utan komma", A("Prøvegata 5 6905 Florø"),
+    { adresse: "Prøvegata 5", postnr: "6905", poststed: "Florø" });
+  p("poststad med fleire ord", A("Testvegen 7, 6413 Molde sentrum").poststed, "Molde sentrum");
+  // Står det ikkje noko postnummer, skal adressa stå som ho er — ikkje
+  // gjettast på.
+  p("utan postnummer", A("Postboks 12"), { adresse: "Postboks 12", postnr: "", poststed: "" });
+  p("tomt", A(""), { adresse: "", postnr: "", poststed: "" });
+
+  const K = G("vindexKunderader");
+  // Nøyaktig formatet frå testlista — ei tabell med rør, slik ein får det når
+  // ein kopierer frå ein e-post eller eit notat.
+  const limt = [
+    "| Kundenummer | Navn | Adresse | Telefon | E-post |",
+    "|---:|---|---|---|---|",
+    "| 10001 | Testkunde Alfa AS | Eksempelvegen 12, 6823 Sandane | 900 10 001 | alfa@example.com |",
+    "| 10002 | Testkunde Bravo AS | Prøvevegen 4, 6800 Førde | 900 10 002 | bravo@example.com |",
+    "| 10003 | Testkunde Charlie AS | Demogata 18, 6002 Ålesund | 900 10 003 | charlie@example.com |",
+  ].join("\n");
+  const r = K(limt);
+  p("tre kundar", r.kundar.length, 3);
+  p("skiljelina er ikkje ein kunde", r.hoppa.length, 0);
+  p("kolonnane blei tolka", r.kolonnar, ["kundenr", "navn", "adresse", "telefon", "epost"]);
+  p("nummeret", r.kundar[0].kundenr, "10001");
+  p("namnet", r.kundar[0].navn, "Testkunde Alfa AS");
+  p("adressa blei delt", r.kundar[0].adresse, "Eksempelvegen 12");
+  p("postnummeret står for seg", r.kundar[0].postnr, "6823");
+  p("og poststaden", r.kundar[0].poststed, "Sandane");
+  p("kjelda er regnskapet", r.kundar[0].kjelde, "regnskap");
+
+  // «Postnummer» skal ikkje bli tolka som «nummer».
+  p("lengste treff vinn",
+    G("vindexTolkKundekolonnar")(["Kundenummer", "Navn", "Postnummer"]),
+    ["kundenr", "navn", "postnr"]);
+  // Står postnummeret i si eiga kolonne, er det den som gjeld — den er
+  // skriven av nokon, ikkje tolka ut av ein streng.
+  const eigen = K(["Kundenr;Navn;Adresse;Postnr;Poststed",
+                   "7;Døme AS;Vegen 1, 9999 Feil;6823;Sandane"].join("\n"));
+  p("eiga postnummerkolonne vinn", eigen.kundar[0].postnr, "6823");
+  p("og eigen poststad", eigen.kundar[0].poststed, "Sandane");
+
+  // Same kunde to gonger ville blitt skriven over utan at nokon såg det.
+  const dobbel = K(["Kundenummer\tNavn", "10001\tAlfa AS", "10001\tAlfa AS igjen"].join("\n"));
+  p("dubletten blir lagd til side", dobbel.kundar.length, 1);
+  p("med grunn", dobbel.hoppa[0].grunn, "finnes allerede i det du limte inn");
+  // Ei rad utan namn er ikkje ein kunde.
+  p("rad utan namn", K(["Kundenummer\tNavn", "10002\t"].join("\n")).hoppa[0].grunn, "ingen navn");
+
+  const N = G("vindexNesteKundenr");
+  p("tel vidare frå det høgaste", N([{ kundenr: "10001" }, { kundenr: "10030" }]), "10031");
+  p("tomt register byrjar på 10000", N([]), "10000");
+  // Éi rekkje for alle, uansett kvar kunden kom frå.
+  p("same rekkje for begge kjelder",
+    N([{ kundenr: "10030", kjelde: "regnskap" }, { kundenr: "10031", kjelde: "system" }]), "10032");
+
+  const S = G("vindexSokKundar");
+  const liste = r.kundar;
+  p("søk på namn", S(liste, "bravo").length, 1);
+  p("søk på poststad", S(liste, "ålesund").length, 1);
+  p("søk på kundenummer", S(liste, "10002").length, 1);
+  // «900 10 001» og «90010001» er same nummeret.
+  p("telefon utan mellomrom", S(liste, "90010001").length, 1);
+  p("og med", S(liste, "900 10 001").length, 1);
+  p("tomt søk gir alle", S(liste, "").length, 3);
+  p("ingen treff", S(liste, "finst ikkje").length, 0);
 }
 
 console.log("OPPFØLGING OG FRIST");

@@ -855,6 +855,80 @@ console.log("AKTIVER INNLOGGING")
   await p.close();
 }
 
+console.log("KUNDEREGISTER");
+{
+  const p = await side("/admin.html", "admin");
+  const tekst = (v) => p.$eval(v, (e) => e.textContent.trim());
+  const rader = () => p.$$("#kundar [data-kunde]");
+
+  sjekk("seksjonen er teikna", await p.$("#kundeSok") !== null);
+  sjekk("snarvegen finst", await p.$('#snarvegar [data-hopp="seksjonKundar"]') !== null);
+  const for_ = (await rader()).length;
+  sjekk("demokundane står der", for_ === 3);
+  sjekk("neste ledige nummer blir vist", (await tekst("#kundar")).includes("10004"));
+
+  // Søket skal finne på namn, nummer, poststad og telefon — og telefon skal
+  // samanliknast på siffer, så «900 10 001» og «90010001» er same nummeret.
+  await p.fill("#kundeSok", "førde");
+  await p.waitForTimeout(300);
+  sjekk("søk på poststad", (await rader()).length === 1);
+  await p.fill("#kundeSok", "900 10 001");
+  await p.waitForTimeout(300);
+  sjekk("søk på telefon med mellomrom", (await rader()).length === 1);
+  await p.fill("#kundeSok", "");
+  await p.waitForTimeout(250);
+
+  // Importen tek imot ei tabell med rør — det er det ein får når ein kopierer
+  // frå ein e-post eller eit notat.
+  await p.evaluate(() => document.querySelector("#importerKundar").click());
+  await p.waitForTimeout(300);
+  sjekk("knappen er sperra før noko er limt inn", await p.$eval("#ki_lagre", (e) => e.disabled));
+  await p.fill("#ki_tekst", [
+    "| Kundenummer | Navn | Adresse | Telefon | E-post |",
+    "|---:|---|---|---|---|",
+    "| 10050 | Døme Kilo AS | Demovegen 27, 6100 Volda | 900 10 011 | kilo@example.com |",
+    "| 10051 | Døme Lima AS | Testvegen 16, 6065 Ulsteinvik | 900 10 012 | lima@example.com |",
+  ].join("\n"));
+  await p.waitForTimeout(350);
+  const f = (await tekst("#ki_fasit")).replace(/\s+/g, " ");
+  sjekk("to nye", f.includes("2 nye"));
+  sjekk("rekneskapen går opp", f.includes("til sammen 2"));
+  sjekk("adressa blei delt", f.includes("Demovegen 27"));
+  sjekk("og postnummeret står for seg", f.includes("6100 Volda"));
+  sjekk("kolonna blei tolka", (await p.$eval("#ki_k0", (e) => e.value)) === "kundenr");
+  await p.evaluate(() => document.querySelector("#ki_lagre").click());
+  await p.waitForTimeout(600);
+  sjekk("to kundar lagt til", (await rader()).length === for_ + 2);
+
+  // Kundekortet viser sakene og ordrane som høyrer til kunden.
+  await p.evaluate(() => document.querySelector('[data-kunde="10050"]').click());
+  await p.waitForTimeout(300);
+  sjekk("kundekortet opnar", (await p.$eval("#kf_navn", (e) => e.value)) === "Døme Kilo AS");
+  sjekk("kundenummeret er låst", await p.$eval("#kf_nr", (e) => e.disabled));
+  sjekk("postnummeret kom med", (await p.$eval("#kf_postnr", (e) => e.value)) === "6100");
+  await p.evaluate(() => document.querySelector("#kf_avbryt").click());
+  await p.waitForTimeout(200);
+
+  // Ny kunde får neste ledige nummer i same rekkja.
+  await p.evaluate(() => document.querySelector("#nyKunde").click());
+  await p.waitForTimeout(300);
+  sjekk("ny kunde får neste nummer i rekkja",
+    (await p.$eval("#kf_nr", (e) => e.value)) === "10052");
+  await p.evaluate(() => document.querySelector("#kf_avbryt").click());
+  await p.waitForTimeout(200);
+  await p.close();
+}
+
+{
+  // Registeret skal ikkje finnast i seljarverktøyet i det heile. Elleve av dei
+  // som loggar inn er sjølvstendige firma.
+  const p = await side("/selger.html", "selger");
+  sjekk("ingen kunderegister i seljarverktøyet", await p.$("#kundar") === null);
+  const kjelder = await p.evaluate(() => [...document.scripts].map((s) => s.src).join(" "));
+  sjekk("seljarsida lastar ikkje kunderegisteret", !kjelder.includes("kunderegister.js"));
+  await p.close();
+}
+
 console.log("LAGER OG INNKJØP");
 {
   // Heile vegen gjennom det som skal erstatte Bravo: varekort, import,
