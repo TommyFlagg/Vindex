@@ -193,6 +193,7 @@ function teiknVarer(el) {
         <button class="btn btn-sm" id="nyVare">Ny artikkel</button>
         <button class="btn btn-ghost btn-sm" id="importer">Importer fra regneark</button>
         <button class="btn btn-ghost btn-sm" id="kostfaktorar">Kostfaktor per gruppe</button>
+        <button class="btn btn-ghost btn-sm" id="importerStruktur">Importer strukturer</button>
       </div>
       <p class="hint mt-1"><strong>${tal(lagerdata.varer.length)} artikler i registeret</strong>${
         sok.trim() ? ` · ${tal(treff.length)} treff på søket` : ""}.
@@ -224,6 +225,7 @@ function teiknVarer(el) {
   $("#nyVare").addEventListener("click", () => opneVare(null));
   $("#importer").addEventListener("click", opneImport);
   $("#kostfaktorar").addEventListener("click", opneGruppefaktorar);
+  $("#importerStruktur").addEventListener("click", opneStrukturimport);
   $$("#lagerinnhald [data-vare]").forEach((r) =>
     r.addEventListener("click", () => opneVare(r.dataset.vare))
   );
@@ -464,9 +466,8 @@ function opneVare(artnr) {
     </div>
     <div id="vf_kostpris" class="notice mt-2"></div>
     <p class="hint" id="vf_arv"></p>
-    ${ny ? "" : `<p class="hint mt-2">Beholdning nå: <strong>${tal(saldo)}</strong> ${vindexT(v.enhet || "")}.
-      ${v.bestarAv && v.bestarAv.length
-        ? `Strukturvare av ${v.bestarAv.length} deler — kostprisen regnes av delene.` : ""}</p>`}
+    ${ny ? "" : `<p class="hint mt-2">Beholdning nå: <strong>${tal(saldo)}</strong> ${vindexT(v.enhet || "")}.</p>`}
+    ${ny || !(v.bestarAv && v.bestarAv.length) ? "" : strukturvising(v)}
   `, `<button class="btn" id="vf_lagre">Lagre</button>
       <button class="btn btn-ghost" id="vf_avbryt">Avbryt</button>`);
 
@@ -1142,4 +1143,152 @@ async function brukPoprisar(po) {
     if (feila) melding(`Skrev ${inn}. ${feila} feilet — siste feil: ${sisteFeil}`, "warn");
     else melding(`Innkjøpsprisen er satt på ${inn} ${inn === 1 ? "artikkel" : "artikler"} fra PO-${po.nr}.`);
   });
+}
+
+// ---------------------------------------------------------------------------
+// Strukturvarer
+// ---------------------------------------------------------------------------
+
+/** Stykklista på varekortet, med det delene koster NÅ. */
+function strukturvising(v) {
+  const kart = {};
+  lagerdata.varer.forEach((x) => (kart[String(x.artnr)] = { ...x, kostpris: kostprisFor(x.artnr) }));
+  const rekna = vindexStrukturKostpris(String(v.artnr), kart, (a) => kostprisFor(a));
+  const namn = (a) => (kart[String(a)] || {}).benevning || "";
+
+  return `
+    <h3 class="mt-2">Består av</h3>
+    <table class="tabell">
+      <thead><tr><th>Artnr</th><th>Vare</th><th class="hgr">Antall</th>
+        <th class="hgr">Kostpris nå</th><th class="hgr">Sum</th></tr></thead>
+      <tbody>${(rekna.delar || []).map((d) => `<tr>
+        <td><code>${vindexT(d.artnr)}</code></td>
+        <td>${namn(d.artnr) ? vindexT(namn(d.artnr)) : '<span class="hint">ikke i registeret</span>'}</td>
+        <td class="hgr">${tal(d.antall, d.antall % 1 ? 2 : 0)}</td>
+        <td class="hgr">${d.kostpris ? kroner(d.kostpris) : '<span class="hint">—</span>'}</td>
+        <td class="hgr">${kroner(d.sum)}</td>
+      </tr>`).join("")}</tbody>
+    </table>
+    <div class="notice mt-1">Delene koster <strong>${kroner(rekna.kostpris)}</strong> til sammen i dag.
+      ${rekna.ring ? "<strong>Advarsel: strukturen inneholder seg selv.</strong>" : ""}</div>
+    <p class="hint">Kostprisen på en strukturvare lagres ikke — den regnes av delene hver gang. Et
+      frosset tall her ville sagt at en ferdigvare koster det samme i fjor som i år.</p>`;
+}
+
+let strukturtekst = "";
+
+function opneStrukturimport() {
+  opneModal("Importer strukturer", `
+    <p class="lead">Lim inn strukturutskriften fra Bravo. Flere strukturer i samme innliming er
+      greit — overskriften <code>Strukturnr: 3149, Robotklipperhus</code> starter en ny.</p>
+    <div class="field"><label for="st_tekst">Limt inn</label>
+      <textarea id="st_tekst" style="min-height:130px;font-family:monospace;font-size:12px"
+        placeholder="Strukturnr: 3149, Robotklipperhus&#10;  3030  Arbeidskost  180.0000  8.3000  1494.0000">${vindexT(strukturtekst)}</textarea></div>
+    <div id="st_fasit"></div>
+  `, `<button class="btn" id="st_lagre" disabled>Legg inn</button>
+      <button class="btn btn-ghost" id="st_avbryt">Avbryt</button>`);
+
+  $("#st_avbryt").addEventListener("click", () => { strukturtekst = ""; lukkModal(); });
+  $("#st_tekst").addEventListener("input", () => {
+    strukturtekst = $("#st_tekst").value;
+    teiknStrukturfasit();
+  });
+  $("#st_lagre").addEventListener("click", kjorStrukturimport);
+  if (strukturtekst) teiknStrukturfasit();
+}
+
+let strukturfasit = null;
+
+function teiknStrukturfasit() {
+  const boks = $("#st_fasit");
+  if (!boks) return;
+  if (!strukturtekst.trim()) { boks.innerHTML = ""; $("#st_lagre").disabled = true; return; }
+
+  const r = vindexStrukturrader(strukturtekst);
+  strukturfasit = r;
+  const finst = (a) => lagerdata.varer.some((v) => String(v.artnr) === String(a));
+  const ukjende = new Set();
+  r.strukturar.forEach((st) => {
+    if (!finst(st.artnr)) ukjende.add(st.artnr);
+    st.delar.forEach((d) => { if (!finst(d.artnr)) ukjende.add(d.artnr); });
+  });
+  const avvik = r.strukturar.filter((st) => st.stemmer === false);
+
+  boks.innerHTML = `
+    <p class="hint mt-2"><strong>${tal(r.strukturar.length)}
+      ${r.strukturar.length === 1 ? "struktur" : "strukturer"} leses inn</strong>${
+      r.hoppa.length ? ` · ${r.hoppa.length} linjer hoppes over` : ""}.</p>
+    ${avvik.length
+      ? `<div class="notice notice-warn mt-1"><strong>${avvik.length}
+           ${avvik.length === 1 ? "struktur går" : "strukturer går"} ikke opp</strong> mot totalen
+           som står i utskriften. Enten er noe lest feil, eller så er kostprisene endret siden
+           utskriften ble laget. Se hvilke under — stykklisten legges inn uansett, for antallene
+           er det som betyr noe; kostprisen regner vi selv av delene.</div>`
+      : `<div class="notice notice-good mt-1">Alle strukturene går opp mot totalen i utskriften.</div>`}
+    ${ukjende.size
+      ? `<div class="notice notice-warn mt-1"><strong>${ukjende.size} artikkelnumre finnes ikke i
+           registeret:</strong> ${vindexT([...ukjende].slice(0, 15).join(", "))}${
+             ukjende.size > 15 ? " …" : ""}. Stykklisten lagres likevel, men de delene teller ikke
+           med i kostprisen før varekortet er på plass.</div>`
+      : ""}
+    ${r.strukturar.map((st) => `
+      <h3 class="mt-2">${vindexT(st.artnr)} · ${vindexT(st.benevning)}
+        ${finst(st.artnr) ? "" : '<span class="tag tag-bad">ikke i registeret</span>'}</h3>
+      <table class="tabell">
+        <thead><tr><th>Artnr</th><th>Vare</th><th class="hgr">Antall</th>
+          <th class="hgr">Kostpris</th><th class="hgr">Sum</th><th></th></tr></thead>
+        <tbody>${st.delar.map((d) => `<tr>
+          <td><code>${vindexT(d.artnr)}</code></td>
+          <td>${vindexT(d.benevning)}</td>
+          <td class="hgr">${tal(d.antall, d.antall % 1 ? 4 : 0)}</td>
+          <td class="hgr">${d.kostpris == null ? "" : tal(d.kostpris, 4)}</td>
+          <td class="hgr">${d.sum == null ? "" : tal(d.sum, 4)}</td>
+          <td>${d.stemmer === false ? '<span class="tag tag-bad">går ikke opp</span>' : ""}</td>
+        </tr>`).join("")}</tbody>
+      </table>
+      <p class="hint">Summen av linjene: <strong>${tal(st.rekna, 4)}</strong>${
+        st.oppgitt == null ? "" : ` · står i utskriften: <strong>${tal(st.oppgitt, 4)}</strong>`}
+        ${st.stemmer === false ? ' <span class="tag tag-bad">avvik</span>'
+          : st.stemmer === true ? ' <span class="tag tag-good">stemmer</span>' : ""}</p>
+    `).join("")}`;
+
+  $("#st_lagre").disabled = !r.strukturar.length;
+  $("#st_lagre").textContent = `Legg inn ${r.strukturar.length} ${
+    r.strukturar.length === 1 ? "struktur" : "strukturer"}`;
+}
+
+async function kjorStrukturimport() {
+  const r = strukturfasit;
+  if (!r || !r.strukturar.length) return;
+  const knapp = $("#st_lagre");
+  knapp.disabled = true;
+
+  let inn = 0, feila = 0, sisteFeil = "";
+  for (const st of r.strukturar) {
+    const vare = vindexStrukturTilVare(st);
+    try {
+      if (VINDEX_DEMOMODUS) {
+        const j = lagerdata.varer.findIndex((v) => String(v.artnr) === vare.artnr);
+        if (j >= 0) lagerdata.varer[j] = { ...lagerdata.varer[j], bestarAv: vare.bestarAv };
+        else lagerdata.varer.push({ artnr: vare.artnr, benevning: st.benevning, bestarAv: vare.bestarAv, lagervare: true });
+      } else {
+        // merge: varekortet finst frå før med benevning, gruppe og enhet. Vi
+        // legg berre stykklista på det — resten skal stå som det står.
+        await fb.setDoc(fb.vareDoc(vare.artnr), { bestarAv: vare.bestarAv }, { merge: true });
+      }
+      inn++;
+      knapp.textContent = `Legger inn … ${inn} av ${r.strukturar.length}`;
+    } catch (e) {
+      feila++;
+      sisteFeil = e && e.message ? e.message : String(e);
+    }
+  }
+
+  if (!VINDEX_DEMOMODUS) await lastLager();
+  strukturtekst = "";
+  strukturfasit = null;
+  lukkModal();
+  teiknLagerside();
+  if (feila) melding(`La inn ${inn}. ${feila} feilet — siste feil: ${sisteFeil}`, "warn");
+  else melding(`La inn stykklisten på ${inn} ${inn === 1 ? "struktur" : "strukturer"}.`);
 }

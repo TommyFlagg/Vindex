@@ -1004,6 +1004,47 @@ console.log("LAGER OG INNKJØP");
     await p.waitForTimeout(300);
   }
 
+  // Strukturvarer: stykklista kjem frå ei eiga utskrift, og ho kontrollerer
+  // seg sjølv — antall x kostpris = sum, og summen av linene = totalen.
+  {
+    await p.evaluate(() => document.querySelector('[data-lagerfane="varer"]').click());
+    await p.waitForTimeout(200);
+    await p.evaluate(() => document.querySelector("#importerStruktur").click());
+    await p.waitForTimeout(250);
+    sjekk("knappen er sperra før noko er limt inn", await p.$eval("#st_lagre", (e) => e.disabled));
+    await p.fill("#st_tekst", [
+      "Strukturnr: 3010, Terrasseplank pr M2",
+      "\t3310\tTerrassegulv 143x40 UPVC pr m\t6.5500\t50.0400\t327.7620",
+      "Total Kostpris av Struktur artikkel 3010:\t327,7620",
+    ].join("\n"));
+    await p.waitForTimeout(300);
+    // Teksten er brote over fleire linjer i malen, så samanlikninga må tole det.
+    const f = (await tekst("#st_fasit")).replace(/\s+/g, " ");
+    sjekk("strukturen blir lesen", f.includes("1 struktur leses inn"));
+    sjekk("og går opp mot totalen", f.includes("går opp mot totalen"));
+    sjekk("antalet er 6,55 per m²", f.includes("6,55"));
+    await p.evaluate(() => document.querySelector("#st_lagre").click());
+    await p.waitForTimeout(600);
+
+    // Varekortet skal no vise stykklista, og kva delene kostar NO.
+    await p.fill("#lagerSok", "3010");
+    await p.waitForTimeout(300);
+    sjekk("vara er merkt som struktur",
+      (await tekst('tr[data-vare="3010"] .merke')) === "struktur");
+    await p.evaluate(() => document.querySelector('tr[data-vare="3010"]').click());
+    await p.waitForTimeout(300);
+    const kort = await tekst("#modalInnhald");
+    sjekk("stykklista står på varekortet", kort.includes("Består av"));
+    sjekk("med delen i", kort.includes("3310"));
+    // 6,55 x 50,04 = 327,76
+    sjekk("og kva delene kostar no", kort.includes("327,76"));
+    sjekk("det står at kostprisen ikkje blir lagra", kort.includes("lagres ikke"));
+    await p.evaluate(() => document.querySelector("#vf_avbryt").click());
+    await p.waitForTimeout(200);
+    await p.fill("#lagerSok", "");
+    await p.waitForTimeout(250);
+  }
+
   await p.evaluate(() => document.querySelector('[data-lagerfane="beholdning"]').click());
   await p.waitForTimeout(250);
   const rader = await alle("#lagerinnhald tbody tr");

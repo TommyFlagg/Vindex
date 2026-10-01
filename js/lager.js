@@ -662,3 +662,153 @@ function vindexOrdrerorsler(linjer, alt = {}, varer = {}, val = {}) {
 
   return { rorsler, trekt: onskt };
 }
+
+// ===========================================================================
+// STRUKTURVARER — STYKKLISTA
+// ---------------------------------------------------------------------------
+// Lagerverdi-rapporten har ingen stykklistekolonne, så importen av varelista
+// fekk aldri vite kva ein samansett vare består av. Strukturutskrifta har det,
+// og ho har same eigenskapen som lagerlista: ho kontrollerer seg sjølv.
+//
+//     antall x kostpris = sum          på kvar komponentline
+//     summen av linjene = totalen      som står nedst i strukturen
+//
+// Begge blir rekna, og begge blir viste. Ei stykkliste som er lesen feil gir
+// feil kostpris på ei ferdigvare, og det er eit tal nokon prisar etter.
+// ===========================================================================
+
+/**
+ * Tal frå strukturutskrifta.
+ *
+ * Her er formatet blanda med vilje: komponentane står med punktum som desimal
+ * («43.4497»), medan totalen står med komma («2154,1737»). Begge finst i same
+ * dokument, så regelen må vere eintydig: det SISTE skiljeteiknet er desimalen,
+ * og mellomrom er tusenskilje.
+ *
+ * Eg brukte ikkje vindexTal her. Den gjettar at eit punktum følgt av tre
+ * siffer er eit tusenskilje — rett for «1.234», gale for «43.449».
+ */
+function vindexStrukturtal(verdi) {
+  if (typeof verdi === "number") return verdi;
+  const raa = String(verdi == null ? "" : verdi).replace(/[\s ]/g, "");
+  if (!raa) return null;
+  const sisteKomma = raa.lastIndexOf(",");
+  const sistePunkt = raa.lastIndexOf(".");
+  let reint;
+  if (sisteKomma > sistePunkt) {
+    reint = raa.replace(/\./g, "").replace(",", ".");
+  } else if (sistePunkt > -1) {
+    reint = raa.replace(/,/g, "");
+  } else {
+    reint = raa;
+  }
+  const t = parseFloat(reint);
+  return Number.isFinite(t) ? t : null;
+}
+
+const VINDEX_STRUKTUR_HOVUD = /^\s*Strukturnr\s*:?\s*([0-9A-Za-zÆØÅæøå\-.]+)\s*,?\s*(.*)$/i;
+const VINDEX_STRUKTUR_TOTAL = /^\s*Total\s+Kostpris.*?:?\s*([\d\s.,]+)\s*$/i;
+
+/**
+ * Les strukturutskrifta.
+ *
+ * Komponentlinene blir lesne BAKFRÅ: dei tre siste orda er antall, kostpris og
+ * sum, det første er artikkelnummeret, og alt imellom er benevninga. Det er
+ * den einaste måten som held når benevninga inneheld mellomrom — og det gjer
+ * ho alltid («A27 U Profil 26x24 for panel»).
+ */
+function vindexStrukturrader(tekst) {
+  const linjer = String(tekst || "").replace(/\r\n?/g, "\n").split("\n");
+  const strukturar = [];
+  const hoppa = [];
+  let no_ = null;
+
+  const lukk = () => {
+    if (!no_) return;
+    no_.rekna = Math.round(no_.delar.reduce((s, d) => s + (d.sum || 0), 0) * 10000) / 10000;
+    strukturar.push(no_);
+    no_ = null;
+  };
+
+  linjer.forEach((raa, i) => {
+    const linje = raa.replace(/ /g, " ");
+    if (!linje.trim()) return;
+
+    const hovud = linje.match(VINDEX_STRUKTUR_HOVUD);
+    if (hovud) {
+      lukk();
+      no_ = { artnr: hovud[1].trim(), benevning: (hovud[2] || "").trim(), delar: [], oppgitt: null };
+      return;
+    }
+
+    const total = linje.match(VINDEX_STRUKTUR_TOTAL);
+    if (total && no_) {
+      no_.oppgitt = vindexStrukturtal(total[1]);
+      lukk();
+      return;
+    }
+
+    if (!no_) return;
+
+    const bitar = linje.trim().split(/\s+/);
+    // Minst artikkelnummer, eitt ord benevning og eit antal.
+    if (bitar.length < 3 || !/^[0-9]/.test(bitar[0])) {
+      if (!/^(Artnr|Består|Benevning)/i.test(linje.trim())) {
+        hoppa.push({ linje: i + 1, tekst: linje.trim().slice(0, 80) });
+      }
+      return;
+    }
+
+    // Bakfrå: sum, kostpris, antall — så mange av dei som faktisk er tal.
+    const tal = [];
+    let j = bitar.length - 1;
+    while (j > 0 && tal.length < 3 && /^[\d.,]+$/.test(bitar[j])) {
+      tal.unshift(vindexStrukturtal(bitar[j]));
+      j--;
+    }
+    if (!tal.length) {
+      hoppa.push({ linje: i + 1, tekst: linje.trim().slice(0, 80) });
+      return;
+    }
+
+    const [antall, kostpris, sum] =
+      tal.length >= 3 ? tal : tal.length === 2 ? [tal[0], tal[1], null] : [tal[0], null, null];
+
+    no_.delar.push({
+      artnr: bitar[0],
+      benevning: bitar.slice(1, j + 1).join(" "),
+      antall,
+      kostpris,
+      // Står ikkje summen der, reknar vi han — men berre når vi har begge ledda.
+      sum: sum != null ? sum : kostpris != null ? Math.round(antall * kostpris * 10000) / 10000 : null,
+      // Går lina opp? Ei line som ikkje gjer det er lesen feil, eller så er
+      // kostprisen endra sidan utskrifta blei laga.
+      stemmer: sum == null || kostpris == null
+        ? null
+        : Math.abs(antall * kostpris - sum) <= Math.max(0.005, Math.abs(sum) * 0.0005),
+    });
+  });
+
+  lukk();
+
+  strukturar.forEach((st) => {
+    st.stemmer = st.oppgitt == null
+      ? null
+      : Math.abs(st.rekna - st.oppgitt) <= Math.max(0.01, Math.abs(st.oppgitt) * 0.0005);
+  });
+
+  return { strukturar, hoppa };
+}
+
+/** Det som skal lagrast på varekortet. Berre artnr og antal — kostprisen blir rekna. */
+function vindexStrukturTilVare(struktur) {
+  return {
+    artnr: struktur.artnr,
+    // Kostprisen blir ikkje lagra. Den er summen av delane, og delane har sine
+    // eigne innkjøpsprisar som endrar seg. Eit frose tal her ville sagt at ei
+    // ferdigvare kostar det same i fjor som i år.
+    bestarAv: struktur.delar
+      .filter((d) => d.artnr && d.antall)
+      .map((d) => ({ artnr: String(d.artnr), antall: d.antall })),
+  };
+}

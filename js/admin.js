@@ -14,7 +14,7 @@ import {
   datoTekst, lagreLead, melding, opneModal, lukkModal, visDatavarsel, demoAnmeldingar,
 } from "./verktoy-felles.js?v=d1a9cb19";
 import { lastPrisdata, VINDEX_PRISDATA_DOKUMENT } from "./datalast.js?v=8d397edf";
-import { lastLager, teiknLagerside } from "./lagerside.js?v=7b5cf389";
+import { lastLager, teiknLagerside } from "./lagerside.js?v=5ce7dff3";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visPanel(), { berreAdmin: true });

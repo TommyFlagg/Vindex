@@ -670,6 +670,83 @@ console.log("LES INN PERSONAR FRÅ EIT REKNEARK");
   p("selskapet blir ikkje ein person", rot.personar.length, 0);
 }
 
+console.log("STRUKTURVARER FRÅ UTSKRIFTA");
+{
+  const T = G("vindexStrukturtal");
+  // I same dokument står komponentane med punktum og totalen med komma.
+  // Difor: det SISTE skiljeteiknet er desimalen.
+  p("punktum som desimal", T("43.4497"), 43.4497);
+  p("komma som desimal", T("2154,1737"), 2154.1737);
+  p("mellomrom er tusenskilje", T("1 494.0000"), 1494);
+  p("begge delar", T("1.494,50"), 1494.5);
+  p("heiltal", T("180.0000"), 180);
+  p("tomt", T(""), null);
+  // vindexTal ville gjort 43.449 til 43449 — den gjettar at punktum framfor
+  // tre siffer er eit tusenskilje. Her er det ein desimal.
+  p("tre desimalar blir ikkje tusen", T("43.449"), 43.449);
+
+  const S = G("vindexStrukturrader");
+  // Nøyaktig formatet frå Bravo-utskrifta.
+  const utskrift = [
+    "Strukturnr: 3149, Robotklipperhus",
+    "\tBestår av:",
+    "\tArtnr:\t\tBenevning:\t\t\tAntall:\t\tKostpris:\tSum kostpris:",
+    "",
+    "\t3030 \t\tArbeidskost Pris per minutt \t180.0000\t8.3000\t\t1494.0000",
+    "\t7518\t\tA08 Profil 101,6x101,6 \t\t3.2000 \t\t43.4497 \t139.0390",
+    "\t7525 \t\tA27 U Profil 26x24 for panel \t10.0000 \t2.8731 \t\t28.7310",
+    "\t7543 \t\tPop nagle White Alum \t\t38.0000 \t0.0900 \t\t3.4200",
+    "",
+    "Total Kostpris av Struktur artikkel 3149, Robotklipperhus:\t\t\t\t2154,1737",
+  ].join("\n");
+  const r = S(utskrift);
+  p("éin struktur", r.strukturar.length, 1);
+  const st = r.strukturar[0];
+  p("nummeret", st.artnr, "3149");
+  p("namnet", st.benevning, "Robotklipperhus");
+  p("fire komponentar", st.delar.length, 4);
+
+  // Benevninga inneheld mellomrom, så lina må lesast BAKFRÅ.
+  p("arbeidslinja", st.delar[0].antall, 180);
+  p("med kostpris", st.delar[0].kostpris, 8.3);
+  p("og benevning med mellomrom i", st.delar[2].benevning, "A27 U Profil 26x24 for panel");
+  p("desimalantal", st.delar[1].antall, 3.2);
+
+  // Kvar line kontrollerer seg sjølv.
+  sjekk("alle linene går opp", () => st.delar.every((d) => d.stemmer === true));
+  // 1494 + 139.039 + 28.731 + 3.42
+  p("rekna sum", st.rekna, 1665.19);
+  p("og totalen som står der", st.oppgitt, 2154.1737);
+  // Dei fire linene er berre eit utdrag, så totalen skal IKKJE stemme her.
+  // Det er nettopp det som skal synast når nokon limer inn ein halv struktur.
+  p("og då seier den frå", st.stemmer, false);
+
+  const V = G("vindexStrukturTilVare");
+  const vare = V(st);
+  p("varekortet får artikkelnummeret", vare.artnr, "3149");
+  p("og fire delar", vare.bestarAv.length, 4);
+  p("med artnr og antal", vare.bestarAv[0], { artnr: "3030", antall: 180 });
+  // Kostprisen blir ikkje lagra: den er summen av delane, og delane endrar seg.
+  sjekk("ingen frosen kostpris på varekortet", () => !("kostpris" in vare) && !("sum" in vare));
+
+  // Fleire strukturar i same innliming.
+  const to = S([
+    "Strukturnr: 3010, Terrasseplank pr M2",
+    "3310 Terrassegulv 143x40 UPVC pr m 6.5500 50.0400 327.7620",
+    "Total Kostpris av Struktur artikkel 3010:  327,7620",
+    "Strukturnr: 9046, Std Levegg Tett 1,8 Ende",
+    "7502 Stolpe levegg 1.0000 100.0000 100.0000",
+    "Total Kostpris av Struktur artikkel 9046:  100,0000",
+  ].join("\n"));
+  p("to strukturar", to.strukturar.length, 2);
+  p("den første stemmer", to.strukturar[0].stemmer, true);
+  p("terrasseplanken er 6,55 per m²", to.strukturar[0].delar[0].antall, 6.55);
+  p("og den andre òg", to.strukturar[1].stemmer, true);
+
+  // Overskriftsrader er ikkje komponentar.
+  sjekk("overskrifter blir ikkje delar", () => r.hoppa.length === 0);
+}
+
 console.log("OPPFØLGING OG FRIST");
 {
   const naa = Date.parse("2026-09-22T12:00:00Z");
