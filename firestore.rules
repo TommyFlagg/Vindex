@@ -49,6 +49,21 @@ service cloud.firestore {
       return rolle() == 'lager';
     }
 
+    // Ordrekontoret. Dei som sit på kontoret og driv ordrane gjennom: tek imot
+    // det seljaren har stadfesta, stiller spørsmål tilbake når noko er uklart,
+    // sender vidare til plukk eller produksjon, og melder klar.
+    //
+    // Dei er hovudkontor i alt som gjeld kundar og ordrar, men ikkje i det som
+    // gjeld pengar: innkjøpsprisar, provisjon og omsetning er framleis admin
+    // åleine. Ei rolle skal ha det ho treng for arbeidet sitt, ikkje alt.
+    function erOrdrekontor() {
+      return rolle() == 'ordre';
+    }
+
+    function erKontor() {
+      return erAdmin() || erOrdrekontor();
+    }
+
     // -- Leads ---------------------------------------------------------------
     // Validering av det bestillingsskjemaet sender inn. Vi held oss til felta
     // skjemaet faktisk bruker, slik at ingen kan dytte inn eigne felt eller
@@ -149,11 +164,11 @@ service cloud.firestore {
       allow create: if gyldigNyttLead(request.resource.data)
                     || (erSeljar() && !erLager());
       allow read: if erSeljar()
-                  && (resource.data.seljarId == request.auth.uid || erAdmin());
+                  && (resource.data.seljarId == request.auth.uid || erKontor());
       // Felt som blir sette undervegs i salsløpet: sisteKontakt, fristBrote,
       // arkivert, arkiv, bistand, tilbud (med linjer og fastpris).
       allow update: if erSeljar()
-                    && (resource.data.seljarId == request.auth.uid || erAdmin())
+                    && (resource.data.seljarId == request.auth.uid || erKontor())
                     && berreAdminSvararBistand();
       allow delete: if erAdmin();
     }
@@ -162,9 +177,16 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow create: if erSeljar() && !erLager();
       allow read: if erSeljar()
-                  && (resource.data.seljarId == request.auth.uid || erAdmin() || erLager());
+                  && (resource.data.seljarId == request.auth.uid || erKontor() || erLager());
       // Lageret kvitterer ut plukk, men skal ikkje kunne endre mål eller pris.
+      //
+      // Ordrekontoret driv løpet: status, spørsmålet tilbake til seljaren, og
+      // kva lageret har kvittert ut. Ikkje mål, ikkje prisar — det er seljaren
+      // sitt, og ei endring der skal gå gjennom han.
       allow update: if (erSeljar() && (resource.data.seljarId == request.auth.uid || erAdmin()))
+                    || (erOrdrekontor()
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['status', 'sporsmaal', 'logg', 'plukka', 'klarTid']))
                     || (erLager()
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
       allow delete: if erAdmin();
@@ -392,7 +414,7 @@ service cloud.firestore {
     // Seljaren mistar ingenting på dette. Kundeopplysningane han treng ligg
     // på hans eigne saker, slik dei alltid har gjort.
     match /kundar/{kundenr} {
-      allow read, write: if erAdmin();
+      allow read, write: if erKontor();
     }
   }
 }

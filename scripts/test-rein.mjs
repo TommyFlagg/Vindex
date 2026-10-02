@@ -820,6 +820,44 @@ console.log("KUNDEREGISTERET");
   p("ingen treff", S(liste, "finst ikkje").length, 0);
 }
 
+console.log("STATUSLØPET PÅ EIN ORDRE");
+{
+  const N = G("vindexOrdrestatusNavn");
+  const S = G("vindexNesteOrdresteg");
+  const H = G("vindexHentarSjolv");
+
+  // «Klar» har to namn og éin tilstand. Kva ordren ventar på står på ordren,
+  // og to tilstandar kunne kome til å seie kvar sitt.
+  p("klar for henting", N("klar", { felt: { levering: "Kunden henter selv" } }), "Klar for henting");
+  p("klar for sending", N("klar", { felt: { levering: "Leveres til kunde" } }), "Klar for sending");
+  // Utan ordren finn vi ikkje på kva kunden har avtalt.
+  p("utan ordre står det berre klar", N("klar"), "Klar");
+  p("andre statusar er uendra", N("til_plukk"), "Til plukk på lager");
+  p("ukjend status blir seg sjølv", N("tull"), "tull");
+  p("hentar sjølv", H({ felt: { leveringsmate: "Henting på lager" } }), true);
+  p("og ikkje", H({ felt: { levering: "Sendes" } }), false);
+  p("tomt er sending", H({}), false);
+
+  // Løpet: bekrefta -> plukk eller produksjon -> klar -> levert.
+  const reint = { status: "bekreftet", felt: {}, skjemaId: "ingen" };
+  p("ein ordre utan spesial går til plukk", S(reint), "til_plukk");
+  p("frå plukk til klar", S({ ...reint, status: "til_plukk" }), "klar");
+  p("frå produksjon til klar", S({ ...reint, status: "i_produksjon" }), "klar");
+  p("frå klar til levert", S({ ...reint, status: "klar" }), "levert");
+  p("levert er enden", S({ ...reint, status: "levert" }), null);
+
+  // Ein ordre med spørsmål på seg står i ro. Neste steg er å få svar, ikkje
+  // å sende den vidare.
+  p("spørsmål parkerer ordren", S({ ...reint, status: "sporsmaal" }), null);
+  sjekk("og er merkt som stopp", () =>
+    G("VINDEX_ORDRESTATUSAR").find((x) => x.id === "sporsmaal").stopp === true);
+
+  const steg = G("vindexOrdresteg")({ status: "til_plukk", felt: { levering: "henting" } });
+  p("stega veit kvar vi er", steg.find((x) => x.id === "til_plukk").naa, true);
+  p("og kva som er neste", steg.find((x) => x.id === "klar").neste, true);
+  p("og klar heiter henting her", steg.find((x) => x.id === "klar").navn, "Klar for henting");
+}
+
 console.log("OPPFØLGING OG FRIST");
 {
   const naa = Date.parse("2026-09-22T12:00:00Z");

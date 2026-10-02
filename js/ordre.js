@@ -1005,15 +1005,81 @@ function sprossetekst(rad) {
   return delar.join(", ");
 }
 
+// ---------------------------------------------------------------------------
+// Statusen til ein ordre
+// ---------------------------------------------------------------------------
+// Rekkjefølgja her er løpet ordren går gjennom, og den blir brukt til å finne
+// kva som er neste steg.
+//
+// «Spørsmål til ordren» er ikkje eit steg framover — den parkerer ordren til
+// seljaren svarar. Difor står den for seg, med `stopp: true`.
+//
+// «Klar» har to namn og éin tilstand. Kva ordren faktisk ventar på — henting
+// eller sending — står allereie på ordren, og to tilstandar kunne kome til å
+// seie kvar sitt. Éin tilstand kan ikkje motseie seg sjølv.
 const VINDEX_ORDRESTATUSAR = [
-  { id: "bekreftet", navn: "Bekreftet av selger" },
-  { id: "til_plukk", navn: "Til plukk på lager" },
-  { id: "i_produksjon", navn: "I produksjon" },
-  { id: "klar", navn: "Klar for levering" },
-  { id: "levert", navn: "Levert" },
+  { id: "bekreftet", navn: "Bekreftet av selger", steg: 1 },
+  { id: "sporsmaal", navn: "Spørsmål til ordren", steg: 1, stopp: true },
+  { id: "til_plukk", navn: "Til plukk på lager", steg: 2, hos: "lager" },
+  { id: "i_produksjon", navn: "I produksjon", steg: 2, hos: "produksjon" },
+  { id: "klar", navn: "Klar", steg: 3 },
+  { id: "levert", navn: "Levert", steg: 4 },
 ];
-const vindexOrdrestatusNavn = (id) =>
-  (VINDEX_ORDRESTATUSAR.find((s) => s.id === id) || { navn: id }).navn;
+
+/** Hentar kunden sjølv? Står på ordren, og avgjer kva «klar» heiter. */
+function vindexHentarSjolv(ordre) {
+  const felt = (ordre || {}).felt || {};
+  const svar = String(felt.levering || felt.leveringsmate || felt.leveringsmaate || "").toLowerCase();
+  return /hent/.test(svar);
+}
+
+/**
+ * Namnet på statusen.
+ *
+ * Med ordren i handa blir «Klar» til «Klar for henting» eller «Klar for
+ * sending». Utan ordren står det berre «Klar» — vi finn ikkje på kva kunden
+ * har avtalt.
+ */
+function vindexOrdrestatusNavn(id, ordre) {
+  const s = VINDEX_ORDRESTATUSAR.find((x) => x.id === id);
+  if (!s) return id;
+  if (s.id === "klar" && ordre) {
+    return vindexHentarSjolv(ordre) ? "Klar for henting" : "Klar for sending";
+  }
+  return s.navn;
+}
+
+/**
+ * Kva som er neste steg for denne ordren.
+ *
+ * Ein ordre med spørsmål på seg står i ro — neste steg er å få svar, ikkje å
+ * sende den vidare. Elles følgjer vi stega, og vel mellom plukk og produksjon
+ * ut frå om noko skal lagast etter mål.
+ */
+function vindexNesteOrdresteg(ordre) {
+  const no_ = (ordre || {}).status || "bekreftet";
+  if (no_ === "sporsmaal") return null;
+  if (no_ === "levert") return null;
+  if (no_ === "bekreftet") {
+    const { harSpesial } = typeof vindexPlukkliste === "function"
+      ? vindexPlukkliste(ordre || {})
+      : { harSpesial: false };
+    return harSpesial ? "i_produksjon" : "til_plukk";
+  }
+  if (no_ === "til_plukk" || no_ === "i_produksjon") return "klar";
+  if (no_ === "klar") return "levert";
+  return null;
+}
+
+/** Statusane ein på ordrekontoret kan setje, i den rekkjefølgja dei står. */
+function vindexOrdresteg(ordre) {
+  return VINDEX_ORDRESTATUSAR.map((s) => ({
+    ...s,
+    navn: vindexOrdrestatusNavn(s.id, ordre),
+    naa: ((ordre || {}).status || "bekreftet") === s.id,
+    neste: vindexNesteOrdresteg(ordre) === s.id,
+  }));
+}
 
 // ---------------------------------------------------------------------------
 // Tilbakemelding når eit lead blir avslutta

@@ -855,6 +855,99 @@ console.log("AKTIVER INNLOGGING")
   await p.close();
 }
 
+console.log("ORDREKONTORET");
+{
+  const p = await side("/ordre.html", "ordre");
+  const tekst = (v) => p.$eval(v, (e) => e.textContent.replace(/\s+/g, " ").trim());
+  const kort = () => p.$$("#ordrelop [data-ordre]");
+
+  sjekk("ein på ordrekontoret kjem inn", (await tekst("#brukarMerke")).includes("ordrekontor"));
+  sjekk("løpet har fem bolkar", (await p.$$("#ordrelop section")).length === 5);
+  sjekk("det ligg ordrar der", (await kort()).length > 0);
+  sjekk("kunderegisteret er med", (await p.$$("#kundar [data-kunde]")).length === 3);
+
+  // Opne eit ordrekort og send det vidare i løpet.
+  const forste = await p.$eval("#ordrelop [data-ordre]", (e) => e.dataset.ordre);
+  await p.evaluate((id) => document.querySelector(`[data-ordre="${id}"]`).click(), forste);
+  await p.waitForTimeout(300);
+  sjekk("ordrekortet opnar", (await tekst("#modalInnhald")).includes("Bekreftet"));
+  sjekk("stega er knappar", (await p.$$("[data-sett]")).length >= 4);
+  // «Klar» skal heite det ordren faktisk ventar på.
+  const stegtekst = await p.$$eval("[data-sett]", (b) => b.map((x) => x.textContent.trim()).join(" | "));
+  sjekk("klar heiter sending eller henting",
+    /Klar for (sending|henting)/.test(stegtekst));
+
+  // Spørsmål til ordren parkerer den.
+  await p.evaluate(() => document.querySelector("#ok_spm").click());
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.querySelector("#sp_send").click());
+  await p.waitForTimeout(250);
+  sjekk("tomt spørsmål blir avvist",
+    !(await p.$eval("#sp_feil", (e) => e.classList.contains("hidden"))));
+  await p.fill("#sp_tekst", "Kunden oppgav 1000 mm, men porten er bestilt i 1120. Hva gjelder?");
+  await p.evaluate(() => document.querySelector("#sp_send").click());
+  await p.waitForTimeout(500);
+  sjekk("ordren står no og ventar på svar",
+    (await tekst("#ordrelop")).includes("Venter på svar"));
+  const ventar = await p.$$eval("#ordrelop section", (seks) => {
+    const s = [...seks].find((x) => /Venter på svar/.test(x.textContent));
+    return s ? s.querySelectorAll("[data-ordre]").length : 0;
+  });
+  sjekk("og ligg i den bolken", ventar === 1);
+
+  // Avklar, og den går tilbake i løpet.
+  await p.evaluate((id) => document.querySelector(`[data-ordre="${id}"]`).click(), forste);
+  await p.waitForTimeout(300);
+  sjekk("spørsmålet står på kortet", (await tekst("#modalInnhald")).includes("1120"));
+  sjekk("og det er ikkje noko neste steg", (await tekst("#modalInnhald")).includes("står i ro"));
+  await p.evaluate(() => document.querySelector("#ok_lukkSpm").click());
+  await p.waitForTimeout(500);
+  const ventarNo = await p.$$eval("#ordrelop section", (seks) => {
+    const s = [...seks].find((x) => /Venter på svar/.test(x.textContent));
+    return s ? s.querySelectorAll("[data-ordre]").length : 0;
+  });
+  sjekk("avklart — bolken er tom igjen", ventarNo === 0);
+
+  // +Salg: kunde frå registeret, vare frå prislista, bekreft.
+  const forSal = (await kort()).length;
+  await p.evaluate(() => document.querySelector("#nyttSalg").click());
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.querySelector("#sa_bekreft").click());
+  await p.waitForTimeout(250);
+  sjekk("salg utan kunde blir stoppa", (await tekst("#sa_feil")).includes("Velg en kunde"));
+  await p.fill("#sa_sok", "Alfa");
+  await p.waitForTimeout(300);
+  sjekk("kunden blir funnen", (await p.$$("#sa_treff [data-velg]")).length === 1);
+  await p.evaluate(() => document.querySelector("#sa_treff [data-velg]").click());
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.querySelector("#sa_bekreft").click());
+  await p.waitForTimeout(250);
+  sjekk("salg utan varer blir stoppa", (await tekst("#sa_feil")).includes("minst én vare"));
+
+  await p.fill("#sa_vare", "7448");
+  await p.waitForTimeout(350);
+  sjekk("vara blir funnen i prislista", (await p.$$("#sa_varetreff [data-legg]")).length >= 1);
+  await p.evaluate(() => document.querySelector("#sa_varetreff [data-legg]").click());
+  await p.waitForTimeout(300);
+  sjekk("linja kom inn", (await p.$$("#modalInnhald [data-sl]")).length >= 1);
+  sjekk("summen blir rekna", /\d+\s?kr/.test(await tekst("#modalInnhald")));
+
+  await p.evaluate(() => document.querySelector("#sa_bekreft").click());
+  await p.waitForTimeout(900);
+  sjekk("ordren blei oppretta", (await kort()).length === forSal + 1);
+  sjekk("og den ligg til plukk", (await tekst("#ordrelop")).includes("Alfa"));
+  await p.close();
+}
+
+{
+  // Ein seljar skal ikkje kome inn på ordrekontoret.
+  const p = await b.newPage({ viewport: { width: 1400, height: 1100 } });
+  await p.goto(B + "/ordre.html", { waitUntil: "networkidle" });
+  sjekk("innlogginga seier kva sida er",
+    (await p.$eval("#login", (e) => e.textContent)).includes("Ordrekontor"));
+  await p.close();
+}
+
 console.log("KUNDEREGISTER");
 {
   const p = await side("/admin.html", "admin");

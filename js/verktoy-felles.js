@@ -72,10 +72,15 @@ export const teikn = (...a) => teiknFn(...a);
 
 // Kva som skal skje når brukaren er innlogga og data er henta. Sett av sida.
 let etterInnlogging = () => {};
-let krevAdmin = false;
-export function settOppstart(fn, { berreAdmin = false } = {}) {
+// Kva roller sida slepp inn. Tom liste = alle som er seljarar.
+//
+// Dette var ein ja/nei-brytar for admin. Med ordrekontoret finst det ei tredje
+// side med si eiga rolle, og då held ikkje eit ja/nei — ei side slepp inn dei
+// rollene ho er laga for, og det kan vere fleire enn éi.
+let tillatneRoller = [];
+export function settOppstart(fn, { berreAdmin = false, roller = null } = {}) {
   etterInnlogging = fn;
-  krevAdmin = berreAdmin;
+  tillatneRoller = roller || (berreAdmin ? ["admin"] : []);
 }
 
 // ---------------------------------------------------------------------------
@@ -133,12 +138,14 @@ $("#loginSkjema").addEventListener("submit", async (e) => {
       // Administratorsida har berre éi rolle. Salsverktøyet let deg velje ved
       // å skrive «admin» eller «lager» i e-postfeltet.
       startDemo(
-        krevAdmin
-          ? "admin"
+        tillatneRoller.length
+          ? tillatneRoller[0]
           : epost.includes("admin")
           ? "admin"
           : epost.includes("lager")
           ? "lager"
+          : epost.includes("ordre")
+          ? "ordre"
           : "selger"
       );
     } else {
@@ -189,9 +196,10 @@ if (!VINDEX_DEMOMODUS && fb) {
       return;
     }
     app.brukar = { uid: bruker.uid, epost: bruker.email, ...snap.data() };
-    if (krevAdmin && app.brukar.rolle !== "admin") {
-      $("#loginFeil").textContent =
-        "Denne siden krever administratortilgang. Bruk salgsverktøyet i stedet.";
+    if (tillatneRoller.length && !tillatneRoller.includes(app.brukar.rolle)) {
+      $("#loginFeil").textContent = tillatneRoller.includes("ordre")
+        ? "Denne siden er for ordrekontoret. Bruk salgsverktøyet i stedet."
+        : "Denne siden krever administratortilgang. Bruk salgsverktøyet i stedet.";
       $("#loginFeil").classList.remove("hidden");
       await fb.signOut(fb.auth);
       return;
