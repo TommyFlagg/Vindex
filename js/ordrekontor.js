@@ -14,8 +14,9 @@
 import {
   $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
   datoTekst, melding, opneModal, lukkModal,
-} from "./verktoy-felles.js?v=3107729f";
-import { lastKundar, teiknKundar, kundedata } from "./kunderegister.js?v=e59ebf0e";
+} from "./verktoy-felles.js?v=873914d0";
+import { lastKundar, teiknKundar, kundedata } from "./kunderegister.js?v=e2218b2b";
+import { lastVarsel, teiknVarselboks, varseldata } from "./varselboks.js?v=e6ec6df9";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visPanel(), { roller: ["ordre", "admin"] });
@@ -33,6 +34,10 @@ let ordresok = "";
 
 async function visPanel() {
   await lastKundar();
+  await lastVarsel();
+  // Boksen blir teikna frå fleire stader — frå svardialogen, frå ein ny
+  // beskjed — og den treng ein veg tilbake hit utan å kjenne sida.
+  window.__teiknVarsel = () => teiknVarselboks("varselboks", { kanSende: true });
   $("#login").classList.add("hidden");
   $("#verktoy").classList.remove("hidden");
   $("#brukarMerke").textContent = app.brukar.navn + " · ordrekontor";
@@ -61,6 +66,7 @@ function teiknAlt() {
   if (!app.brukar) return;
   teiknOrdrelop();
   teiknKundar();
+  teiknVarselboks("varselboks", { kanSende: true });
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +237,10 @@ async function settStatus(o, status) {
   }
 }
 
+function naa() {
+  return new Date().toISOString();
+}
+
 function leggILogg(o, tekst) {
   return [
     ...(o.logg || []),
@@ -289,9 +299,31 @@ function opneSporsmaal(o) {
         sporsmaal,
         logg: leggILogg(o, `Spørsmål sendt til ${o.seljarNavn || "selgeren"}: ${tekst}`),
       });
+      // Spørsmålet blir òg eit varsel. Det er varselet som maser 07.00 og
+      // 14.30 til nokon svarar — eit felt på ordren gjer ingenting av seg
+      // sjølv, og nokon må bli minna på at ordren står.
+      const varsel = {
+        slag: "sporsmaal",
+        til: o.seljarId || "alle",
+        tittel: `Spørsmål til ordre ${o.id}`,
+        tekst: `${(o.kunde || {}).navn || "Kunde"}: ${tekst}`,
+        ordreId: o.id,
+        status: "ope",
+        opprettaAv: app.brukar.uid,
+        opprettaNavn: app.brukar.navn || app.brukar.epost,
+        opprettet: naa(),
+      };
+      let vid = "demo-v" + Date.now();
+      if (!VINDEX_DEMOMODUS) {
+        const ref = await fb.addDoc(fb.varselCol(), varsel);
+        vid = ref.id;
+      }
+      varseldata.varsel.unshift({ id: vid, ...varsel });
+      await lagreOrdre(o, { sporsmaal: { ...sporsmaal, varselId: vid } });
+
       lukkModal();
-      teiknOrdrelop();
-      melding("Spørsmålet er sendt. Ordren står i ro til det er avklart.");
+      teiknAlt();
+      melding("Spørsmålet er sendt. Ordren står i ro, og selgeren purres 07.00 og 14.30.");
     } catch (e) {
       $("#sp_feil").textContent = "Fikk ikke sendt: " + (e && e.message ? e.message : e);
       $("#sp_feil").classList.remove("hidden");
@@ -307,8 +339,24 @@ async function avklarSporsmaal(o) {
       sporsmaal: spm,
       logg: leggILogg(o, "Spørsmålet er avklart. Ordren går videre."),
     });
+    // Varselet må lukkast med, elles held purringa fram på eit spørsmål
+    // ingen lenger ventar på.
+    if (spm.varselId) {
+      const v = varseldata.varsel.find((x) => x.id === spm.varselId);
+      const endring = {
+        status: "avklart",
+        svar: "Avklart på ordrekontoret.",
+        svarAv: app.brukar.navn || app.brukar.epost,
+        svarTid: naa(),
+      };
+      if (!VINDEX_DEMOMODUS) {
+        try { await fb.updateDoc(fb.varselDoc(spm.varselId), endring); }
+        catch (e) { console.warn("Fikk ikke lukket varselet.", e); }
+      }
+      if (v) Object.assign(v, endring);
+    }
     lukkModal();
-    teiknOrdrelop();
+    teiknAlt();
     melding("Avklart. Ordren er tilbake i løpet.");
   } catch (e) {
     melding("Fikk ikke avklart: " + (e && e.message ? e.message : e), "warn");

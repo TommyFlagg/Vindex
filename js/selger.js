@@ -19,7 +19,8 @@ import {
   lastData, startDemo, tid, datoTekst, nesteAvtale,
   lagreLead, melding, opneModal, lukkModal, skrivUtDialog, demoLagreOrdre, demoNullstill,
   lagreKladd, hentKladd, slettKladd, kladdlagrar, sidanTekst,
-} from "./verktoy-felles.js?v=3107729f";
+} from "./verktoy-felles.js?v=873914d0";
+import { lastVarsel, teiknVarselboks } from "./varselboks.js?v=e6ec6df9";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visVerktoy());
@@ -71,7 +72,11 @@ function panelKontekst() {
   };
 }
 
-function visVerktoy() {
+async function visVerktoy() {
+  await lastVarsel();
+  // Svardialogen og ein ny beskjed må kunne teikne boksen på nytt utan å
+  // kjenne sida dei står på.
+  window.__teiknVarsel = () => teiknVarselboks("varselboks");
   $("#login").classList.add("hidden");
   $("#verktoy").classList.remove("hidden");
   $("#brukarMerke").textContent =
@@ -147,6 +152,9 @@ async function merkBrotneFristar() {
 
 function teiknAlt() {
   const dash = !erLager();
+  // Seljaren les og svarar, men kringkastar ikkje. Ein beskjed til heile
+  // selskapet er hovudkontoret og ordrekontoret sitt.
+  teiknVarselboks("varselboks");
   if (dash) {
     const liste = synlegeLeads();
     teiknTempFilter();

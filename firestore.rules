@@ -416,5 +416,44 @@ service cloud.firestore {
     match /kundar/{kundenr} {
       allow read, write: if erKontor();
     }
+
+    // -- Varsel ---------------------------------------------------------------
+    //
+    // Spørsmål som stoppar ein ordre, og beskjedar som må lesast — «vi er snart
+    // tomme for A14-profil».
+    //
+    // Alle innlogga les, og det er med vilje: eit varsel til «alle» er til
+    // alle, og eit varsel til éin person er ikkje hemmeleg for dei andre. Det
+    // står ikkje persondata i eit varsel; det står kva nokon treng svar på.
+    //
+    // Berre hovudkontoret og ordrekontoret lagar dei. Ein seljar skal ikkje
+    // kunne sende ut ein beskjed til heile selskapet.
+    //
+    // Mottakaren må kunne svare. Difor kan ein seljar oppdatere eit varsel som
+    // er hans — men berre dei felta som høyrer til eit svar, ikkje teksten i
+    // spørsmålet og ikkje kven det gjeld.
+    function gyldigVarsel(d) {
+      return d.slag in ['sporsmaal', 'lager', 'melding']
+             && d.tittel is string && d.tittel.size() > 0 && d.tittel.size() < 200
+             && d.tekst is string && d.tekst.size() < 4000
+             && d.status in ['ope', 'besvart', 'avklart'];
+    }
+
+    function mittVarsel() {
+      return resource.data.get('til', 'alle') == 'alle'
+             || resource.data.get('til', '') == request.auth.uid
+             || resource.data.get('til', '') == rolle()
+             || resource.data.get('opprettaAv', '') == request.auth.uid;
+    }
+
+    match /varsel/{varselId} {
+      allow read: if erSeljar();
+      allow create: if erKontor() && gyldigVarsel(request.resource.data);
+      allow update: if (erKontor() && gyldigVarsel(request.resource.data))
+                    || (erSeljar() && mittVarsel()
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                             .hasOnly(['status', 'svar', 'svarTid', 'svarAv', 'frist', 'lest']));
+      allow delete: if erAdmin();
+    }
   }
 }

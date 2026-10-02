@@ -6,7 +6,7 @@ const les = (f) => fs.readFileSync(R + "/" + f, "utf8").replace(/^export /gm, ""
 const filer = ["js/datafyll.js","js/modellar.js","js/provisjon.js","js/team.js","js/apparattal.js",
   "js/terrasse.js","js/sprosser.js","js/oppfolging.js","js/distrikt.js","js/fylke.js",
   "js/kalender.js","js/kampanje.js","js/anmeldingar.js","js/nokkeltal.js","js/apparat.js",
-  "js/modellfigur.js","js/produkter.js","js/ordre.js","js/kontrollpanel.js","js/lager.js","js/personimport.js","js/kunde.js"];
+  "js/modellfigur.js","js/produkter.js","js/ordre.js","js/kontrollpanel.js","js/lager.js","js/personimport.js","js/kunde.js","js/varsel.js"];
 const kjelde = filer.map(les).join("\n;\n") + `
 ;vindexSettPrisbok(${fs.readFileSync(R + "/data/prisbok.json","utf8")});
 vindexSettProvisjon(${fs.readFileSync(R + "/data/provisjon.json","utf8")});
@@ -856,6 +856,93 @@ console.log("STATUSLØPET PÅ EIN ORDRE");
   p("stega veit kvar vi er", steg.find((x) => x.id === "til_plukk").naa, true);
   p("og kva som er neste", steg.find((x) => x.id === "klar").neste, true);
   p("og klar heiter henting her", steg.find((x) => x.id === "klar").navn, "Klar for henting");
+}
+
+console.log("VARSEL OG PÅMINNING");
+{
+  const NT = G("vindexNesteVarseltid");
+  const lokal = (y, m, d, t, min = 0) => new Date(y, m - 1, d, t, min, 0, 0);
+
+  // 07.00 og 14.30 kvar dag.
+  p("før sju gir sju i dag", NT(lokal(2026, 10, 2, 6, 30)).getHours(), 7);
+  p("etter sju gir halv tre", NT(lokal(2026, 10, 2, 9, 0)).getHours(), 14);
+  p("og då på halven", NT(lokal(2026, 10, 2, 9, 0)).getMinutes(), 30);
+  // Etter halv tre er neste sju i morgon.
+  const imorgon = NT(lokal(2026, 10, 2, 15, 0));
+  p("etter halv tre gir sju", imorgon.getHours(), 7);
+  p("dagen etter", imorgon.getDate(), 3);
+  // Nøyaktig på slaget tel som passert — elles ville same varselet kome to
+  // gonger på same minuttet.
+  p("presis 07.00 gir 14.30", NT(lokal(2026, 10, 2, 7, 0)).getHours(), 14);
+
+  const M = G("vindexSkalMase");
+  const spm = (ekstra) => ({
+    slag: "sporsmaal", status: "ope",
+    opprettet: lokal(2026, 10, 1, 10, 0).toISOString(), ...ekstra,
+  });
+
+  // Laga klokka ti. Neste masing er 14.30 same dag.
+  p("ikkje enno klokka tolv", M(spm(), lokal(2026, 10, 1, 12, 0)), false);
+  p("men klokka halv tre", M(spm(), lokal(2026, 10, 1, 14, 30)), true);
+  p("og framleis dagen etter", M(spm(), lokal(2026, 10, 2, 8, 0)), true);
+
+  // Vi maser ikkje to gonger på same klokkeslettet.
+  const masa = spm({ sisteVarsel: lokal(2026, 10, 1, 14, 30).toISOString() });
+  p("rett etter masinga er det stille", M(masa, lokal(2026, 10, 1, 15, 0)), false);
+  p("til neste morgon", M(masa, lokal(2026, 10, 2, 7, 0)), true);
+
+  // Eit svar stoppar masinga.
+  p("besvart maser ikkje", M(spm({ status: "besvart" }), lokal(2026, 10, 5, 8, 0)), false);
+  p("avklart heller ikkje", M(spm({ status: "avklart" }), lokal(2026, 10, 5, 8, 0)), false);
+
+  // Ein eigen frist set masinga på pause — men berre fram til fristen.
+  const medFrist = spm({ frist: lokal(2026, 10, 4, 12, 0).toISOString() });
+  p("fristen gir ro", M(medFrist, lokal(2026, 10, 2, 8, 0)), false);
+  p("og dagen før òg", M(medFrist, lokal(2026, 10, 4, 9, 0)), false);
+  // Frå fristen er broten maser vi igjen. Ein frist er ei utsetjing, ikkje
+  // ei avlysing.
+  p("men etter fristen maser vi igjen", M(medFrist, lokal(2026, 10, 4, 14, 30)), true);
+
+  // Ein beskjed om lagerbeholdning skal lesast, ikkje mase.
+  p("beskjed maser ikkje",
+    M({ slag: "lager", status: "ope", opprettet: lokal(2026, 10, 1, 8, 0).toISOString() },
+      lokal(2026, 10, 9, 8, 0)), false);
+
+  const F = G("vindexForfalneVarsel");
+  p("lista over kva som skal sendast no",
+    F([spm(), spm({ status: "besvart" }), { slag: "lager", status: "ope" }],
+      lokal(2026, 10, 2, 7, 0)).length, 1);
+
+  const TM = G("vindexVarselTilMeg");
+  const meg = { uid: "u1", rolle: "selger" };
+  p("til meg direkte", TM({ til: "u1" }, meg), true);
+  p("til rolla mi", TM({ til: "selger" }, meg), true);
+  p("til alle", TM({ til: "alle" }, meg), true);
+  p("utan mottakar er det til alle", TM({}, meg), true);
+  p("til ei liste", TM({ til: ["u9", "selger"] }, meg), true);
+  p("til ein annan", TM({ til: "u2" }, meg), false);
+  // Den som sende spørsmålet skal sjå det sjølv om det er til ein annan.
+  p("men avsendaren ser sitt eige", TM({ til: "u2", opprettaAv: "u1" }, meg), true);
+
+  const MV = G("vindexMineVarsel");
+  const sortert = MV([
+    { slag: "melding", status: "ope", til: "alle", opprettet: "2026-10-02T09:00:00Z" },
+    { slag: "sporsmaal", status: "ope", til: "u1", opprettet: "2026-09-01T09:00:00Z" },
+    { slag: "sporsmaal", status: "besvart", til: "u1", opprettet: "2026-10-03T09:00:00Z" },
+  ], meg);
+  // Opne spørsmål øvst uansett alder — dei stoppar ein ordre.
+  p("spørsmålet øvst", sortert[0].slag, "sporsmaal");
+  p("så beskjeden", sortert[1].slag, "melding");
+  p("og det besvarte nedst", sortert[2].status, "besvart");
+
+  const T = G("vindexVarselteljing")([
+    { slag: "sporsmaal", status: "ope", til: "u1", opprettet: lokal(2026, 9, 1, 8, 0).toISOString() },
+    { slag: "melding", status: "ope", til: "alle" },
+    { slag: "sporsmaal", status: "besvart", til: "u1" },
+  ], meg, lokal(2026, 10, 2, 8, 0));
+  p("to opne", T.ope, 2);
+  p("eitt av dei er eit spørsmål", T.sporsmaal, 1);
+  p("og det er forfalle", T.forfalne, 1);
 }
 
 console.log("OPPFØLGING OG FRIST");

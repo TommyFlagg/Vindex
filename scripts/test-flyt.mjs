@@ -948,6 +948,80 @@ console.log("ORDREKONTORET");
   await p.close();
 }
 
+console.log("VARSELBOKSEN");
+{
+  // Hovudkontoret og ordrekontoret kan sende ut ein beskjed. Seljaren les og
+  // svarar, men kringkastar ikkje.
+  const a = await side("/admin.html", "admin");
+  sjekk("boksen står på hovudkontoret", await a.$("#varselboks .panel") !== null);
+  sjekk("og hovudkontoret kan sende", await a.$("#nyBeskjed") !== null);
+  sjekk("demobeskjeden er der",
+    (await a.$eval("#varselboks", (e) => e.textContent)).includes("A14-profil"));
+
+  await a.evaluate(() => document.querySelector("#nyBeskjed").click());
+  await a.waitForTimeout(300);
+  await a.evaluate(() => document.querySelector("#nb_send").click());
+  await a.waitForTimeout(250);
+  sjekk("beskjed utan overskrift blir stoppa",
+    !(await a.$eval("#nb_feil", (e) => e.classList.contains("hidden"))));
+  await a.fill("#nb_tittel", "Stengt uke 42");
+  await a.fill("#nb_tekst", "Fabrikken har ferie. Ingen produksjon den uka.");
+  await a.evaluate(() => document.querySelector("#nb_send").click());
+  await a.waitForTimeout(500);
+  sjekk("beskjeden kom i boksen",
+    (await a.$eval("#varselboks", (e) => e.textContent)).includes("Stengt uke 42"));
+  await a.close();
+
+  const s = await side("/selger.html", "selger");
+  sjekk("boksen står i seljarverktøyet òg", await s.$("#varselboks .panel") !== null);
+  // Ein seljar skal ikkje kunne sende ein beskjed til heile selskapet.
+  sjekk("men seljaren kan ikkje kringkaste", await s.$("#nyBeskjed") === null);
+  sjekk("han ser beskjeden til alle",
+    (await s.$eval("#varselboks", (e) => e.textContent)).includes("A14-profil"));
+
+  // Opne eit varsel og svar på det.
+  await s.evaluate(() => document.querySelector("#varselboks [data-varsel]").click());
+  await s.waitForTimeout(300);
+  sjekk("varselet opnar", (await s.$eval("#modalInnhald", (e) => e.textContent)).includes("Stavik"));
+  await s.evaluate(() => document.querySelector("#vb_svarKnapp").click());
+  await s.waitForTimeout(250);
+  sjekk("tomt svar blir avvist",
+    !(await s.$eval("#vb_feil", (e) => e.classList.contains("hidden"))));
+  await s.fill("#vb_svar", "Forstått, jeg lover fire ukers levering.");
+  await s.evaluate(() => document.querySelector("#vb_svarKnapp").click());
+  await s.waitForTimeout(500);
+  sjekk("det svarte flyttar seg ned til dei avklarte",
+    (await s.$eval("#varselboks", (e) => e.textContent)).includes("avklart"));
+  await s.close();
+}
+
+{
+  // Eit spørsmål frå ordrekontoret skal bli eit varsel som maser, ikkje berre
+  // eit felt på ordren.
+  const p = await side("/ordre.html", "ordre");
+  const forste = await p.$eval("#ordrelop [data-ordre]", (e) => e.dataset.ordre);
+  await p.evaluate((id) => document.querySelector(`[data-ordre="${id}"]`).click(), forste);
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.querySelector("#ok_spm").click());
+  await p.waitForTimeout(300);
+  await p.fill("#sp_tekst", "Er høyden 1000 eller 1120?");
+  await p.evaluate(() => document.querySelector("#sp_send").click());
+  await p.waitForTimeout(700);
+  const boks = await p.$eval("#varselboks", (e) => e.textContent.replace(/\s+/g, " "));
+  sjekk("spørsmålet blei eit varsel", boks.includes("Spørsmål til ordre"));
+  sjekk("og det står når det blir purra", /Påminnelse/.test(boks));
+
+  // Avklarar vi det på ordrekontoret, skal varselet lukkast med — elles
+  // held purringa fram på eit spørsmål ingen ventar på.
+  await p.evaluate((id) => document.querySelector(`[data-ordre="${id}"]`).click(), forste);
+  await p.waitForTimeout(300);
+  await p.evaluate(() => document.querySelector("#ok_lukkSpm").click());
+  await p.waitForTimeout(700);
+  const etter = await p.$eval("#varselboks", (e) => e.textContent.replace(/\s+/g, " "));
+  sjekk("varselet er avklart med", etter.includes("avklarte"));
+  await p.close();
+}
+
 console.log("KUNDEREGISTER");
 {
   const p = await side("/admin.html", "admin");

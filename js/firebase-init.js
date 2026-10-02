@@ -174,6 +174,10 @@ const bestillingDoc = (nr) => dok("bestilling", String(nr));
 const kundarCol = () => collection(db, "kundar");
 const kundeDoc = (nr) => dok("kundar", String(nr));
 
+// Varsel: spørsmål som stoppar ein ordre, og beskjedar som må lesast.
+const varselCol = () => collection(db, "varsel");
+const varselDoc = (id) => dok("varsel", id);
+
 export {
   db,
   auth,
@@ -201,6 +205,8 @@ export {
   bestillingDoc,
   kundarCol,
   kundeDoc,
+  varselCol,
+  varselDoc,
   doc,
   getDoc,
   setDoc,
