@@ -2710,3 +2710,17 @@ body.tema-mork .omtale figcaption { color: var(--ink); }
 }
 .miljologo { width: 100%; height: auto; display: block; }
 body.tema-mork .miljomerke.har-logo { background: #fff; border-color: rgba(255,255,255,.18); }
+
+/* Ordrekontoret: løpet til venstre, varsla til høgre.
+   Varsla står øvst og i synsfeltet, ikkje under ordrane — eit spørsmål som
+   stoppar ein ordre skal sjåast før ordren det gjeld. */
+.ordretopp {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 1.25rem;
+  align-items: start;
+}
+.ordretopp-hogre > .panel { margin-top: 0; }
+@media (max-width: 900px) {
+  .ordretopp { grid-template-columns: 1fr; }
+}

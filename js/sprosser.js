@@ -355,13 +355,22 @@ function vindexSprosselinjepris(rad = {}) {
   const antall = parseInt(rad.antall, 10) || 0;
   const b = parseFloat(rad.fals_b) || 0;
   const h = parseFloat(rad.fals_h) || 0;
-  // Er det valt ein standardtype, er det typen som seier kor mange ruter det
-  // er — også for dei todelte, der eit rutetal i bredde × høgde ikkje dekkjer
-  // det. Elles gjeld tala seljaren har skrive.
+  // Kor mange ruter linja har å betale for.
+  //
+  // Typen set utgangspunktet, men den som skriv inn eit rutetal MEINER det.
+  // Før overstyrte typen alltid, og då stod grunnprisen stille same kva
+  // seljaren skreiv — ein type 1 selt som 4 × 4 blei prisa som 3 × 3.
+  //
+  // Unntaket er dei todelte typane. Eit vindauge med losholt og midtstolpe
+  // kan ikkje uttrykkast som bredde × høgde, så der er det typen som gjeld,
+  // og linja seier frå om det i staden for å teie.
   const type = vindexSprossetype(rad.type_nr);
-  const ruter = type
-    ? vindexSprossetypeRuter(type)
-    : (parseInt(rad.ruter_b, 10) || 0) * (parseInt(rad.ruter_h, 10) || 0);
+  const skrive = (parseInt(rad.ruter_b, 10) || 0) * (parseInt(rad.ruter_h, 10) || 0);
+  const todelt = !!(type && type.over);
+  const frauType = type ? vindexSprossetypeRuter(type) : 0;
+  const ruter = todelt ? frauType : skrive || frauType;
+  // Står det eit rutetal som typen ikkje kan uttrykkje, skal det synast.
+  const rutetalFrauType = todelt && !!skrive && skrive !== frauType;
   if (!antall || !b || !h || !ruter) return null;
 
   const treff = typeof vindexSprossepris === "function" ? vindexSprossepris(b + h, ruter) : null;
@@ -396,6 +405,7 @@ function vindexSprosselinjepris(rad = {}) {
   return {
     antall,
     ruter,
+    rutetalFrauType,
     einingspris: treff.pris,
     rad: treff.rad,
     kolonne: treff.kolonne,

@@ -8,7 +8,7 @@
 // søkbart register ville late dei bla gjennom heile kundemassen.
 // ============================================================================
 
-import { $, $$, app, fb, melding, opneModal, lukkModal } from "./verktoy-felles.js?v=873914d0";
+import { $, $$, app, fb, melding, opneModal, lukkModal } from "./verktoy-felles.js?v=5a3e24de";
 
 export const kundedata = { kundar: [], henta: false, feil: "" };
 let kundesok = "";
@@ -137,19 +137,34 @@ function opneKunde(k) {
   const kunde = k || { kundenr: vindexNesteKundenr(kundedata.kundar), kjelde: "system" };
   const h = ny ? { leads: [], ordrar: [] } : kundehistorikk(kunde);
 
+  // Det ein treng for å ta telefonen står alltid framme. Resten — adresse,
+  // postnummer, organisasjonsnummer — er noko ein ser etter når ein treng det,
+  // og ligg bak ein pil. Eit kort som viser alt på ein gong viser ingenting.
   opneModal(ny ? "Ny kunde" : `${kunde.kundenr} · ${kunde.navn}`, `
     <div class="feltrutenett">
-      ${felt("kf_nr", "Kundenummer", kunde.kundenr, ny ? "" : "disabled")}
       ${felt("kf_navn", "Navn", kunde.navn || "")}
-      ${felt("kf_adresse", "Adresse", kunde.adresse || "")}
-      ${felt("kf_postnr", "Postnummer", kunde.postnr || "")}
-      ${felt("kf_poststed", "Poststed", kunde.poststed || "")}
-      ${felt("kf_telefon", "Telefon", kunde.telefon || "")}
+      ${felt("kf_telefon", "Telefon", kunde.telefon || "", 'type="tel"')}
       ${felt("kf_epost", "E-post", kunde.epost || "", 'type="email"')}
-      ${felt("kf_orgnr", "Organisasjonsnummer", kunde.orgnr || "")}
     </div>
-    ${ny ? "" : `<p class="hint">${kunde.kjelde === "system"
-      ? "Opprettet her i systemet." : "Importert fra regnskapet."}</p>`}
+    ${!ny && (kunde.telefon || kunde.epost) ? `<div class="knapperad mb-1">
+      ${kunde.telefon ? `<a class="btn btn-ghost btn-sm"
+        href="tel:${vindexT(String(kunde.telefon).replace(/\s/g, ""))}">Ring</a>` : ""}
+      ${kunde.epost ? `<a class="btn btn-ghost btn-sm"
+        href="mailto:${vindexT(kunde.epost)}">Send e-post</a>` : ""}
+    </div>` : ""}
+
+    <details ${ny ? "open" : ""} class="mt-1">
+      <summary>Adresse og detaljer</summary>
+      <div class="feltrutenett mt-1">
+        ${felt("kf_nr", "Kundenummer", kunde.kundenr, ny ? "" : "disabled")}
+        ${felt("kf_adresse", "Adresse", kunde.adresse || "")}
+        ${felt("kf_postnr", "Postnummer", kunde.postnr || "")}
+        ${felt("kf_poststed", "Poststed", kunde.poststed || "")}
+        ${felt("kf_orgnr", "Organisasjonsnummer", kunde.orgnr || "")}
+      </div>
+      ${ny ? "" : `<p class="hint">${kunde.kjelde === "system"
+        ? "Opprettet her i systemet." : "Importert fra regnskapet."}</p>`}
+    </details>
 
     ${h.ordrar.length ? `
       <h3 class="mt-2">Ordrer</h3>

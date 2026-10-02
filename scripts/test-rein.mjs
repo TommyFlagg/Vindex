@@ -945,6 +945,38 @@ console.log("VARSEL OG PÅMINNING");
   p("og det er forfalle", T.forfalne, 1);
 }
 
+console.log("SPROSSEPRIS OG RUTETAL");
+{
+  const P = G("vindexSprosselinjepris");
+  const rad = (e) => ({ antall: 1, fals_b: 1000, fals_h: 1200, ...e });
+
+  // Prislista er banda — 1–4, 5–6, 7–8, 9–10, 11–12 ruter og så bortetter.
+  // Innanfor eit band SKAL prisen stå stille. Det er ikkje ein feil.
+  const b9 = P(rad({ ruter_b: 3, ruter_h: 3 }));
+  const b10 = P(rad({ ruter_b: 5, ruter_h: 2 }));
+  p("ni og ti ruter er same bandet", b9.einingspris, b10.einingspris);
+  // Over eit bandskifte skal den røre seg.
+  sjekk("men tolv ruter kostar meir enn ni",
+    () => P(rad({ ruter_b: 4, ruter_h: 3 })).einingspris > b9.einingspris);
+
+  // Dette er feilen: med ein standardtype valt blei rutetala seljaren skreiv
+  // inn ignorerte heilt, og grunnprisen stod stille same kva han gjorde.
+  const t1_3x3 = P(rad({ type_nr: 1, ruter_b: 3, ruter_h: 3 }));
+  const t1_4x4 = P(rad({ type_nr: 1, ruter_b: 4, ruter_h: 4 }));
+  p("typen set utgangspunktet", t1_3x3.ruter, 9);
+  p("men skriv du 4 × 4 er det seksten ruter", t1_4x4.ruter, 16);
+  sjekk("og då kostar det meir", () => t1_4x4.einingspris > t1_3x3.einingspris);
+  // Utan rutetal er det framleis typen som gjeld.
+  p("tomt rutetal gir typen sitt", P(rad({ type_nr: 1 })).ruter, 9);
+
+  // Dei todelte typane kan ikkje uttrykkast som bredde × høgde. Der gjeld
+  // typen — men linja seier frå i staden for å teie.
+  const todelt = P(rad({ type_nr: 6, ruter_b: 9, ruter_h: 9 }));
+  sjekk("todelt type held sitt eige rutetal", () => todelt.ruter !== 81);
+  p("og seier frå om det", todelt.rutetalFrauType, true);
+  p("eit vanleg rutenett seier ikkje frå", t1_4x4.rutetalFrauType, false);
+}
+
 console.log("OPPFØLGING OG FRIST");
 {
   const naa = Date.parse("2026-09-22T12:00:00Z");

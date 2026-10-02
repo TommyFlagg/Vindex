@@ -14,9 +14,9 @@
 import {
   $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
   datoTekst, melding, opneModal, lukkModal,
-} from "./verktoy-felles.js?v=873914d0";
-import { lastKundar, teiknKundar, kundedata } from "./kunderegister.js?v=e2218b2b";
-import { lastVarsel, teiknVarselboks, varseldata } from "./varselboks.js?v=e6ec6df9";
+} from "./verktoy-felles.js?v=5a3e24de";
+import { lastKundar, teiknKundar, kundedata } from "./kunderegister.js?v=675f2382";
+import { lastVarsel, teiknVarselboks, varseldata } from "./varselboks.js?v=7991befa";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visPanel(), { roller: ["ordre", "admin"] });
@@ -40,6 +40,9 @@ async function visPanel() {
   window.__teiknVarsel = () => teiknVarselboks("varselboks", { kanSende: true });
   $("#login").classList.add("hidden");
   $("#verktoy").classList.remove("hidden");
+  // Verktøyet opnar alltid øvst. Det er ei ny side for brukaren, same kvar han
+  // sto sist.
+  window.scrollTo(0, 0);
   $("#brukarMerke").textContent = app.brukar.navn + " · ordrekontor";
 
   $("#snarvegar").innerHTML = SNARVEGAR.map(

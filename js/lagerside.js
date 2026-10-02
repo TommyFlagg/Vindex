@@ -13,7 +13,7 @@
 
 import {
   $, $$, app, fb, melding, opneModal, lukkModal,
-} from "./verktoy-felles.js?v=873914d0";
+} from "./verktoy-felles.js?v=5a3e24de";
 
 // Alt som er henta, samla ein stad. Fyllast i lastLager og lesast av resten.
 const VINDEX_KOSTFAKTORDOK = "_kostfaktor";

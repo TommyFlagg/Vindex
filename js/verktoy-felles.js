@@ -78,6 +78,15 @@ let etterInnlogging = () => {};
 // side med si eiga rolle, og då held ikkje eit ja/nei — ei side slepp inn dei
 // rollene ho er laga for, og det kan vere fleire enn éi.
 let tillatneRoller = [];
+// Nettlesaren hugsar kvar du rulla sist og set deg tilbake dit når du opnar
+// sida på nytt. På ei vanleg nettside er det snilt. Her er det feil: når du
+// kjem inn står du på innloggingsskjermen, og sida veks til femten tusen
+// pikslar først ETTER at du har logga inn. Då blir det hugsa punktet brukt på
+// noko heilt anna enn det det blei hugsa frå, og hovudkontoret opna på botnen.
+try {
+  if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+} catch (e) { /* gammal nettlesar: lat det stå */ }
+
 export function settOppstart(fn, { berreAdmin = false, roller = null } = {}) {
   etterInnlogging = fn;
   tillatneRoller = roller || (berreAdmin ? ["admin"] : []);

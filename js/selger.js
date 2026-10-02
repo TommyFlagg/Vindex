@@ -19,8 +19,8 @@ import {
   lastData, startDemo, tid, datoTekst, nesteAvtale,
   lagreLead, melding, opneModal, lukkModal, skrivUtDialog, demoLagreOrdre, demoNullstill,
   lagreKladd, hentKladd, slettKladd, kladdlagrar, sidanTekst,
-} from "./verktoy-felles.js?v=873914d0";
-import { lastVarsel, teiknVarselboks } from "./varselboks.js?v=e6ec6df9";
+} from "./verktoy-felles.js?v=5a3e24de";
+import { lastVarsel, teiknVarselboks } from "./varselboks.js?v=7991befa";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visVerktoy());
@@ -79,6 +79,9 @@ async function visVerktoy() {
   window.__teiknVarsel = () => teiknVarselboks("varselboks");
   $("#login").classList.add("hidden");
   $("#verktoy").classList.remove("hidden");
+  // Verktøyet opnar alltid øvst. Det er ei ny side for brukaren, same kvar han
+  // sto sist.
+  window.scrollTo(0, 0);
   $("#brukarMerke").textContent =
     app.brukar.navn + " · " + (app.brukar.rolle === "admin" ? "administrator" : app.brukar.rolle);
 
