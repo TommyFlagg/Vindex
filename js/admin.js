@@ -14,7 +14,7 @@ import {
   datoTekst, lagreLead, melding, opneModal, lukkModal, visDatavarsel, demoAnmeldingar,
 } from "./verktoy-felles.js?v=1196bf7f";
 import { lastPrisdata, VINDEX_PRISDATA_DOKUMENT } from "./datalast.js?v=8d397edf";
-import { lastLager, teiknLagerside } from "./lagerside.js?v=8c7c7191";
+import { lastLager, teiknLagerside } from "./lagerside.js?v=2ed7b907";
 import { lastKundar, teiknKundar } from "./kunderegister.js?v=94bb93bc";
 import { lastVarsel, teiknVarselboks } from "./varselboks.js?v=1e01f80a";
 
@@ -26,18 +26,56 @@ visDemohint(
   "e-postfeltet krever en hel adresse, så bare <code>admin</code> blir avvist av nettleseren."
 );
 
-const SNARVEGAR = [
-  { id: "seksjonNokkeltal", navn: "Nøkkeltall" },
-  { id: "seksjonApparat", navn: "Apparatet" },
-  { id: "seksjonArkiv", navn: "Arkivet" },
-  { id: "seksjonKampanjar", navn: "Kampanjer" },
-  { id: "seksjonRepresentantar", navn: "Nye representanter" },
-  { id: "seksjonTilbakemelding", navn: "Vinn og tap" },
-  { id: "seksjonKundar", navn: "Kunderegister" },
-  { id: "seksjonLager", navn: "Lager og innkjøp" },
-  { id: "seksjonPrisdata", navn: "Prisliste" },
-  { id: "seksjonSletting", navn: "Slett saker" },
+// ---------------------------------------------------------------------------
+// Faner
+// ---------------------------------------------------------------------------
+// Hovudkontoret hadde ti seksjonar under kvarandre på éi side, og ei rad med
+// snarvegar som hoppa nedover. Det fungerte, men ingen av dei ti har noko med
+// kvarandre å gjere: den som fører eit varemottak skal ikkje rulle forbi
+// kampanjar og kundeanmeldingar for å kome dit, og den som ser på apparatet
+// skal ikkje ha sletteknappen på same skjerm.
+//
+// Nøkkeltal, det som krev handling og varselboksen står over fanene. Dei
+// gjeld alltid, same kva ein held på med.
+//
+// Snarvegane er blitt faner. Kvar fane hugsar `data-hopp` til den fyrste
+// seksjonen sin, så ei lenke eller ein test som peikte på ein seksjon
+// framleis finn vegen.
+
+const ADMINFANER = [
+  { id: "oversikt", navn: "Oversikt", seksjonar: ["seksjonDashbord"] },
+  { id: "apparat", navn: "Salgsapparatet", seksjonar: ["seksjonApparat", "seksjonArkiv"] },
+  { id: "kundar", navn: "Kunder",
+    seksjonar: ["seksjonKundar", "seksjonTilbakemelding", "seksjonRepresentantar"] },
+  { id: "lager", navn: "Lager og innkjøp", seksjonar: ["seksjonLager"] },
+  { id: "kampanjar", navn: "Kampanjer", seksjonar: ["seksjonKampanjar"] },
+  { id: "oppsett", navn: "Oppsett", seksjonar: ["seksjonPrisdata", "seksjonSletting"] },
 ];
+
+const ADMINFANE_NOKKEL = "vindex_adminfane";
+
+/** Alle seksjonane som høyrer til ei fane, og berre dei, blir ståande synlege. */
+function visAdminfane(id) {
+  const fane = ADMINFANER.find((f) => f.id === id) || ADMINFANER[0];
+  try {
+    localStorage.setItem(ADMINFANE_NOKKEL, fane.id);
+  } catch (e) { /* privat vindauge: fanen gjeld denne økta */ }
+  ADMINFANER.forEach((f) =>
+    f.seksjonar.forEach((sid) => {
+      const el = document.getElementById(sid);
+      if (el) el.hidden = f.id !== fane.id;
+    })
+  );
+  $$("#snarvegar .fane").forEach((k) => {
+    const aktiv = k.dataset.fane === fane.id;
+    k.classList.toggle("aktiv", aktiv);
+    k.setAttribute("aria-selected", aktiv ? "true" : "false");
+  });
+}
+
+/** Fana ein seksjon ligg i — brukt av lenker som peikar rett på ein seksjon. */
+const adminfaneFor = (seksjonId) =>
+  (ADMINFANER.find((f) => f.seksjonar.includes(seksjonId)) || ADMINFANER[0]).id;
 
 // ---------------------------------------------------------------------------
 // Omsetning per person
@@ -109,15 +147,29 @@ async function visPanel() {
   window.scrollTo(0, 0);
   $("#brukarMerke").textContent = app.brukar.navn + " · administrator";
 
-  $("#snarvegar").innerHTML = SNARVEGAR.map(
-    (s) => `<button class="fane" data-hopp="${s.id}">${vindexT(s.navn)}</button>`
+  $("#snarvegar").innerHTML = ADMINFANER.map(
+    (f) => `<button class="fane" role="tab" data-fane="${f.id}" data-hopp="${f.seksjonar[0]}"
+      aria-selected="false">${vindexT(f.navn)}</button>`
   ).join("");
+  $("#snarvegar").setAttribute("role", "tablist");
   $$("#snarvegar .fane").forEach((k) =>
     k.addEventListener("click", () => {
-      const mal = document.getElementById(k.dataset.hopp);
-      if (mal) mal.scrollIntoView({ behavior: "smooth", block: "start" });
+      visAdminfane(k.dataset.fane);
+      // Fanerada skal bli ståande der den er. Hoppar sida til toppen av
+      // seksjonen, forsvinn knappane ein nettopp trykte på.
+      const panel = $("#kontrollpanel");
+      if (panel) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
     })
   );
+  // Rekkjefølgja: ei lenke rett til ein seksjon vinn over det ein såg sist.
+  let start = ADMINFANER[0].id;
+  try {
+    const lagra = localStorage.getItem(ADMINFANE_NOKKEL);
+    if (lagra && ADMINFANER.some((f) => f.id === lagra)) start = lagra;
+  } catch (e) { /* ingen lagra fane: byrj på oversikta */ }
+  const frauLenke = (location.hash || "").replace("#", "");
+  if (frauLenke && document.getElementById(frauLenke)) start = adminfaneFor(frauLenke);
+  visAdminfane(start);
 
   teiknAlt();
 }

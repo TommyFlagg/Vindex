@@ -1115,7 +1115,12 @@ console.log("KUNDEREGISTER");
   const rader = () => p.$$("#kundar [data-kunde]");
 
   sjekk("seksjonen er teikna", await p.$("#kundeSok") !== null);
-  sjekk("snarvegen finst", await p.$('#snarvegar [data-hopp="seksjonKundar"]') !== null);
+  // Hovudkontoret står i faner. Kunderegisteret har si eiga.
+  sjekk("fana finst", await p.$('#snarvegar [data-hopp="seksjonKundar"]') !== null);
+  await p.click('#snarvegar [data-hopp="seksjonKundar"]');
+  await p.waitForTimeout(300);
+  sjekk("og seksjonen er synleg når fana er vald",
+    await p.$eval("#seksjonKundar", (e) => !e.hidden));
   const for_ = (await rader()).length;
   sjekk("demokundane står der", for_ === 3);
   sjekk("neste ledige nummer blir vist", (await tekst("#kundar")).includes("10004"));
@@ -1194,8 +1199,38 @@ console.log("LAGER OG INNKJØP");
   const utanMellomrom = (t) => t.replace(/[\s\u00a0]/g, "");
 
   sjekk("lagerseksjonen er teikna", await finst("#lagerside .fanerad"));
-  sjekk("snarvegen finst", await finst('#snarvegar [data-hopp="seksjonLager"]'));
+  sjekk("fana finst", await finst('#snarvegar [data-hopp="seksjonLager"]'));
+  await p.click('#snarvegar [data-hopp="seksjonLager"]');
+  await p.waitForTimeout(300);
+  sjekk("kunderegisteret er lagt bort når lageret er framme",
+    await p.$eval("#seksjonKundar", (e) => e.hidden));
   sjekk("strukturvara er merkt", (await tekst('tr[data-vare="3010"] .merke')) === "struktur");
+
+  // Minstetalet blir skrive rett i lista, og merket følgjer det same tala blir
+  // skrivne — ikkje det som stod då sida vart lasta. 7522 har 7 372 på lager.
+  sjekk("minstefeltet står i rada", await finst('tr[data-vare="7522"] [data-minste]'));
+  sjekk("ingenting er merkt lavt frå start",
+    await p.$eval('[data-laagt="7522"]', (e) => e.classList.contains("hidden")));
+  await p.fill('tr[data-vare="7522"] [data-minste]', "9000");
+  await p.dispatchEvent('tr[data-vare="7522"] [data-minste]', "change");
+  await p.waitForTimeout(300);
+  sjekk("eit minstetal over beholdninga merkjer vara",
+    !(await p.$eval('[data-laagt="7522"]', (e) => e.classList.contains("hidden"))));
+  sjekk("og rada blir merkt",
+    await p.$eval('tr[data-vare="7522"]', (e) => e.classList.contains("lagerlaagt")));
+  await p.fill('tr[data-vare="7522"] [data-minste]', "100");
+  await p.dispatchEvent('tr[data-vare="7522"] [data-minste]', "change");
+  await p.waitForTimeout(300);
+  sjekk("og eit lågare tal tek merket bort att",
+    await p.$eval('[data-laagt="7522"]', (e) => e.classList.contains("hidden")));
+  // Eit klikk i feltet skal ikkje opne artikkelkortet.
+  await p.click('tr[data-vare="7522"] [data-minste]');
+  await p.waitForTimeout(250);
+  sjekk("feltet opnar ikkje artikkelkortet",
+    await p.$eval("#modal", (e) => e.classList.contains("hidden")));
+  await p.fill('tr[data-vare="7522"] [data-minste]', "");
+  await p.dispatchEvent('tr[data-vare="7522"] [data-minste]', "change");
+  await p.waitForTimeout(250);
   // 7492 inn, 120 ut. Saldoen er summen av rørslene, ikkje eit lagra tal.
   sjekk("saldoen er summen av rørslene",
     utanMellomrom((await alle('tr[data-vare="7522"] td')).at(-3)) === "7372");

@@ -256,6 +256,44 @@ function teiknVarer(el) {
   $("#kostfaktorar").addEventListener("click", opneGruppefaktorar);
   $("#importerStruktur").addEventListener("click", opneStrukturimport);
   $("#minstelager").addEventListener("click", opneMinstelager);
+  // Minstetalet kan skrivast rett i lista. Å opne eit artikkelkort for kvar av
+  // 790 varer er ikkje ein jobb nokon gjer — og eit tal som er tungt å endre
+  // blir ståande feil.
+  $$("#lagerinnhald [data-minste]").forEach((felt) => {
+    felt.addEventListener("click", (e) => e.stopPropagation());
+    felt.addEventListener("change", async () => {
+      const nr = felt.dataset.minste;
+      const verdi = Math.max(0, Math.round(Number(felt.value) || 0));
+      felt.value = verdi || "";
+      const vare = lagerdata.varer.find((v) => String(v.artnr) === String(nr));
+      if (!vare) return;
+      const for_ = vare.minste;
+      vare.minste = verdi;
+      // Merket følgjer det nye talet med ein gong, utan å teikne lista på
+      // nytt: ei omteikning ville teke fokus frå feltet ein står i.
+      const merke = $(`[data-laagt="${nr}"]`);
+      if (merke) {
+        const tilgjengeleg = vindexLagersaldo(lagerdata.poster, nr)
+          - vindexReservert(lagerdata.poster, nr);
+        merke.classList.toggle("hidden", !(verdi > 0 && tilgjengeleg < verdi));
+      }
+      const rad = felt.closest("tr");
+      if (rad) rad.classList.toggle("lagerlaagt", merke ? !merke.classList.contains("hidden") : false);
+      if (VINDEX_DEMOMODUS) return;
+      try {
+        await fb.setDoc(fb.vareDoc(nr), { minste: verdi }, { merge: true });
+        // Varslinga skal følgje det nye talet, ikkje det som stod då sida
+        // vart lasta.
+        await oppdaterLagervarsel();
+        if (typeof window.__teiknVarsel === "function") window.__teiknVarsel();
+      } catch (e) {
+        vare.minste = for_;
+        felt.value = for_ || "";
+        melding("Fikk ikke lagret minstetallet: " + (e && e.message ? e.message : e), "warn");
+      }
+    });
+  });
+
   $$("#lagerinnhald [data-vare]").forEach((r) =>
     r.addEventListener("click", () => opneVare(r.dataset.vare))
   );
@@ -280,8 +318,13 @@ function varerad(v) {
     <td class="hgr">${kost ? kroner(kost) : '<span class="hint">—</span>'}</td>
     <td class="hgr">${saldo}</td>
     <td class="hgr">${reservert ? tal(reservert) : '<span class="hint">—</span>'}</td>
-    <td class="hgr">${minste ? tal(minste) : '<span class="hint">—</span>'}${
-      laagt ? ' <span class="merke merke-aatvaring" title="Under minstebeholdningen">lavt</span>' : ""}</td>
+    <td class="hgr">${lagervare
+      ? `<input class="minsteinn" type="number" min="0" step="1" inputmode="numeric"
+           value="${minste || ""}" data-minste="${vindexT(v.artnr)}" placeholder="—"
+           aria-label="Minste beholdning for ${vindexT(v.artnr)}">
+         <span class="merke merke-aatvaring${laagt ? "" : " hidden"}"
+           data-laagt="${vindexT(v.artnr)}" title="Under minstebeholdningen">lavt</span>`
+      : ""}</td>
   </tr>`;
 }
 

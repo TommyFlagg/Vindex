@@ -797,6 +797,15 @@ table.maltabell tr:nth-child(even) td { background: rgba(0,0,0,0.015); }
 /* Ein artikkel under minstebeholdninga. Raud rad ville ropt; dette peikar. */
 .merke-aatvaring { border-color: var(--varsel, #c77700); background: #fdf1e3; color: #8a5200; }
 tr.lagerlaagt > td { background: #fdf7ef; }
+/* Minstetalet blir skrive rett i lista. Feltet skal lese som eit tal i ei
+   tabellrad, ikkje som eit skjema midt i ho. */
+.minsteinn {
+  width: 5rem; text-align: right; padding: .15rem .35rem; font: inherit;
+  border: 1px solid transparent; border-radius: 6px; background: transparent;
+  color: inherit;
+}
+.minsteinn:hover { border-color: var(--border); }
+.minsteinn:focus { border-color: var(--primary); background: var(--surface); outline: none; }
 
 /* --- stat-fliser --- */
 .stat-rad { display: grid; gap: 0.9rem; grid-template-columns: repeat(2, 1fr); margin-bottom: 1.1rem; }
