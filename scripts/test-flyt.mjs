@@ -1118,7 +1118,8 @@ console.log("KUNDEREGISTER");
   // Hovudkontoret står i faner. Kunderegisteret har si eiga.
   sjekk("fana finst", await p.$('#snarvegar [data-hopp="seksjonKundar"]') !== null);
   await p.click('#snarvegar [data-hopp="seksjonKundar"]');
-  await p.waitForTimeout(300);
+  // Rullinga er mjuk, og 300 ms er ikkje nok til at den er ferdig.
+  await p.waitForTimeout(900);
   sjekk("og seksjonen er synleg når fana er vald",
     await p.$eval("#seksjonKundar", (e) => !e.hidden));
   // Det held ikkje å sjekke attributtet. `.dashbord { display: grid }` slo
@@ -1208,7 +1209,7 @@ console.log("LAGER OG INNKJØP");
   sjekk("lagerseksjonen er teikna", await finst("#lagerside .fanerad"));
   sjekk("fana finst", await finst('#snarvegar [data-hopp="seksjonLager"]'));
   await p.click('#snarvegar [data-hopp="seksjonLager"]');
-  await p.waitForTimeout(300);
+  await p.waitForTimeout(900);
   sjekk("kunderegisteret er lagt bort når lageret er framme",
     await p.$eval("#seksjonKundar", (e) => e.hidden));
   sjekk("strukturvara er merkt", (await tekst('tr[data-vare="3010"] .merke')) === "struktur");
