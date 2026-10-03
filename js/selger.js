@@ -3433,6 +3433,7 @@ function opneSprossetilbod(lead) {
     fraKladd = kladd.tid;
   }
   if (!sprosseutkast.rader.length) sprosseutkast.rader = [{}, {}, {}];
+  sprosseutkast.rader = sprosseutkast.rader.map(vindexNormaliserSprosserad);
   teiknSprossedialog(lead, fraKladd);
 }
 
@@ -3677,10 +3678,17 @@ function teiknSprossedialog(lead, fraKladd) {
           type_nr: nr,
           // Rutetalet følgjer typen, så prisen blir rekna av det same som blir
           // teikna. For dei todelte typane er det summen av begge sonene.
+          // Typen fyller ut felta i staden for å overstyre dei. Då kan
+          // seljaren endre kva som helst etterpå — og eit nytt klikk på
+          // typen set alt tilbake.
           ...(t
-            ? t.over
-              ? { ruter_b: t.over.rb, ruter_h: "" }
-              : { ruter_b: t.rb, ruter_h: t.rh }
+            ? {
+                ...(t.over
+                  ? { ruter_b: t.over.rb, ruter_h: "" }
+                  : { ruter_b: t.rb, ruter_h: t.rh }),
+                midtstolpe: t.midtstolpe ? "34" : "0",
+                losholt: t.losholt ? "34" : "0",
+              }
             : {}),
         };
         lagreKladd(sprossekladdnokkel(lead), u);

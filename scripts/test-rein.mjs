@@ -975,6 +975,45 @@ console.log("SPROSSEPRIS OG RUTETAL");
   sjekk("todelt type held sitt eige rutetal", () => todelt.ruter !== 81);
   p("og seier frå om det", todelt.rutetalFrauType, true);
   p("eit vanleg rutenett seier ikkje frå", t1_4x4.rutetalFrauType, false);
+
+  // Vel seljaren «–» på ein berande profil, skal han bort — frå teikninga og
+  // frå prisen. Før las begge «feltet eller typen», og då var typen umogleg å
+  // overstyre: ein kunne velje «–» så mykje ein ville, stolpen stod der.
+  const F = G("vindexSprossegrafikk");
+  const tillegg = (r) => (P(rad(r)).tillegg || []).map((t) => t.kode);
+  p("typen tek med midtstolpen når feltet er urørt",
+    tillegg({ type_nr: 8 }).includes("6291"), true);
+  p("men «–» tek han bort att",
+    tillegg({ type_nr: 8, midtstolpe: "0" }).includes("6291"), false);
+  p("og losholten på same vis",
+    tillegg({ type_nr: 8, losholt: "0" }).includes("6293"), false);
+  p("ei breidde er framleis ei breidde",
+    tillegg({ type_nr: 8, midtstolpe: "84" }).includes("6290"), true);
+
+  const teikn = (r) => F({ fals_b: 600, fals_h: 1200, ...r }, {});
+  const berande = (r) => (teikn(r).match(/sp-berande/g) || []).length;
+  sjekk("teikninga har begge dei berande profilane på type 8",
+    () => berande({ type_nr: 8 }) === 2);
+  p("midtstolpe «–» fjernar han òg frå teikninga",
+    berande({ type_nr: 8, midtstolpe: "0" }), 1);
+  const klikkfelt = (r) =>
+    [...F({ fals_b: 600, fals_h: 1200, ...r }, { interaktiv: true })
+      .matchAll(/data-spfelt="([^"]+)"/g)].map((m) => m[1]);
+  p("midtstolpen er noko ein kan klikke på",
+    klikkfelt({ type_nr: 8 }).includes("midtstolpe"), true);
+  p("men ikkje når han er vald bort",
+    klikkfelt({ type_nr: 8, midtstolpe: "0" }).includes("midtstolpe"), false);
+
+  // Midtstolpen på type 8 står i toppfeltet. Den store ruta under er heilt
+  // glas — ein stolpe tvers gjennom glaset er ikkje det vindauget dei lagar.
+  p("type 8 har ni ruter", G("vindexSprossetypeRuter")(G("vindexSprossetype")(8)), 9);
+
+  // Gamle linjer er lagra utan verdi i felta. Dei blir fylte ut ved opning,
+  // så det som står i feltet og det som blir teikna er det same.
+  const N = G("vindexNormaliserSprosserad");
+  p("gammal linje får midtstolpen skriven inn", N({ type_nr: 8 }).midtstolpe, "34");
+  p("og eit aktivt «–» blir ståande", N({ type_nr: 8, midtstolpe: "0" }).midtstolpe, "0");
+  p("ei linje utan type blir ikkje rørt", N({ ruter_b: 3 }).midtstolpe, undefined);
 }
 
 console.log("OPPFØLGING OG FRIST");

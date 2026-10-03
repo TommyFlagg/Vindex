@@ -463,8 +463,11 @@ const ORDRESEDDEL_SPROSSER = {
       // Papirskjemaet har midtstolpe og losholt som eigne kolonnar, med val
       // mellom 34, 64 og 84 mm. Dei mangla her, og då måtte seljaren skrive
       // dei i merknadsfeltet — der produksjonen ikkje leitar etter mål.
+      // «–» har sin eigen verdi. Tomt tyder «ikkje valt enno», og dei to må
+      // kunne skiljast: ein type fyller ut feltet, og då må seljaren kunne
+      // ta profilen bort att utan at typen set han tilbake.
       { id: "midtstolpe", navn: "Midtst.", type: "valg", bredde: "5.5rem",
-        val: [{ id: "", navn: "–" }, { id: "0", navn: "0" }, { id: "34", navn: "34" },
+        val: [{ id: "0", navn: "–" }, { id: "34", navn: "34" },
               { id: "64", navn: "64" }, { id: "84", navn: "84" }] },
       { id: "sprosseverk", navn: "Sprosseverk", type: "valg", bredde: "6.5rem",
         val: [{ id: "22", navn: "22 mm" }, { id: "29", navn: "29 mm" }, { id: "34", navn: "34 mm" },
@@ -472,7 +475,7 @@ const ORDRESEDDEL_SPROSSER = {
       { id: "omramming", navn: "Omram.", type: "valg", bredde: "6.5rem",
         val: [{ id: "29", navn: "29 mm" }, { id: "34", navn: "34 mm" }, { id: "64", navn: "64 mm" }, { id: "84", navn: "84 mm" }] },
       { id: "losholt", navn: "Losholt", type: "valg", bredde: "5.5rem",
-        val: [{ id: "", navn: "–" }, { id: "22", navn: "22" }, { id: "34", navn: "34" },
+        val: [{ id: "0", navn: "–" }, { id: "22", navn: "22" }, { id: "34", navn: "34" },
               { id: "64", navn: "64" }, { id: "84", navn: "84" }] },
       { id: "buer", navn: "Buer", type: "valg", bredde: "5rem",
         val: [{ id: "", navn: "–" }, { id: "E", navn: "E" }, { id: "D", navn: "D" }, { id: "T", navn: "T" }] },

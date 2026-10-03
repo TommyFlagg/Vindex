@@ -41,8 +41,12 @@ const VINDEX_SPROSSETYPAR = [
     over: { rb: 4, rh: 1 }, under: { rb: 2, rh: 1 }, overDel: 0.3, losholt: true, midtstolpe: true },
   { nr: 7, bilde: "assets/bilder/sprosse-7.jpg", kunde: "Toppfelt med seks ruter", kort: "6 / 2", navn: "Losholt — 6 ruter over, midtstolpe under",
     over: { rb: 6, rh: 1 }, under: { rb: 2, rh: 1 }, overDel: 0.3, losholt: true, midtstolpe: true },
-  { nr: 8, kunde: "Toppfelt i to rader", kort: "4×2 / 2", navn: "Losholt — 4 × 2 ruter over, midtstolpe under",
-    over: { rb: 4, rh: 2 }, under: { rb: 2, rh: 1 }, overDel: 0.34, losholt: true, midtstolpe: true },
+  // Midtstolpen står i toppfeltet, ikkje i den store ruta under. Teikninga
+  // hadde den motsett veg — ein stolpe tvers gjennom glaset — og det er ikkje
+  // det vindauget Vindex lagar.
+  { nr: 8, kunde: "Toppfelt i to rader", kort: "4×2 / helt", navn: "Losholt — 4 × 2 ruter over med midtstolpe, helt glass under",
+    over: { rb: 4, rh: 2 }, under: { rb: 1, rh: 1 }, overDel: 0.34,
+    losholt: true, midtstolpe: true, midtstolpeOver: true },
   { nr: 9, bilde: "assets/bilder/sprosse-9.jpg", kunde: "Toppfelt med kryss", kort: "X / 2", navn: "Losholt — 2 kryss over, midtstolpe under",
     over: { rb: 2, rh: 1, kryss: true }, under: { rb: 2, rh: 1 }, overDel: 0.32,
     losholt: true, midtstolpe: true },
@@ -77,6 +81,42 @@ const VINDEX_SPROSSETYPAR = [
   { nr: "L2", bilde: "assets/bilder/sprosse-L2.jpg", kunde: "Toppfelt, helt glass under", kort: "2 / helt", etikett: "2/1", navn: "Losholt — 2 ruter over, helt glass under",
     over: { rb: 2, rh: 1 }, under: { rb: 1, rh: 1 }, overDel: 0.3, losholt: true },
 ];
+
+/**
+ * Står det ein berande profil på linja — og kor brei?
+ *
+ * Feltet på linja er fasiten. Typen fyller det ut i det seljaren vel typen,
+ * og etter det er det seljaren som rår: set han feltet til «–», skal profilen
+ * bort frå både teikninga og prisen. Før las både teikninga og prisen
+ * `feltet || typen`, og då var typen umogleg å overstyre — ein kunne velje
+ * «–» så mykje ein ville, stolpen stod der likevel.
+ *
+ * Tre tilstandar, ikkje to: «0» er valet «–» og slår profilen av, eit tal er
+ * ei breidde, og tomt tyder «ikkje valt enno» — då er det typen som rår.
+ * Skilnaden på dei to siste er heile poenget: utan han kunne ein ikkje velje
+ * bort noko typen hadde med.
+ */
+const vindexBerande = (verdi, frauType) => {
+  const v = String(verdi == null ? "" : verdi).trim();
+  if (v === "0") return "";
+  return v || (frauType ? "34" : "");
+};
+
+/**
+ * Fyll dei berande felta på ei linje som er lagra før typen gjorde det.
+ *
+ * Linjer frå før har tomme felt og ein type som sa alt. Dei blir fylte ut éin
+ * gong, ved opning, slik at «–» tyder «ingen» frå då av. Prisen står stille:
+ * 34 mm kostar det same som tomt gjorde.
+ */
+function vindexNormaliserSprosserad(rad = {}) {
+  const type = vindexSprossetype(rad.type_nr);
+  if (!type) return { ...rad };
+  const ny = { ...rad };
+  if (type.midtstolpe && !ny.midtstolpe) ny.midtstolpe = "34";
+  if (type.losholt && !ny.losholt) ny.losholt = "34";
+  return ny;
+}
 
 /** Det typen heiter i teksten. Dei ni er nummererte; dei andre har namn. */
 const vindexTypenamn = (type) => (type ? type.etikett || "Type " + type.nr : "");
@@ -171,8 +211,10 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
   const grovt = type && type.grovt;
   const verk = klem(rad.sprosseverk, grovt ? 34 : 22, grovt ? 2.5 : 1.6, 0.11);
   const berandeBreidd = (mm, standard) => Math.max(verk * 1.35, klem(mm, standard, 3, 0.13));
-  const midt = rad.midtstolpe || (type && type.midtstolpe) ? berandeBreidd(rad.midtstolpe, 34) : 0;
-  const losholt = rad.losholt || (type && type.losholt) ? berandeBreidd(rad.losholt, 34) : 0;
+  const midt = vindexBerande(rad.midtstolpe, type && type.midtstolpe)
+    ? berandeBreidd(rad.midtstolpe, 34) : 0;
+  const losholt = vindexBerande(rad.losholt, type && type.losholt)
+    ? berandeBreidd(rad.losholt, 34) : 0;
 
   const gX = ramme, gY = ramme;
   const gB = b - 2 * ramme, gH = h - 2 * ramme;
@@ -240,11 +282,20 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
     const underY = yTverr + tverr / 2;
     const underH = gY + gH - underY;
 
-    rutenett(gX, gY, gB, overH, type.over.rb, type.over.rh, false, type.over.kryss, type.gjennomgaande);
-    rutenett(gX, underY, gB, underH, type.under.rb, type.under.rh,
-             !type.gjennomgaande, false, type.gjennomgaande);
-    del.push(vassrett(gX, yTverr, gB, tverr, lett ? "sp-verk" : "sp-berande",
-      lett ? "sprosseverk" : "losholt"));
+    // Midtstolpen står i toppfeltet på nokre typar og i feltet under på andre.
+    // Blir han teken bort, forsvinn også delinga han sto for: det han delte
+    // var éi rute, ikkje to.
+    const stolpeOppe = !!type.midtstolpeOver;
+    const underKol = type.midtstolpe && !stolpeOppe && !midt ? 1 : type.under.rb;
+    const overKol = type.midtstolpe && stolpeOppe && !midt
+      ? Math.max(1, type.over.rb) : type.over.rb;
+    rutenett(gX, gY, gB, overH, overKol, type.over.rh,
+             stolpeOppe && !!midt, type.over.kryss, type.gjennomgaande);
+    rutenett(gX, underY, gB, underH, underKol, type.under.rh,
+             !type.gjennomgaande && !stolpeOppe, false, type.gjennomgaande);
+    if (tverr)
+      del.push(vassrett(gX, yTverr, gB, tverr, lett ? "sp-verk" : "sp-berande",
+        lett ? "sprosseverk" : "losholt"));
     // Gjennomgåande loddrett sprosse teiknast til slutt og i eitt strekk, så
     // krysset les seg som eit kryss og ikkje som to avkorta stubbar.
     if (type.gjennomgaande)
@@ -405,8 +456,8 @@ function vindexSprosselinjepris(rad = {}) {
   };
 
   const grovtVerk = ["64", "84"].includes(String(rad.sprosseverk));
-  const harMidt = rad.midtstolpe || (type && type.midtstolpe);
-  const harLosholt = rad.losholt || (type && type.losholt);
+  const harMidt = vindexBerande(rad.midtstolpe, type && type.midtstolpe);
+  const harLosholt = vindexBerande(rad.losholt, type && type.losholt);
   if (harMidt) leggTil(["64", "84"].includes(String(rad.midtstolpe)) ? "6290" : "6291", antall);
   if (harLosholt) leggTil(["64", "84"].includes(String(rad.losholt)) ? "6292" : "6293", antall);
   if (rad.sprosseverk && String(rad.sprosseverk) !== "22")
