@@ -19,8 +19,8 @@ import {
   lastData, startDemo, tid, datoTekst, nesteAvtale,
   lagreLead, melding, opneModal, lukkModal, skrivUtDialog, demoLagreOrdre, demoNullstill,
   lagreKladd, hentKladd, slettKladd, kladdlagrar, sidanTekst,
-} from "./verktoy-felles.js?v=1196bf7f";
-import { lastVarsel, teiknVarselboks } from "./varselboks.js?v=1e01f80a";
+} from "./verktoy-felles.js?v=b21307b2";
+import { lastVarsel, teiknVarselboks } from "./varselboks.js?v=237db534";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visVerktoy());

@@ -176,6 +176,9 @@ const kundeDoc = (nr) => dok("kundar", String(nr));
 
 // Varsel: spørsmål som stoppar ein ordre, og beskjedar som må lesast.
 const varselCol = () => collection(db, "varsel");
+// Saldogrunnlaget: summen av alle rørsler fram til eit tidspunkt. Ein snarveg,
+// ikkje ei sanning — den kan byggjast opp att frå rørslene når som helst.
+const lagersaldoDoc = () => dok("lagersaldo", "snapshot");
 const varselDoc = (id) => dok("varsel", id);
 
 export {
@@ -207,6 +210,7 @@ export {
   kundeDoc,
   varselCol,
   varselDoc,
+  lagersaldoDoc,
   doc,
   getDoc,
   setDoc,

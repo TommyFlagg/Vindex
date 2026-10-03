@@ -398,6 +398,17 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Saldogrunnlaget: summen av alle rørslene fram til eit tidspunkt, lagra
+    // som eitt dokument. Det er ein snarveg og ikkje ei sanning — rørslene er
+    // framleis fasiten, og grunnlaget blir bygd opp att av dei med jamne
+    // mellomrom. Det inneheld tal, ikkje prisar, så det er ikkje følsamt på
+    // same måte som innkjøp; men berre hovudkontoret får skrive det, for eit
+    // feil grunnlag ville vist feil saldo overalt.
+    match /lagersaldo/{dok} {
+      allow read: if erAdmin() || erLager() || erOrdrekontor();
+      allow write: if erAdmin();
+    }
+
     // Innkjøpsordrane. Linjene har einingsprisar i leverandørens valuta, så
     // dette er like følsamt som `innkjop` og blir behandla likt.
     match /bestilling/{ponr} {

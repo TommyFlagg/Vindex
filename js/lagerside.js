@@ -13,7 +13,7 @@
 
 import {
   $, $$, app, fb, melding, opneModal, lukkModal, skrivUtDel,
-} from "./verktoy-felles.js?v=1196bf7f";
+} from "./verktoy-felles.js?v=b21307b2";
 
 // Alt som er henta, samla ein stad. Fyllast i lastLager og lesast av resten.
 const VINDEX_KOSTFAKTORDOK = "_kostfaktor";
@@ -21,6 +21,9 @@ const VINDEX_KOSTFAKTORDOK = "_kostfaktor";
 export const lagerdata = {
   varer: [], innkjop: {}, poster: [], bestillingar: [],
   grupper: {}, standard: VINDEX_KOSTFAKTOR_STANDARD, henta: false, feil: "",
+  // Saldoen blir rekna av eit grunnlag pluss rørslene etter det. Historikken
+  // lenger tilbake blir henta når nokon ber om den.
+  heileHistorikken: false, grunnlagTid: "", nyeRorsler: 0,
 };
 
 let fane = "varer";
@@ -54,19 +57,80 @@ let berreLagervarer = true;
  * stille og viser varene likevel — ei side som krasjar fordi du ikkje har lov
  * til å sjå éin av fire ting, er ei side som ikkje seier kva som skjedde.
  */
+/**
+ * Hent alle rørslene, heile vegen tilbake.
+ *
+ * Dette er den tunge vegen, og den finst framleis fordi den trengst: skal ein
+ * vite kva som stod på lager ein dato i fjor, må rørslene frå i fjor vere her.
+ * Den blir køyrd når nokon ber om historikken, ikkje ved kvar sidelasting.
+ */
+export async function lastAlleRorsler() {
+  // Demodata ER heile historikken. Utan dette blir flagget aldri sett, og
+  // bevegelsesfana ber om historikken på nytt for kvar omteikning — som ho
+  // sjølv utløyser. Ei evig løkke, og den hang testane.
+  if (VINDEX_DEMOMODUS) { lagerdata.heileHistorikken = true; return; }
+  if (lagerdata.heileHistorikken) return;
+  try {
+    const snap = await fb.getDocs(fb.lagerpostCol());
+    lagerdata.poster = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    lagerdata.heileHistorikken = true;
+    lagerdata.nyeRorsler = lagerdata.poster.length;
+  } catch (e) {
+    melding("Fikk ikke hentet hele bevegelseshistorikken: "
+      + (e && e.message ? e.message : e), "warn");
+  }
+}
+
+/**
+ * Skriv eit nytt saldogrunnlag.
+ *
+ * Grunnlaget er ein snarveg og ikkje ei sanning, så det blir alltid bygd av
+ * alle rørslene — aldri av det førre grunnlaget pluss noko. Ein sum som blir
+ * bygd på ein sum arvar feilen for alltid.
+ */
+async function skrivSaldogrunnlag() {
+  if (VINDEX_DEMOMODUS || app.brukar.rolle !== "admin") return;
+  await lastAlleRorsler();
+  if (!lagerdata.heileHistorikken) return;
+  try {
+    await fb.setDoc(fb.lagersaldoDoc(),
+      vindexByggSnapshot(lagerdata.poster, new Date().toISOString()));
+  } catch (e) {
+    console.warn("Fikk ikke skrevet saldogrunnlaget.", e);
+  }
+}
+
 export async function lastLager() {
   if (VINDEX_DEMOMODUS) { demolager(); return; }
   lagerdata.feil = "";
+  lagerdata.heileHistorikken = false;
   try {
+    // Saldoen er framleis summen av rørslene. Men rørslene blir aldri færre,
+    // og å lese alle ved kvar sidelasting blir tyngre for kvar dag. Difor:
+    // summen fram til eit tidspunkt, pluss det som har kome etterpå.
+    const grunnlag = await fb.getDoc(fb.lagersaldoDoc()).catch(() => null);
+    const snapshot = grunnlag && grunnlag.exists() ? grunnlag.data() : null;
+    const sidan = snapshot && snapshot.tid ? snapshot.tid : "";
     const [v, poster] = await Promise.all([
       fb.getDocs(fb.varerCol()),
-      fb.getDocs(fb.lagerpostCol()),
+      fb.getDocs(sidan
+        ? fb.query(fb.lagerpostCol(), fb.where("tid", ">", sidan))
+        : fb.lagerpostCol()),
     ]);
     lagerdata.varer = v.docs.map((d) => ({ artnr: d.id, ...d.data() }));
-    lagerdata.poster = poster.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const nye = poster.docs.map((d) => ({ id: d.id, ...d.data() }));
+    lagerdata.nyeRorsler = nye.length;
+    lagerdata.grunnlagTid = sidan;
+    // Grunnlaget blir gjort om til vanlege rørsler, så ingenting nedanfor
+    // treng vite at det finst.
+    lagerdata.poster = sidan ? [...vindexSnapshotPostar(snapshot), ...nye] : nye;
+    lagerdata.heileHistorikken = !sidan;
   } catch (e) {
     lagerdata.feil = "Fikk ikke hentet varelisten: " + (e && e.message ? e.message : e);
   }
+  // Har det hopa seg opp nok rørsler etter grunnlaget, blir det skrive på nytt.
+  // Det skjer når hovudkontoret er inne, og krev ingen tenar.
+  if (lagerdata.nyeRorsler > 500) skrivSaldogrunnlag();
   // Varsla blir sjekka når hovudkontoret opnar lageret. Dei treng ingen
   // tenar: den som kan bestille er den som er her.
   oppdaterLagervarsel();
@@ -98,6 +162,7 @@ export async function lastLager() {
 }
 
 function demolager() {
+  lagerdata.heileHistorikken = true;
   lagerdata.varer = [
     { artnr: "7522", benevning: "Picket A11 127x127", gruppe: "1", enhet: "stk", lagervare: true, veilPris: 12 },
     { artnr: "7551", benevning: "Stolpe 127x127 hvit", gruppe: "1", enhet: "stk", lagervare: true, veilPris: 289 },
@@ -165,7 +230,16 @@ export function teiknLagerside() {
   const inn = $("#lagerinnhald");
   if (fane === "varer") teiknVarer(inn);
   else if (fane === "beholdning") teiknBeholdning(inn);
-  else if (fane === "bevegelser") teiknBevegelser(inn);
+  else if (fane === "bevegelser") {
+    // Bevegelsesfana ER historikken. Den hentar heile vegen tilbake, og gjer
+    // det her i staden for ved kvar sidelasting.
+    if (!lagerdata.heileHistorikken)
+      lastAlleRorsler().then(() => {
+        // Berre teikne på nytt om hentinga faktisk gav oss noko nytt.
+        if (lagerdata.heileHistorikken) teiknLagerside();
+      });
+    teiknBevegelser(inn);
+  }
   else teiknInnkjop(inn);
 }
 
@@ -545,6 +619,9 @@ function teiknBevegelser(el) {
   lagerdata.varer.forEach((v) => (namn[String(v.artnr)] = v.benevning || ""));
 
   const alle = lagerdata.poster
+    // Saldogrunnlaget er ein sum og ikkje ei hending. Det høyrer ikkje heime i
+    // ei liste over kva som har skjedd.
+    .filter((pp) => pp.type !== "grunnlag")
     .filter((pp) => !t || String(pp.artnr).toLowerCase().includes(t)
       || String(namn[pp.artnr] || "").toLowerCase().includes(t)
       || String(pp.ref || "").toLowerCase().includes(t))
@@ -563,7 +640,9 @@ function teiknBevegelser(el) {
         <input id="lagerSok" placeholder="Søk artikkelnummer, benevning eller referanse"
           value="${vindexT(sok)}" style="flex:1;min-width:220px">
       </div>
-      <p class="hint mt-1">${tal(lagerdata.poster.length)} bevegelser totalt${
+      ${!lagerdata.heileHistorikken
+        ? `<p class="hint mt-1">Henter hele historikken …</p>` : ""}
+      <p class="hint mt-1">${tal(alle.length)} bevegelser totalt${
         sok.trim() ? `, ${tal(alle.length)} treff på søket` : ""}.
         ${alle.length > vis.length
           ? `<strong>Listen er kortet ned til de ${tal(vis.length)} nyeste.</strong>

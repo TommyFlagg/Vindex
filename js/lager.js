@@ -204,6 +204,67 @@ function vindexKursrimeleg(ny, gammal) {
 }
 
 // ===========================================================================
+// SALDOGRUNNLAG
+// ---------------------------------------------------------------------------
+// Saldoen er summen av rørslene. Det skal den halde fram med å vere — men å
+// lese KVAR rørsle kvar gong nokon opnar lageret blir tyngre for kvar dag som
+// går, fordi rørslene aldri blir færre. Med tjue tusen rørsler er éi
+// sidelasting tjue tusen dokument, og sida blir treig på ein måte folk gir
+// opp på.
+//
+// Difor dette: ein sum fram til eit tidspunkt, lagra som eitt dokument, pluss
+// rørslene som har kome etterpå. Summen er ein SNARVEG og ikkje ei sanning —
+// den kan byggjast opp att frå rørslene når som helst, og den blir det, med
+// jamne mellomrom.
+//
+// Saldoen blir rekna av nøyaktig same funksjon som før. Summen blir gjort om
+// til vanlege rørsler før den går inn, så ingenting nedanfor veit at den
+// finst.
+// ===========================================================================
+
+/** Summen fram til no, som rørsler saldofunksjonane kan lese rett av. */
+function vindexSnapshotPostar(snapshot) {
+  const s = (snapshot || {}).saldo || {};
+  const tid = (snapshot || {}).tid || "";
+  const ut = [];
+  Object.keys(s).forEach((artnr) => {
+    const perLok = s[artnr] || {};
+    Object.keys(perLok).forEach((lok) => {
+      const antall = parseFloat(perLok[lok]) || 0;
+      if (!antall) return;
+      ut.push({ artnr, lokasjon: lok === "_" ? "" : lok, antall, type: "grunnlag", tid });
+    });
+  });
+  return ut;
+}
+
+/**
+ * Bygg eit nytt saldogrunnlag av alle rørslene.
+ *
+ * Reservasjonar blir haldne utanfor med vilje. Dei er korte av natur — dei
+ * blir frigjevne når ordren er henta — og eit grunnlag som fraus dei inne
+ * ville halde på eit beslag som for lengst er oppgjort.
+ */
+function vindexByggSnapshot(poster, tid) {
+  const saldo = {};
+  (poster || []).filter(vindexFlyttarVarer).forEach((p) => {
+    const artnr = String(p.artnr || "");
+    if (!artnr) return;
+    const lok = p.lokasjon || "_";
+    saldo[artnr] = saldo[artnr] || {};
+    saldo[artnr][lok] = (saldo[artnr][lok] || 0) + (parseFloat(p.antall) || 0);
+  });
+  // Nullrader er støy i eit dokument som skal lesast ved kvar sidelasting.
+  Object.keys(saldo).forEach((artnr) => {
+    Object.keys(saldo[artnr]).forEach((lok) => {
+      if (!saldo[artnr][lok]) delete saldo[artnr][lok];
+    });
+    if (!Object.keys(saldo[artnr]).length) delete saldo[artnr];
+  });
+  return { tid: tid || new Date().toISOString(), saldo };
+}
+
+// ===========================================================================
 // RESERVASJON
 // ---------------------------------------------------------------------------
 // Ein stadfesta ordre og ein utlevert ordre er to ulike ting for lageret. Før

@@ -364,6 +364,38 @@ console.log("LAGERSALDO AV RØRSLER");
   p("uttaket er ei vanleg ordrerørsle", uttak.rorsler[0].type, "ordre");
   p("og til saman går tolv ut", slepp.rorsler[0].antall + uttak.rorsler[0].antall, 0);
 
+  // Saldogrunnlaget er ein snarveg, ikkje ei ny sanning: grunnlag pluss det
+  // som har kome etterpå skal gi nøyaktig same svar som å lese alt.
+  const B = G("vindexByggSnapshot");
+  const SP = G("vindexSnapshotPostar");
+  const nyare = [
+    { artnr: "7522", lokasjon: "Lager 3", antall: -400, type: "ordre", tid: "2026-09-25" },
+    { artnr: "7551", lokasjon: "Lager 3", antall: 60, type: "retur", tid: "2026-09-26" },
+  ];
+  const grunnlag = B(poster, "2026-09-20");
+  const snarveg = [...SP(grunnlag), ...nyare];
+  const heile = [...poster, ...nyare];
+  for (const nr of ["7522", "7551"])
+    p(`same saldo for ${nr} med grunnlag som utan`, S(snarveg, nr), S(heile, nr));
+  p("og same fordeling på lokasjon",
+    G("vindexSaldoPerLokasjon")(snarveg, "7522"),
+    G("vindexSaldoPerLokasjon")(heile, "7522"));
+
+  // Reservasjonar skal ikkje frysast inn i grunnlaget. Dei blir frigjevne når
+  // ordren er henta, og eit grunnlag som heldt på dei ville halde på eit
+  // beslag som for lengst er oppgjort.
+  const medRes2 = B(medRes, "2026-09-25");
+  p("grunnlaget inneheld ikkje reservasjonen",
+    SP(medRes2).some((x) => x.type === "reservert"), false);
+  p("og saldoen er den same som før reservasjonen", S(SP(medRes2), "7522"), 7872);
+
+  // Nullrader er støy i eit dokument som blir lese ved kvar sidelasting.
+  const utjamna = B([
+    { artnr: "9999", lokasjon: "A", antall: 5, type: "innkjop", tid: "2026-01-01" },
+    { artnr: "9999", lokasjon: "A", antall: -5, type: "ordre", tid: "2026-01-02" },
+  ], "2026-02-01");
+  p("ein artikkel som har gått i null blir ikkje med", Object.keys(utjamna.saldo).length, 0);
+
   // Minstebeholdning: forslaget skal vere eit tal ein kan seie høgt.
   const F = G("vindexMinstelagerforslag");
   p("tomt lager gir ingen grense", F(0), 0);

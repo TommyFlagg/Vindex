@@ -12,11 +12,11 @@
 import {
   $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
   datoTekst, lagreLead, melding, opneModal, lukkModal, visDatavarsel, demoAnmeldingar,
-} from "./verktoy-felles.js?v=1196bf7f";
+} from "./verktoy-felles.js?v=b21307b2";
 import { lastPrisdata, VINDEX_PRISDATA_DOKUMENT } from "./datalast.js?v=8d397edf";
-import { lastLager, teiknLagerside } from "./lagerside.js?v=58837b48";
-import { lastKundar, teiknKundar } from "./kunderegister.js?v=94bb93bc";
-import { lastVarsel, teiknVarselboks } from "./varselboks.js?v=1e01f80a";
+import { lastLager, teiknLagerside } from "./lagerside.js?v=7b55d812";
+import { lastKundar, teiknKundar } from "./kunderegister.js?v=0455cb07";
+import { lastVarsel, teiknVarselboks } from "./varselboks.js?v=237db534";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visPanel(), { berreAdmin: true });
@@ -224,7 +224,7 @@ async function hentRepresentantar() {
     return;
   }
   try {
-    const { fb } = await import("./verktoy-felles.js?v=1196bf7f");
+    const { fb } = await import("./verktoy-felles.js?v=b21307b2");
     const q = fb.query(fb.representantarCol(), fb.orderBy("opprettet", "desc"), fb.limit(200));
     representantar = (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (err) {
@@ -763,7 +763,7 @@ async function lagreAarstal() {
 
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=1196bf7f");
+      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
       await fb.setDoc(fb.settingsDoc("aarstal"), { driftsinntekter: tal });
     }
     // Eit tal nokon har skrive inn sjølv er stadfesta — til skilnad frå det eg
@@ -1383,7 +1383,7 @@ async function aktiverInnlogging(p) {
       p.id = uid;
       p.harInnlogging = true;
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=1196bf7f");
+      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
       await fb.setDoc(fb.sellerDoc(uid), { ...resten, arkivert: false, harInnlogging: true });
       await fb.setDoc(fb.omsetningDoc(uid), { historikk: historikk || {} });
 
@@ -1463,7 +1463,7 @@ async function lagrePerson(p, ny) {
       if (ny) app.seljarar.push({ ...data, id: "ny-" + Date.now(), historikk, arkivert: false });
       else Object.assign(p, data, { historikk });
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=1196bf7f");
+      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
       if (ny) {
         // Er uid-en oppgitt, blir raden lagd under den med ein gong, og
         // personen kan logge inn og få saker frå første stund.
@@ -1531,7 +1531,7 @@ async function vekslArkiv(p) {
   const data = vindexArkiverData(p, dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=1196bf7f");
+      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
       await fb.updateDoc(fb.sellerDoc(p.id), data);
     }
     Object.assign(p, data);
@@ -1552,7 +1552,7 @@ async function lagreDistrikt(seljarId) {
   seljar.distrikt = valde;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=1196bf7f");
+      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
       await fb.updateDoc(fb.sellerDoc(seljarId), { distrikt: valde });
       await byggRuting();
     }
@@ -1572,7 +1572,7 @@ async function lagreDistrikt(seljarId) {
  * innlogga. Difor ligg berre ID-ane der — ingen namn, ingen kontaktinfo.
  */
 async function byggRuting() {
-  const { fb } = await import("./verktoy-felles.js?v=1196bf7f");
+  const { fb } = await import("./verktoy-felles.js?v=b21307b2");
   // Formen må vere den bestillingsskjemaet les: distrikt-id -> liste med
   // selger-id-ar. Er det fleire i same distrikt, roterer skjemaet mellom dei.
   // Dokumentet ligg flatt, uten «distrikt»-nivå, og heiter settings/ruting.
@@ -1980,7 +1980,7 @@ async function knytAnmelding(id, seljarId) {
   if (!a) return;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=1196bf7f");
+      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
       await fb.updateDoc(fb.reviewDoc(id), { seljarId: seljarId || null });
     }
     a.seljarId = seljarId || null;
@@ -2116,7 +2116,7 @@ async function lagreGjeninntaking(s, dato) {
   const data = vindexGjeninntaData(dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=1196bf7f");
+      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
       await fb.updateDoc(fb.sellerDoc(s.id), data);
     }
     Object.assign(s, data);
@@ -2494,7 +2494,7 @@ async function lagreKampanje(kam, ny, data) {
       if (ny) app.kampanjar.push({ ...full, id: "k-" + Date.now(), opprettaAv: app.brukar.navn });
       else Object.assign(kam, full);
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=1196bf7f");
+      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
       if (ny) {
         const ref = await fb.addDoc(fb.campaignsCol(), {
           ...full,
@@ -2520,7 +2520,7 @@ async function vekslKampanje(k) {
   const paa = k.aktiv === false;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=1196bf7f");
+      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
       await fb.updateDoc(fb.campaignDoc(k.id), { aktiv: paa });
     }
     k.aktiv = paa;
@@ -3030,7 +3030,7 @@ async function kjorPersonimport() {
       if (VINDEX_DEMOMODUS) {
         app.seljarar.push({ ...data, id: "imp-" + Date.now() + "-" + inn, historikk });
       } else {
-        const { fb } = await import("./verktoy-felles.js?v=1196bf7f");
+        const { fb } = await import("./verktoy-felles.js?v=b21307b2");
         const ref = await fb.addDoc(fb.sellersCol(), data);
         await fb.setDoc(fb.omsetningDoc(ref.id), { historikk });
         app.seljarar.push({ ...data, id: ref.id, historikk });

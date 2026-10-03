@@ -13,9 +13,9 @@
 
 import {
   $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
-  datoTekst, melding, opneModal, lukkModal, skrivUtDel} from "./verktoy-felles.js?v=1196bf7f";
-import { lastKundar, teiknKundar, kundedata } from "./kunderegister.js?v=94bb93bc";
-import { lastVarsel, teiknVarselboks, varseldata } from "./varselboks.js?v=1e01f80a";
+  datoTekst, melding, opneModal, lukkModal, skrivUtDel} from "./verktoy-felles.js?v=b21307b2";
+import { lastKundar, teiknKundar, kundedata } from "./kunderegister.js?v=0455cb07";
+import { lastVarsel, teiknVarselboks, varseldata } from "./varselboks.js?v=237db534";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visPanel(), { roller: ["ordre", "admin"] });
