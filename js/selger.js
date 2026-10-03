@@ -2305,9 +2305,9 @@ function visKvittering(ordre, lead, { harSpesial, harPlukk }) {
        // numrene står. Er ordren fylt ut rett i skjemaet uten en deleliste,
        // finnes det ingen numre å trekke fra — og da skal det stå her, ikke
        // oppdages på lageret om tre uker.
-       Object.keys(ordre.lagertrekk || {}).length
+       Object.keys(ordre.lagerreservert || {}).length
          ? ""
-         : `<div class="notice notice-warn">Lagerbeholdningen ble ikke justert — denne
+         : `<div class="notice notice-warn">Ingenting ble reservert på lageret — denne
               ordren har ingen deleliste med artikkelnumre. Hovedkontoret må føre uttaket
               manuelt.</div>`
      }
@@ -2400,8 +2400,9 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
       tid: new Date().toISOString(),
       ...bekreftelse,
     },
-    // Kva ordren har trekt frå lageret. Blir den lagra på nytt med to stolpar
-    // meir, skal det trekkast to — ikkje heile ordren om att.
+    // Kva ordren har reservert og kva den har teke ut. Blir den lagra på nytt
+    // med to stolpar meir, skal det førast to — ikkje heile ordren om att.
+    lagerreservert: (eksisterande && eksisterande.lagerreservert) || {},
     lagertrekk: (eksisterande && eksisterande.lagertrekk) || {},
   };
 
@@ -2479,12 +2480,20 @@ async function lagreOrdre(lead, skjema, utkast, bekreftelse, eksisterande) {
 }
 
 /**
- * Ein stadfesta ordre tek varene ut av beholdninga.
+ * Ein stadfesta ordre RESERVERER varene.
  *
- * Dette er funksjonen Bravo gjer i dag. Den køyrer ETTER at ordren er lagra,
- * og med vilje: går lagerføringa gale, står ordren likevel. Ein ordre som ikkje
- * finst er eit problem for kunden; ei rørsle som manglar er eit problem for
- * lageret, og det siste kan rettast i ro.
+ * Før tok den dei ut med ein gong. Det er ikkje det same: ein ordre som er
+ * bekrefta i dag og henta om tre veker stod som ute av lageret heile tida,
+ * og lageret viste færre varer enn det faktisk hadde på hylla.
+ *
+ * Nå skriv bekreftinga ein reservasjon. Saldoen står, men det tilgjengelege
+ * går ned, så ingen sel det same to gonger. Ordrekontoret tek varene ut når
+ * ordren blir sett «klar».
+ *
+ * Den køyrer ETTER at ordren er lagra, og med vilje: går lagerføringa gale,
+ * står ordren likevel. Ein ordre som ikkje finst er eit problem for kunden;
+ * ei rørsle som manglar er eit problem for lageret, og det siste kan rettast
+ * i ro.
  *
  * Seljaren kan skrive desse rørslene, men ikkje lese dei. Han får gjere det
  * han allereie gjer — sende ein ordre — utan å sjå noko han ikkje ser i dag.
@@ -2510,17 +2519,18 @@ async function trekkFraaLager(ordre, lead) {
     }
   }
 
-  const { rorsler, trekt } = vindexOrdrerorsler(linjer, ordre.lagertrekk || {}, varer, {
-    ref: "Ordre " + ordre.id,
+  const { rorsler, trekt } = vindexOrdrerorsler(linjer, ordre.lagerreservert || {}, varer, {
+    ref: "Reservert til ordre " + ordre.id,
     ordreId: ordre.id,
+    type: VINDEX_RESERVERT,
   });
   if (!rorsler.length) return;
 
   try {
     if (VINDEX_DEMOMODUS) {
-      ordre.lagertrekk = trekt;
+      ordre.lagerreservert = trekt;
       // Ordren vart lagra før reknestykket fanst. Skriv vi den ikkje på nytt,
-      // står det tomt i lageret — og neste lagring trekkjer heile ordren om
+      // står det tomt i lageret — og neste lagring reserverer heile ordren om
       // att i staden for differansen.
       demoLagreOrdre(ordre);
       return;
@@ -2528,11 +2538,11 @@ async function trekkFraaLager(ordre, lead) {
     for (const r of rorsler) await fb.addDoc(fb.lagerpostCol(), r);
     // Reknestykket blir lagra FØRST etter at rørslene er skrivne. Stoppar det
     // mellom, blir noko ført to gonger neste gong — synleg, og til å rette.
-    // Motsett veg ville varene blitt ståande på lager for alltid.
-    await fb.updateDoc(fb.orderDoc(ordre.id), { lagertrekk: trekt });
-    ordre.lagertrekk = trekt;
+    // Motsett veg ville reservasjonen blitt ståande for alltid.
+    await fb.updateDoc(fb.orderDoc(ordre.id), { lagerreservert: trekt });
+    ordre.lagerreservert = trekt;
   } catch (e) {
-    console.error("Fikk ikke ført ordren ut av lageret.", e);
+    console.error("Fikk ikke reservert varene på lageret.", e);
     melding(
       `Ordre ${ordre.id} er lagret, men lagerbeholdningen ble ikke oppdatert. ` +
         "Si fra til hovedkontoret — ordren går som normalt.",

@@ -390,14 +390,15 @@ console.log("ORDRESEDLAR OG UTSKRIFT");
   // Feilmeldinga frå den gamle alerten skal ikkje dukke opp.
   sjekk("ingen feilmelding", !/ikke lagret|Prøv igjen|undefined/i.test(kvittering));
 
-  // Ein stadfesta ordre skal ta varene ut av beholdninga. Det er denne
-  // funksjonen som erstattar Bravo, og reknestykket blir lagra PÅ ordren —
-  // elles ville ei ny lagring trekt heile ordren om att i staden for
-  // differansen.
+  // Ein stadfesta ordre legg beslag på varene. Reknestykket blir lagra PÅ
+  // ordren — elles ville ei ny lagring reservert heile ordren om att i staden
+  // for differansen.
   const sendt = await p.evaluate(() =>
     JSON.parse(localStorage.getItem("vindex_demo_ordrar") || "[]")[0] || {}
   );
-  sjekk("ordren hugsar kva den har trekt", sendt.lagertrekk && Object.keys(sendt.lagertrekk).length > 0);
+  // Bekreftinga RESERVERER varene; uttaket skjer når ordrekontoret set «klar».
+  sjekk("ordren hugsar kva den har reservert",
+    sendt.lagerreservert && Object.keys(sendt.lagerreservert).length > 0);
   sjekk("og trekket er positive tal",
     Object.values(sendt.lagertrekk || {}).every((n) => typeof n === "number" && n > 0));
 
@@ -1197,7 +1198,7 @@ console.log("LAGER OG INNKJØP");
   sjekk("strukturvara er merkt", (await tekst('tr[data-vare="3010"] .merke')) === "struktur");
   // 7492 inn, 120 ut. Saldoen er summen av rørslene, ikkje eit lagra tal.
   sjekk("saldoen er summen av rørslene",
-    utanMellomrom((await alle('tr[data-vare="7522"] td')).at(-1)) === "7372");
+    utanMellomrom((await alle('tr[data-vare="7522"] td')).at(-3)) === "7372");
   // Filteret «vis kun lagervarer» er på frå start. Arbeid og frakt er skjult,
   // men søket skal framleis finne dei — elles er svaret «finst ikkje», og det
   // er feil svar.
@@ -1216,7 +1217,7 @@ console.log("LAGER OG INNKJØP");
   });
   await p.waitForTimeout(250);
   sjekk("hakar du den av, kjem alt fram", (await p.$$('tr[data-vare="3030"]')).length === 1);
-  sjekk("arbeidskost har ingen saldo", (await alle('tr[data-vare="3030"] td')).at(-1) === "");
+  sjekk("arbeidskost har ingen saldo", (await alle('tr[data-vare="3030"] td')).at(-3) === "");
 
   // Kostprisen i lista blir rekna av det som faktisk ligg lagra. Feltet heitte
   // ein gong to ting, og då viste dialogen rett medan lista viste strek.
@@ -1258,7 +1259,7 @@ console.log("LAGER OG INNKJØP");
   await p.waitForTimeout(600);
   sjekk("sju artiklar etter import", (await p.$$("#lagerinnhald [data-vare]")).length === 7);
   sjekk("saldoen kom med",
-    utanMellomrom((await alle('tr[data-vare="9001"] td')).at(-1)) === "1250");
+    utanMellomrom((await alle('tr[data-vare="9001"] td')).at(-3)) === "1250");
 
   // Ein artikkel som alt har eit UTTAK, men inga opningstelling, skal
   // framleis få opningsbeholdninga si. Dette skjer i praksis: ein ordre blir
@@ -1296,7 +1297,7 @@ console.log("LAGER OG INNKJØP");
   await p.waitForTimeout(600);
   // 100 inn, 40 alt ute = 60.
   sjekk("opningsbeholdninga kjem med sjølv om artikkelen alt har eit uttak",
-    utanMellomrom((await alle('tr[data-vare="9500"] td')).at(-1)) === "60");
+    utanMellomrom((await alle('tr[data-vare="9500"] td')).at(-3)) === "60");
 
   // Same lista limt inn ein gong til. Varekorta skal oppdaterast, men
   // opningstellinga skal IKKJE førast om att — elles ville beholdninga
@@ -1312,7 +1313,7 @@ console.log("LAGER OG INNKJØP");
   await p.evaluate(() => document.querySelector("#imp_lagre").click());
   await p.waitForTimeout(600);
   sjekk("import nummer to doblar ikkje beholdninga",
-    utanMellomrom((await alle('tr[data-vare="9001"] td')).at(-1)) === "1250");
+    utanMellomrom((await alle('tr[data-vare="9001"] td')).at(-3)) === "1250");
   sjekk("og lagar ingen ny artikkel", (await p.$$("#lagerinnhald [data-vare]")).length === forImport);
 
   // Eit heilt vareregister er 790 artiklar. Lista teikna 200, og sa det så
@@ -1410,7 +1411,7 @@ console.log("LAGER OG INNKJØP");
   await p.evaluate(() => document.querySelector('[data-lagerfane="varer"]').click());
   await p.waitForTimeout(250);
   sjekk("saldoen er retta",
-    utanMellomrom((await alle('tr[data-vare="7522"] td')).at(-1)) === "7350");
+    utanMellomrom((await alle('tr[data-vare="7522"] td')).at(-3)) === "7350");
 
   // Kostfaktor per gruppe: utgangspunktet for heile gruppa, overstyrt på
   // enkeltartikkelen.
@@ -1516,7 +1517,7 @@ console.log("LAGER OG INNKJØP");
   await p.evaluate(() => document.querySelector('[data-lagerfane="varer"]').click());
   await p.waitForTimeout(250);
   sjekk("mottaket la seg på lager",
-    utanMellomrom((await alle('tr[data-vare="7522"] td')).at(-1)) === "12350");
+    utanMellomrom((await alle('tr[data-vare="7522"] td')).at(-3)) === "12350");
   await p.evaluate(() => document.querySelector('[data-lagerfane="innkjop"]').click());
   await p.waitForTimeout(250);
   // Delleveransen skal sjå ut som ein delleveranse, ikkje som ein feil.

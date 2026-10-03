@@ -67,6 +67,9 @@ export async function lastLager() {
   } catch (e) {
     lagerdata.feil = "Fikk ikke hentet varelisten: " + (e && e.message ? e.message : e);
   }
+  // Varsla blir sjekka når hovudkontoret opnar lageret. Dei treng ingen
+  // tenar: den som kan bestille er den som er her.
+  oppdaterLagervarsel();
   try {
     const [i, b] = await Promise.all([
       fb.getDocs(fb.innkjopCol()),
@@ -204,6 +207,7 @@ function teiknVarer(el) {
         <button class="btn btn-ghost btn-sm" id="importer">Importer fra regneark</button>
         <button class="btn btn-ghost btn-sm" id="kostfaktorar">Kostfaktor per gruppe</button>
         <button class="btn btn-ghost btn-sm" id="importerStruktur">Importer strukturer</button>
+        <button class="btn btn-ghost btn-sm" id="minstelager">Sett minstebeholdning</button>
       </div>
       <label class="hakelinje mt-1"><input type="checkbox" id="berreLager"
         ${berreLagervarer ? "checked" : ""}> Vis kun lagervarer
@@ -220,7 +224,8 @@ function teiknVarer(el) {
              og trykk <strong>Importer fra regneark</strong> — det trengs ingen eksportfil.</div>`
         : `<table class="tabell mt-2">
             <thead><tr><th>Artnr</th><th>Benevning</th><th>Enhet</th><th class="hgr">Veil. pris</th>
-              <th class="hgr">Kostpris</th><th class="hgr">Saldo</th></tr></thead>
+              <th class="hgr">Kostpris</th><th class="hgr">Saldo</th>
+              <th class="hgr">Reservert</th><th class="hgr">Min.</th></tr></thead>
             <tbody>${vis.map(varerad).join("")}</tbody>
           </table>`}
     </div>`;
@@ -244,6 +249,7 @@ function teiknVarer(el) {
   $("#importer").addEventListener("click", opneImport);
   $("#kostfaktorar").addEventListener("click", opneGruppefaktorar);
   $("#importerStruktur").addEventListener("click", opneStrukturimport);
+  $("#minstelager").addEventListener("click", opneMinstelager);
   $$("#lagerinnhald [data-vare]").forEach((r) =>
     r.addEventListener("click", () => opneVare(r.dataset.vare))
   );
@@ -251,8 +257,15 @@ function teiknVarer(el) {
 
 function varerad(v) {
   const kost = kostprisFor(v.artnr);
-  const saldo = v.lagervare === false ? "" : tal(vindexLagersaldo(lagerdata.poster, v.artnr));
-  return `<tr data-vare="${vindexT(v.artnr)}" style="cursor:pointer">
+  const lagervare = v.lagervare !== false;
+  const saldoTal = lagervare ? vindexLagersaldo(lagerdata.poster, v.artnr) : 0;
+  const reservert = lagervare ? vindexReservert(lagerdata.poster, v.artnr) : 0;
+  const saldo = lagervare ? tal(saldoTal) : "";
+  const minste = parseFloat(v.minste) || 0;
+  // Det tilgjengelege avgjer, ikkje saldoen: er halve hylla lova bort, er
+  // varen i praksis tom — og det er då ein vil vite det.
+  const laagt = lagervare && minste > 0 && saldoTal - reservert < minste;
+  return `<tr data-vare="${vindexT(v.artnr)}" style="cursor:pointer"${laagt ? ' class="lagerlaagt"' : ""}>
     <td><code>${vindexT(v.artnr)}</code></td>
     <td>${vindexT(v.benevning)}${v.bestarAv && v.bestarAv.length ? ' <span class="merke">struktur</span>' : ""}
       ${v.lagervare === false ? ' <span class="hint">ikke lagervare</span>' : ""}</td>
@@ -260,7 +273,167 @@ function varerad(v) {
     <td class="hgr">${v.veilPris ? kroner(v.veilPris) : ""}</td>
     <td class="hgr">${kost ? kroner(kost) : '<span class="hint">—</span>'}</td>
     <td class="hgr">${saldo}</td>
+    <td class="hgr">${reservert ? tal(reservert) : '<span class="hint">—</span>'}</td>
+    <td class="hgr">${minste ? tal(minste) : '<span class="hint">—</span>'}${
+      laagt ? ' <span class="merke merke-aatvaring" title="Under minstebeholdningen">lavt</span>' : ""}</td>
   </tr>`;
+}
+
+/**
+ * Varsla om lågt lager.
+ *
+ * Eitt varsel per artikkel, med artikkelnummeret som dokument-id. Går den same
+ * varen under grensa to gonger, er det framleis éi sak — ikkje to. Kjem den
+ * over igjen, blir varselet lukka av seg sjølv: ein beskjed om noko som er i
+ * orden er støy, og støy er korleis folk lærer seg å sjå forbi varselboksen.
+ *
+ * Berre hovudkontoret skriv desse. Lageret kan sjå dei, men databasen slepp
+ * ikkje lagerrolla til å lage varsel — og det er rett: det er innkjøpet som
+ * eig beskjeden om at noko må bestillast.
+ */
+async function oppdaterLagervarsel() {
+  if (VINDEX_DEMOMODUS || app.brukar.rolle !== "admin") return;
+  const varekart = {};
+  lagerdata.varer.forEach((v) => (varekart[v.artnr] = v));
+  const laage = vindexLaagtLager(varekart, lagerdata.poster);
+  const under = new Set(laage.map((r) => String(r.artnr)));
+
+  let gamle = [];
+  try {
+    const snap = await fb.getDocs(fb.varselCol());
+    gamle = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    return; // Får vi ikkje lese varsla, skal vi ikkje skrive dei heller.
+  }
+  const opne = new Map(
+    gamle.filter((v) => v.slag === "lager" && v.artnr && v.status !== "avklart")
+         .map((v) => [String(v.artnr), v])
+  );
+
+  try {
+    for (const r of laage) {
+      const fraa = opne.get(String(r.artnr));
+      const tekst =
+        `${r.benevning || "Artikkel " + r.artnr}: ${tal(r.tilgjengeleg)} tilgjengelig` +
+        `${r.reservert ? ` (${tal(r.saldo)} på lager, ${tal(r.reservert)} reservert)` : ""}` +
+        `, minste er ${tal(r.minste)}.`;
+      // Står varselet alt med same tal, er det ingenting nytt å seie.
+      if (fraa && fraa.tekst === tekst) continue;
+      await fb.setDoc(fb.varselDoc("lager-" + r.artnr), {
+        slag: "lager",
+        til: "alle",
+        artnr: String(r.artnr),
+        tittel: `Lavt lager: ${r.artnr} ${r.benevning || ""}`.trim(),
+        tekst,
+        status: "ope",
+        opprettaAv: app.brukar.uid,
+        opprettaNavn: app.brukar.navn || app.brukar.epost,
+        opprettet: new Date().toISOString(),
+      }, { merge: true });
+    }
+    for (const [artnr, v] of opne) {
+      if (under.has(artnr)) continue;
+      await fb.setDoc(fb.varselDoc(v.id), {
+        status: "avklart",
+        svar: "Beholdningen er over minstetallet igjen.",
+        svarTid: new Date().toISOString(),
+      }, { merge: true });
+    }
+  } catch (e) {
+    console.warn("Fikk ikke oppdatert lagervarslene.", e);
+  }
+}
+
+// -- Minstebeholdning --------------------------------------------------------
+//
+// Vindex bestiller 10–15 gonger i året, og varene kjem sjøvegen frå Kina. Ein
+// artikkel som går tom veka etter ei bestilling er borte i to månader. Difor
+// skal systemet seie frå FØR hylla er tom, ikkje når den er det.
+//
+// Kva «før» er, finst det ikkje datagrunnlag for å rekne ut enno — forbruket
+// ligg i Bravo, ikkje her. Det som finst er kva dei faktisk vel å halde på
+// lager, og ein femdel av det er eit forsvarleg utgangspunkt. Forslaget blir
+// vist før noko blir skrive, og kvart tal kan endrast etterpå.
+
+function opneMinstelager() {
+  const kandidatar = lagerdata.varer
+    .filter((v) => v.lagervare !== false)
+    .map((v) => ({
+      artnr: v.artnr,
+      benevning: v.benevning || "",
+      saldo: vindexLagersaldo(lagerdata.poster, v.artnr),
+      staar: parseFloat(v.minste) || 0,
+    }))
+    .filter((r) => r.saldo > 0)
+    .map((r) => ({ ...r, forslag: vindexMinstelagerforslag(r.saldo) }));
+
+  const nye = kandidatar.filter((r) => !r.staar);
+  const har = kandidatar.length - nye.length;
+
+  opneModal("Minstebeholdning", `
+    <p>Systemet varsler når tilgjengelig beholdning går under et minstetall. Her settes
+      et forslag på de artiklene som ikke har et tall fra før — <strong>en femdel av det
+      som står på lageret i dag</strong>, rundet til noe man kan si høyt.</p>
+    <p class="hint">Dette er et utgangspunkt, ikke en sannhet. Forbruket ligger i Bravo og
+      ikke her, så et minstetall regnet av faktisk forbruk finnes det ikke grunnlag for ennå.
+      Hvert tall kan endres på artikkelkortet etterpå, og tomt felt betyr ingen varsling.</p>
+    ${har ? `<div class="notice mt-1">${tal(har)} artikler har et tall fra før.
+      <strong>De blir ikke rørt.</strong></div>` : ""}
+    ${!nye.length
+      ? `<div class="notice notice-good mt-2">Alle lagerartikler med beholdning har
+           allerede et minstetall.</div>`
+      : `<p class="mt-2"><strong>${tal(nye.length)} artikler får et minstetall:</strong></p>
+         <div class="tabellramme" style="max-height:46vh;overflow:auto">
+         <table class="tabell">
+           <thead><tr><th>Artnr</th><th>Benevning</th><th class="hgr">På lager</th>
+             <th class="hgr">Minste</th></tr></thead>
+           <tbody>${nye.map((r) => `<tr>
+             <td><code>${vindexT(r.artnr)}</code></td>
+             <td>${vindexT(r.benevning)}</td>
+             <td class="hgr">${tal(r.saldo)}</td>
+             <td class="hgr"><strong>${tal(r.forslag)}</strong></td></tr>`).join("")}</tbody>
+         </table></div>`}`,
+    nye.length
+      ? `<button class="btn" id="settMinste">Sett minstetall på ${tal(nye.length)} artikler</button>
+         <button class="btn btn-ghost" id="minsteAvbryt">Avbryt</button>`
+      : `<button class="btn btn-ghost" id="minsteAvbryt">Lukk</button>`);
+
+  $("#minsteAvbryt").addEventListener("click", lukkModal);
+
+  if (!nye.length) return;
+  const knapp = $("#settMinste");
+  knapp.addEventListener("click", async () => {
+    knapp.disabled = true;
+    if (VINDEX_DEMOMODUS) {
+      nye.forEach((r) => {
+        const v = lagerdata.varer.find((x) => String(x.artnr) === String(r.artnr));
+        if (v) v.minste = r.forslag;
+      });
+      lukkModal(); teiknLagerside();
+      melding("Satt (demomodus — ingenting er skrevet til databasen).");
+      return;
+    }
+    let inn = 0;
+    for (let i = 0; i < nye.length; i += 150) {
+      const bolk = nye.slice(i, i + 150);
+      const batch = fb.writeBatch(fb.db);
+      bolk.forEach((r) => batch.set(fb.vareDoc(r.artnr), { minste: r.forslag }, { merge: true }));
+      try {
+        await batch.commit();
+        inn += bolk.length;
+        knapp.textContent = `Setter … ${inn} av ${nye.length}`;
+      } catch (e) {
+        console.error(e);
+        melding(`Stoppet etter ${inn} artikler: ${e && e.message ? e.message : e}`, "warn");
+        knapp.disabled = false;
+        return;
+      }
+    }
+    await lastLager();
+    lukkModal();
+    teiknLagerside();
+    melding(`Minstetall satt på ${tal(inn)} artikler.`);
+  });
 }
 
 // -- Beholdning --------------------------------------------------------------
@@ -456,7 +629,12 @@ function opneVare(artnr) {
       ${felt("vf_gruppe", "Artikkelgruppe", v.gruppe || "")}
       ${felt("vf_enhet", "Enhet", v.enhet || "stk")}
       ${felt("vf_veil", "Veiledende pris", v.veilPris || "", 'type="number" step="0.01"')}
+      ${felt("vf_minste", "Minste beholdning", v.minste || "",
+        `type="number" step="1" min="0" placeholder="forslag: ${vindexMinstelagerforslag(saldo)}"`)}
     </div>
+    <p class="hint">Varsles når tilgjengelig beholdning går under dette tallet. Tomt felt
+      betyr ingen varsling. Forslaget i feltet er en femdel av det som står på lageret i dag —
+      omtrent det som går med mellom to bestillinger når det bestilles 10–15 ganger i året.</p>
     <label class="hakelinje"><input type="checkbox" id="vf_lagervare" ${v.lagervare === false ? "" : "checked"}>
       Lagervare</label>
     <p class="hint">Arbeid, frakt og montering er ikke lagervarer. De har kostpris, men ingen
@@ -529,6 +707,7 @@ async function lagreVare(ny, gammal) {
     gruppe: $("#vf_gruppe").value.trim(),
     enhet: $("#vf_enhet").value.trim() || "stk",
     veilPris: Number($("#vf_veil").value) || 0,
+    minste: Number($("#vf_minste").value) || 0,
     lagervare: $("#vf_lagervare").checked,
   };
   // Strukturen blir ståande som han er — han blir ikkje redigert herfrå.

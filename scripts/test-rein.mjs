@@ -338,6 +338,57 @@ console.log("LAGERSALDO AV RØRSLER");
   p("saldo før noko kom inn", S(poster, "7522", { til: "2026-01-01" }), 0);
 
   p("per lokasjon", G("vindexSaldoPerLokasjon")(poster, "7522"), { "Lager 3": 7372, Stavik: 500 });
+
+  // Ein reservasjon er lova bort, men ikkje henta. Den skal ikkje røre saldoen
+  // — før gjekk varene ut same dagen seljaren trykte bekreft, og lageret viste
+  // færre varer enn det hadde på hylla i tre veker.
+  const medRes = [...poster,
+    { artnr: "7522", lokasjon: "Lager 3", antall: -300, type: "reservert", tid: "2026-09-20" }];
+  p("reservasjonen rører ikkje saldoen", S(medRes, "7522"), 7872);
+  p("men den er lova bort", G("vindexReservert")(medRes, "7522"), 300);
+  p("og då er mindre tilgjengeleg", G("vindexTilgjengeleg")(medRes, "7522"), 7572);
+  p("reservasjonen tel heller ikkje per lokasjon",
+    G("vindexSaldoPerLokasjon")(medRes, "7522"), { "Lager 3": 7372, Stavik: 500 });
+
+  // Bekreftinga skriv reservasjonen, utleveringa skriv uttaket.
+  const R = G("vindexOrdrerorsler");
+  const res = R([{ kode: "7522", antall: 12 }], {}, {}, { type: "reservert" });
+  p("bekrefta ordre reserverer", res.rorsler[0].type, "reservert");
+  p("og legg beslag på tolv", res.rorsler[0].antall, -12);
+  // «Klar» frigjer reservasjonen og fører uttaket: tom liste mot det som er
+  // reservert gir motposten, same tal motsett veg.
+  const slepp = R([], { 7522: 12 }, {}, { type: "reservert" });
+  p("frigjevinga er motposten", slepp.rorsler[0].antall, 12);
+  p("og reknestykket er nullstilt", Object.keys(slepp.trekt).length, 0);
+  const uttak = R([{ kode: "7522", antall: 12 }], {}, {}, {});
+  p("uttaket er ei vanleg ordrerørsle", uttak.rorsler[0].type, "ordre");
+  p("og til saman går tolv ut", slepp.rorsler[0].antall + uttak.rorsler[0].antall, 0);
+
+  // Minstebeholdning: forslaget skal vere eit tal ein kan seie høgt.
+  const F = G("vindexMinstelagerforslag");
+  p("tomt lager gir ingen grense", F(0), 0);
+  p("fire på hylla", F(4), 1);
+  p("1 270 pyntekransar", F(1270), 250);
+  p("7 872 skruer", F(7872), 1550);
+  p("577 lister", F(577), 120);
+  sjekk("forslaget er alltid ein femdel, runda", () =>
+    [40, 120, 900, 5000].every((n) => Math.abs(F(n) - n * 0.2) <= Math.max(2, n * 0.02)));
+
+  const L = G("vindexLaagtLager");
+  const varer = {
+    7522: { artnr: "7522", benevning: "Skrue", minste: 8000 },
+    7551: { artnr: "7551", benevning: "List", minste: 100 },
+    3310: { artnr: "3310", benevning: "Montering", minste: 5, lagervare: false },
+    9999: { artnr: "9999", benevning: "Uten grense" },
+  };
+  const laag = L(varer, medRes);
+  p("berre den som er under grensa", laag.map((r) => r.artnr), ["7522"]);
+  p("og det tilgjengelege er det som tel", laag[0].tilgjengeleg, 7572);
+  // Er halve hylla lova bort, er varen i praksis tom — og det er då ein vil
+  // vite det, ikkje når hylla står tom og ordren ventar.
+  const rett = L({ 7551: { artnr: "7551", benevning: "List", minste: 1800 } },
+    [...medRes, { artnr: "7551", antall: -200, type: "reservert", tid: "2026-09-21" }]);
+  p("reservasjonen kan åleine utløyse varselet", rett.length, 1);
   p("ukjend artikkel er null", S(poster, "9999"), 0);
 }
 

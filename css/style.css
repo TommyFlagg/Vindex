@@ -790,6 +790,9 @@ table.maltabell tr:nth-child(even) td { background: rgba(0,0,0,0.015); }
 }
 .merke-liten { padding: 0.05rem 0.45rem; font-size: 0.72rem; border-width: 1px; }
 .merke-streak { border-color: var(--accent); background: var(--accent-soft); color: #7a5715; }
+/* Ein artikkel under minstebeholdninga. Raud rad ville ropt; dette peikar. */
+.merke-aatvaring { border-color: var(--varsel, #c77700); background: #fdf1e3; color: #8a5200; }
+tr.lagerlaagt > td { background: #fdf7ef; }
 
 /* --- stat-fliser --- */
 .stat-rad { display: grid; gap: 0.9rem; grid-template-columns: repeat(2, 1fr); margin-bottom: 1.1rem; }

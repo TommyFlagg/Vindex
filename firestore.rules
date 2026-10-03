@@ -365,22 +365,25 @@ service cloud.firestore {
     function gyldigRorsle(d) {
       return d.artnr is string
              && d.antall is number
-             && d.type in ['innkjop', 'ordre', 'telling', 'produksjon', 'retur', 'svinn']
+             && d.type in ['innkjop', 'ordre', 'telling', 'produksjon', 'retur', 'svinn',
+                           'reservert']
              && d.tid is string
              // Kostpris høyrer ikkje heime på rørsla: lageret les desse.
              && utanInnkjopstal(d);
     }
 
-    // Ein stadfesta ordre skal ta varene ut av beholdninga, og det er seljaren
-    // som stadfestar. Så han må kunne SKRIVE ei rørsle — men framleis ikkje
-    // lese samlinga. Det er ikkje ein inkonsekvens: han får gjere det han
-    // allereie gjer — sende ein ordre — og ikkje sjå noko han ikkje ser i dag.
+    // Ein stadfesta ordre legg beslag på varer, og det er seljaren som
+    // stadfestar. Så han må kunne SKRIVE ei rørsle — men framleis ikkje lese
+    // samlinga. Det er ikkje ein inkonsekvens: han får gjere det han allereie
+    // gjer — sende ein ordre — og ikkje sjå noko han ikkje ser i dag.
     //
-    // Regelen bind rørsla til ein ordre han sjølv eig. Utan det kunne kven som
-    // helst med innlogging skrive kva som helst inn i lagerrekneskapen.
+    // Han skriv RESERVASJONEN. Uttaket skriv ordrekontoret når varene faktisk
+    // går ut. Regelen bind begge til ein ordre han sjølv eig; utan det kunne
+    // kven som helst med innlogging skrive kva som helst inn i
+    // lagerrekneskapen.
     function gyldigOrdrerorsle(d) {
       return gyldigRorsle(d)
-             && d.type == 'ordre'
+             && d.type in ['ordre', 'reservert']
              && d.ordreId is string
              && exists(/databases/$(database)/documents/orders/$(d.ordreId))
              && get(/databases/$(database)/documents/orders/$(d.ordreId)).data.seljarId
@@ -388,8 +391,9 @@ service cloud.firestore {
     }
 
     match /lagerpost/{postId} {
-      allow read: if erAdmin() || erLager();
-      allow create: if ((erAdmin() || erLager()) && gyldigRorsle(request.resource.data))
+      allow read: if erAdmin() || erLager() || erOrdrekontor();
+      allow create: if ((erAdmin() || erLager() || erOrdrekontor())
+                       && gyldigRorsle(request.resource.data))
                     || (erSeljar() && gyldigOrdrerorsle(request.resource.data));
       allow update, delete: if false;
     }

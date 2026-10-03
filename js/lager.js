@@ -133,9 +133,31 @@ const VINDEX_LAGERTYPAR = [
  * Utan dato er det saldoen no. Med dato er det saldoen den dagen — og det er
  * den same funksjonen, fordi det er det same spørsmålet.
  */
+// ===========================================================================
+// RESERVASJON
+// ---------------------------------------------------------------------------
+// Ein stadfesta ordre og ein utlevert ordre er to ulike ting for lageret. Før
+// var dei det same: seljaren trykte bekreft, og varene forsvann frå saldoen
+// same dag — sjølv om dei stod på hylla i tre veker til.
+//
+// Nå skriv bekreftinga ein RESERVASJON. Den endrar ikkje saldoen, men den
+// seier kva som er lova bort, så ingen sel det same to gonger. Når
+// ordrekontoret set «klar», blir reservasjonen frigjeven og varene faktisk
+// førte ut.
+//
+// Reservasjonen er ei vanleg rørsle i same samlinga — den blir aldri sletta,
+// berre motposta, slik ein rettar i eit rekneskap.
+// ===========================================================================
+
+const VINDEX_RESERVERT = "reservert";
+
+/** Ei rørsle som faktisk flyttar varer. Ein reservasjon gjer ikkje det. */
+const vindexFlyttarVarer = (p) => (p || {}).type !== VINDEX_RESERVERT;
+
 function vindexLagersaldo(poster, artnr, val = {}) {
   const til = val.til ? new Date(val.til).getTime() : null;
   return (poster || [])
+    .filter(vindexFlyttarVarer)
     .filter((p) => String(p.artnr) === String(artnr))
     .filter((p) => !val.lokasjon || p.lokasjon === val.lokasjon)
     .filter((p) => {
@@ -144,6 +166,70 @@ function vindexLagersaldo(poster, artnr, val = {}) {
       return t <= til;
     })
     .reduce((n, p) => n + (parseFloat(p.antall) || 0), 0);
+}
+
+/**
+ * Kor mykje som er lova bort, men ikkje henta.
+ *
+ * Reservasjonane er negative som alle uttak. Her blir dei snudde, fordi
+ * «reservert: 12» les seg og «reservert: −12» gjer det ikkje.
+ */
+function vindexReservert(poster, artnr) {
+  return -(poster || [])
+    .filter((p) => !vindexFlyttarVarer(p))
+    .filter((p) => String(p.artnr) === String(artnr))
+    .reduce((n, p) => n + (parseFloat(p.antall) || 0), 0);
+}
+
+/** Det som faktisk kan seljast: det som står på hylla minus det som er lova bort. */
+const vindexTilgjengeleg = (poster, artnr) =>
+  vindexLagersaldo(poster, artnr) - vindexReservert(poster, artnr);
+
+/**
+ * Eit minstetal det går an å byrje med.
+ *
+ * Vindex har ikkje forbrukshistorikk i dette systemet enno, så eit minstetal
+ * rekna av forbruk per veke finst det ikkje grunnlag for. Det som FINST er kva
+ * dei faktisk vel å halde på lager, og det er ikkje eit dårleg utgangspunkt:
+ * ein femdel av det er omtrent det ein tek ut mellom to bestillingar når ein
+ * bestiller 10–15 gonger i året.
+ *
+ * Tala blir runda til noko ein kan seie høgt. «Bestill meir når vi er under
+ * 250» er ein beskjed; «under 254» er ein utrekning ingen stolar på.
+ *
+ * Dette er eit forslag, ikkje ei sanning. Kvar artikkel kan overstyrast, og
+ * tomt felt tyder at artikkelen ikkje skal varslast i det heile.
+ */
+function vindexMinstelagerforslag(saldo) {
+  const s = Math.max(0, parseFloat(saldo) || 0);
+  if (!s) return 0;
+  const raa = s * 0.2;
+  if (s < 10) return Math.max(1, Math.round(raa));
+  if (raa < 10) return Math.max(2, Math.round(raa));
+  if (raa < 100) return Math.round(raa / 5) * 5;
+  if (raa < 1000) return Math.round(raa / 10) * 10;
+  return Math.round(raa / 50) * 50;
+}
+
+/**
+ * Artiklane som har gått under minstetalet sitt.
+ *
+ * Det tilgjengelege tel, ikkje saldoen: er halve hylla reservert til ein ordre
+ * som ikkje er henta, er varen i praksis tom. Det er nettopp då ein vil vite
+ * det — ikkje når hylla er tom og ordren står og ventar.
+ */
+function vindexLaagtLager(varer, poster) {
+  return Object.values(varer || {})
+    .filter((v) => v && v.lagervare !== false && (parseFloat(v.minste) || 0) > 0)
+    .map((v) => {
+      const minste = parseFloat(v.minste) || 0;
+      const saldo = vindexLagersaldo(poster, v.artnr);
+      const reservert = vindexReservert(poster, v.artnr);
+      return { artnr: v.artnr, benevning: v.benevning || "", minste, saldo, reservert,
+               tilgjengeleg: saldo - reservert };
+    })
+    .filter((r) => r.tilgjengeleg < r.minste)
+    .sort((a, b) => a.tilgjengeleg / a.minste - b.tilgjengeleg / b.minste);
 }
 
 /**
@@ -157,6 +243,7 @@ function vindexLagersaldo(poster, artnr, val = {}) {
 function vindexSaldoPerLokasjon(poster, artnr, val = {}) {
   const ut = {};
   (poster || [])
+    .filter(vindexFlyttarVarer)
     .filter((p) => String(p.artnr) === String(artnr))
     .forEach((p) => {
       const lok = p.lokasjon || "";
@@ -653,7 +740,9 @@ function vindexOrdrerorsler(linjer, alt = {}, varer = {}, val = {}) {
       // frå. Det er betre enn å gjette på eit lager.
       lokasjon: vare.lokasjon || "",
       antall: -diff,
-      type: "ordre",
+      // Bekreftinga skriv ein reservasjon, utleveringa skriv eit uttak. Same
+      // reknestykket, to ulike rørsletypar.
+      type: val.type || "ordre",
       ref,
       ordreId: val.ordreId || "",
       tid,

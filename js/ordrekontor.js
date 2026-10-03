@@ -225,6 +225,59 @@ function opneOrdrekort(id) {
   );
 }
 
+/**
+ * «Klar» er det som faktisk tek varene ut av lageret.
+ *
+ * Seljaren reserverte dei då han bekrefta. Her blir reservasjonen frigjeven og
+ * eit verkeleg uttak ført, i den rekkjefølgja: forsvinn straumen midt i, har
+ * lageret for mykje reservert og det synest — motsett veg ville varene blitt
+ * ført ut to gonger.
+ *
+ * Uttaket les reservasjonen, ikkje delelista. Ordrekontoret har ikkje
+ * tilbodet til seljaren, men det ordren RESERVERTE står på ordren, og det er
+ * nøyaktig det som skal ut.
+ */
+async function taUtAvLager(o) {
+  const reservert = o.lagerreservert || {};
+  if (!Object.keys(reservert).length) return;
+  if (VINDEX_DEMOMODUS) {
+    o.lagertrekk = { ...reservert };
+    o.lagerreservert = {};
+    return;
+  }
+  let varer = {};
+  try {
+    const snap = await fb.getDocs(fb.varerCol());
+    snap.docs.forEach((d) => (varer[d.id] = { artnr: d.id, ...d.data() }));
+  } catch (e) {
+    console.warn("Fikk ikke hentet varekortene til lagerføringen.", e);
+  }
+  const linjer = Object.entries(reservert).map(([kode, antall]) => ({ kode, antall }));
+  const uttak = vindexOrdrerorsler(linjer, o.lagertrekk || {}, varer, {
+    ref: "Ordre " + o.id, ordreId: o.id,
+  });
+  // Tom liste mot det som er reservert gir motposten: same tal, motsett veg.
+  const slepp = vindexOrdrerorsler([], reservert, varer, {
+    ref: "Frigjort reservasjon, ordre " + o.id,
+    ordreId: o.id,
+    type: VINDEX_RESERVERT,
+  });
+  try {
+    for (const r of slepp.rorsler) await fb.addDoc(fb.lagerpostCol(), r);
+    for (const r of uttak.rorsler) await fb.addDoc(fb.lagerpostCol(), r);
+    await fb.updateDoc(fb.orderDoc(o.id), { lagerreservert: {}, lagertrekk: uttak.trekt });
+    o.lagerreservert = {};
+    o.lagertrekk = uttak.trekt;
+  } catch (e) {
+    console.error("Fikk ikke ført ordren ut av lageret.", e);
+    melding(
+      `Status er endret, men lageret ble ikke oppdatert for ordre ${o.id}. ` +
+        "Varene står fortsatt som reservert — si fra så ryddes det.",
+      "warn"
+    );
+  }
+}
+
 async function settStatus(o, status) {
   if (status === o.status) return;
   const tekst = `Status satt til «${vindexOrdrestatusNavn(status, o)}» av ${
@@ -232,6 +285,8 @@ async function settStatus(o, status) {
   try {
     await lagreOrdre(o, { status, logg: leggILogg(o, tekst) });
     o.status = status;
+    // Varene går ut av beholdninga her, ikkje då seljaren bekrefta.
+    if (status === "klar") await taUtAvLager(o);
     lukkModal();
     teiknOrdrelop();
     melding(`${(o.kunde || {}).navn || o.id}: ${vindexOrdrestatusNavn(status, o).toLowerCase()}.`);
