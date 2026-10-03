@@ -460,6 +460,12 @@ const ORDRESEDDEL_SPROSSER = {
       { id: "fals_h", navn: "Falsmål H", type: "tal", enhet: "mm", bredde: "5.5rem" },
       { id: "ruter_b", navn: "Ruter B", type: "tal", bredde: "4.5rem" },
       { id: "ruter_h", navn: "Ruter H", type: "tal", bredde: "4.5rem" },
+      // På dei todelte typane er rutetala over rutene i TOPPFELTET. Feltet
+      // under hadde ikkje noko val, og då var typen einerådande der.
+      { id: "ruter_under", navn: "Under losholt", type: "valg", bredde: "7rem", berreTodelt: true,
+        val: [{ id: "", navn: "som typen" }, { id: "1", navn: "helt glass" },
+              { id: "2", navn: "2 ruter" }, { id: "3", navn: "3 ruter" },
+              { id: "4", navn: "4 ruter" }] },
       // Papirskjemaet har midtstolpe og losholt som eigne kolonnar, med val
       // mellom 34, 64 og 84 mm. Dei mangla her, og då måtte seljaren skrive
       // dei i merknadsfeltet — der produksjonen ikkje leitar etter mål.

@@ -3446,7 +3446,17 @@ const SPROSSEKOLONNAR = () => vindexSkjema("sprosser").tabell.kolonner;
  * målsetting. Det seljaren peikar på er dermed nøyaktig det som blir teikna
  * når han har valt — ikkje eit foto som liknar.
  *
- * «Egen» heilt til slutt er utvegen for alt som ikkje er ein av dei ni. Då tel
+ * Knappane står i dei to familiane dei høyrer til: eitt felt, eller toppfelt
+ * med losholt. Det er den einaste skilnaden som betyr noko i skjemaet under —
+ * i den eine familien er «Ruter B/H» heile vindauget, i den andre er dei
+ * toppfeltet. Ei lang rekkje med tretten knappar sa ingenting om det.
+ *
+ * To av dei er same knapp ein gong til: R er type 2 utan midtstolpe, og 3 er
+ * 2 × 2 med grovt sprosseverk. Dei blir ståande — 3 er eit av dei ni nummera
+ * produksjonen les, og R står i bilderekkja kunden peikar på — men dei seier
+ * frå om det når du held musa over.
+ *
+ * «Egen» heilt til slutt er utvegen for alt som ikkje har ein knapp. Då tel
  * ruter i bredde og høgde igjen, slik dei alltid har gjort.
  */
 function typeveljarHtml(i, valtType) {
@@ -3455,17 +3465,25 @@ function typeveljarHtml(i, valtType) {
       { type_nr: t.nr, fals_b: 1200, fals_h: 1000 },
       { bredde: 52, hogd: 43, visMaal: false, utanMaal: true }
     );
+  const knapp = (t) => {
+    const valt = String(valtType) === String(t.nr);
+    const tittel = `${vindexTypenamn(t)} — ${vindexT(t.navn)}${t.sameSom ? " (" + vindexT(t.sameSom) + ")" : ""}`;
+    return `<button type="button" class="typeknapp${valt ? " valt" : ""}"
+      data-sptype="${t.nr}" data-sprad="${i}" title="${tittel}" aria-pressed="${valt}">
+      ${mini(t)}<span>${t.nr}</span><em>${vindexT(t.kort)}</em>
+    </button>`;
+  };
+  const gruppe = (tittel, innhald) =>
+    `<div class="typegruppe"><span class="typegruppenamn">${tittel}</span>
+      <div class="typerad">${innhald}</div></div>`;
   return `<div class="typeveljar" role="group" aria-label="Standardtype for linje ${i + 1}">
-    ${VINDEX_SPROSSETYPAR.map(
-      (t) => `<button type="button" class="typeknapp${String(valtType) === String(t.nr) ? " valt" : ""}"
-        data-sptype="${t.nr}" data-sprad="${i}" title="${vindexTypenamn(t)} — ${vindexT(t.navn)}"
-        aria-pressed="${String(valtType) === String(t.nr)}">
-        ${mini(t)}<span>${t.nr}</span>
-      </button>`
-    ).join("")}
-    <button type="button" class="typeknapp fri${valtType ? "" : " valt"}" data-sptype=""
-      data-sprad="${i}" title="Egne mål — ruter i bredde og høyde"
-      aria-pressed="${valtType ? "false" : "true"}"><span>Egen</span></button>
+    ${gruppe("Ett felt", VINDEX_SPROSSETYPAR.filter((t) => !t.over).map(knapp).join(""))}
+    ${gruppe("Toppfelt med losholt",
+      VINDEX_SPROSSETYPAR.filter((t) => t.over).map(knapp).join(""))}
+    ${gruppe("Egne mål",
+      `<button type="button" class="typeknapp fri${valtType ? "" : " valt"}" data-sptype=""
+        data-sprad="${i}" title="Egne mål — ruter i bredde og høyde"
+        aria-pressed="${valtType ? "false" : "true"}"><span>Egen</span></button>`)}
   </div>`;
 }
 
@@ -3495,11 +3513,17 @@ function sprossefigurHtml(rad, interaktiv = false) {
 
 function sprosseradHtml(rad, i) {
   const kol = SPROSSEKOLONNAR();
+  // Feltet under losholten har ingenting å seie på eit vindauge utan losholt.
+  // Det står der likevel, men grått, så rekkja av felt er den same frå linje
+  // til linje og ingen leitar etter noko som flytta seg.
+  const todelt = vindexSprosseoppsett(rad).todelt;
   const felt = (k) => {
     const id = `sp_${i}_${k.id}`;
+    const av = k.berreTodelt && !todelt;
     const v = rad[k.id] === undefined ? (k.id === "lnr" ? i + 1 : "") : String(rad[k.id]).replace(/"/g, "&quot;");
     if (k.type === "valg")
-      return `<select id="${id}" data-sprad="${i}" data-spfelt="${k.id}">${k.val
+      return `<select id="${id}" data-sprad="${i}" data-spfelt="${k.id}"${
+        av ? ' disabled title="Gjelder bare typer med losholt"' : ""}>${k.val
         .map((o) => `<option value="${o.id}"${String(o.id) === String(rad[k.id] || "") ? " selected" : ""}>${vindexT(o.navn)}</option>`)
         .join("")}</select>`;
     if (k.type === "tal")
@@ -3684,8 +3708,8 @@ function teiknSprossedialog(lead, fraKladd) {
           ...(t
             ? {
                 ...(t.over
-                  ? { ruter_b: t.over.rb, ruter_h: "" }
-                  : { ruter_b: t.rb, ruter_h: t.rh }),
+                  ? { ruter_b: t.over.rb, ruter_h: t.over.rh, ruter_under: String(t.under.rb) }
+                  : { ruter_b: t.rb, ruter_h: t.rh, ruter_under: "" }),
                 midtstolpe: t.midtstolpe ? "34" : "0",
                 losholt: t.losholt ? "34" : "0",
               }

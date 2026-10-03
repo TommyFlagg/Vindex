@@ -2370,9 +2370,18 @@ body.tema-mork .sprossefigur .sp-karmkant { stroke: rgba(0, 0, 0, .4); }
 
 /* Typeveljaren: dei ni standardtypane frå måleskjemaet, teikna med same motor
    som sjølve linja — så det seljaren peikar på er det same som blir teikna. */
+/* Veljaren står i familiar. Ei rekkje med tretten knappar sa ingenting om at
+   dei to halvdelane oppfører seg ulikt i skjemaet under. */
 .typeveljar {
-  display: flex; flex-wrap: wrap; gap: .45rem; margin: .35rem 0 0;
+  display: flex; flex-wrap: wrap; gap: .45rem 1.1rem; margin: .35rem 0 0;
+  align-items: flex-start;
 }
+.typegruppe { display: grid; gap: .25rem; }
+.typegruppenamn {
+  font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--muted);
+}
+.typerad { display: flex; flex-wrap: wrap; gap: .45rem; }
 .typeknapp {
   border: 1.5px solid var(--border); border-radius: var(--radius-sm);
   background: var(--surface); padding: .3rem .3rem .15rem; cursor: pointer;
@@ -2382,6 +2391,7 @@ body.tema-mork .sprossefigur .sp-karmkant { stroke: rgba(0, 0, 0, .4); }
 .typeknapp.valt { border-color: var(--accent-tekst); border-width: 2px; padding: calc(.3rem - .5px); }
 .typeknapp svg { display: block; }
 .typeknapp span { font-size: .68rem; color: var(--muted); font-weight: 700; }
+.typeknapp em { font-size: .6rem; color: var(--muted); font-style: normal; opacity: .8; }
 .typeknapp.valt span { color: var(--accent-tekst); }
 .typeknapp.fri { min-width: 3.4rem; min-height: 3.4rem; align-content: center; }
 .typeetikett { display: block; font-size: .78rem; color: var(--muted); margin-bottom: .1rem; }

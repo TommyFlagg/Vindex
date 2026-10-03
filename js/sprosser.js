@@ -33,7 +33,8 @@ const VINDEX_SPROSSETYPAR = [
   { nr: 1, bilde: "assets/bilder/sprosse-1.jpg", kunde: "Ni ruter", kort: "3 × 3", navn: "3 × 3 ruter", rb: 3, rh: 3 },
   { nr: 2, kunde: "To halvdeler", kort: "2×3 + 2×3", navn: "Midtstolpe, 2 × 3 ruter i hver halvdel",
     rb: 4, rh: 3, midtstolpe: true },
-  { nr: 3, bilde: "assets/bilder/sprosse-3.jpg", kunde: "Fire ruter", kort: "2 × 2", navn: "2 × 2 ruter, grovt sprosseverk", rb: 2, rh: 2, grovt: true },
+  { nr: 3, bilde: "assets/bilder/sprosse-3.jpg", kunde: "Fire ruter", kort: "2 × 2", navn: "2 × 2 ruter, grovt sprosseverk", rb: 2, rh: 2, grovt: true,
+    sameSom: "som 2 × 2 med Sprosseverk 34" },
   { nr: 4, bilde: "assets/bilder/sprosse-4.jpg", kunde: "Seks ruter", kort: "2 × 3", navn: "2 × 3 ruter", rb: 2, rh: 3 },
   { nr: 5, kunde: "Toppfelt med to ruter", kort: "2 / 2", navn: "Losholt — 2 ruter over, 2 under",
     over: { rb: 2, rh: 1 }, under: { rb: 2, rh: 1 }, overDel: 0.38, losholt: true },
@@ -72,7 +73,7 @@ const VINDEX_SPROSSETYPAR = [
   // ruter, losholt og midtstolpe som «Egen» alltid har kunna gi. Skilnaden er
   // at kunden og seljaren kan peike på den i staden for å telje seg fram.
   { nr: "R", bilde: "assets/bilder/sprosse-R.jpg", kunde: "Tolv ruter", kort: "4 × 3", etikett: "4 × 3", navn: "4 × 3 ruter — tolv like ruter",
-    rb: 4, rh: 3 },
+    rb: 4, rh: 3, sameSom: "som type 2 med Midtst. «–»" },
 
   { nr: "L3", bilde: "assets/bilder/sprosse-L3.jpg", kunde: "Toppfelt, tre i bredden", kort: "3×2 / 2", etikett: "3×2", navn: "Losholt — 3 × 2 ruter over, midtstolpe under",
     over: { rb: 3, rh: 2 }, under: { rb: 2, rh: 1 }, overDel: 0.34,
@@ -164,6 +165,36 @@ function vindexSprossetypeRuter(type) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Kor mange ruter linja har, og korleis dei ligg.
+ *
+ * Eitt oppsett som både teikninga og prisen les, så dei ikkje kan seie kvar
+ * sitt. Felta gjeld; typen har fylt dei ut i det seljaren valde han.
+ *
+ * På dei todelte typane er «Ruter B» og «Ruter H» rutene i TOPPFELTET, og
+ * feltet under har sitt eige val. Før fanst ikkje det valet, og då var dei
+ * todelte typane dei einaste der det seljaren skreiv ikkje hadde noko å seie
+ * — ein kunde som ville ha fem ruter i toppfeltet måtte bli ei «Egen»-linje.
+ */
+function vindexSprosseoppsett(rad = {}) {
+  const type = vindexSprossetype(rad.type_nr);
+  const tal = (verdi, standard) => {
+    const n = parseInt(verdi, 10);
+    return n > 0 ? n : standard;
+  };
+  if (!type || !type.over) {
+    const rb = tal(rad.ruter_b, type ? type.rb : 0);
+    const rh = tal(rad.ruter_h, type ? type.rh : 0);
+    return { todelt: false, rb, rh, under: 0, kryss: 0, ruter: rb * rh };
+  }
+  const rb = tal(rad.ruter_b, type.over.rb);
+  const rh = tal(rad.ruter_h, type.over.rh);
+  const under = tal(rad.ruter_under, type.under.rb);
+  // Kryssprossa tek betalt for ein X per rute i toppfeltet (6299).
+  const kryss = type.over.kryss ? rb * rh : 0;
+  return { todelt: true, rb, rh, under, kryss, ruter: rb * rh + kryss + under };
+}
+
+/**
  * Teikn eit vindauge ut frå ei linje i måltabellen.
  *
  * Er det valt ein standardtype, styrer oppsettet til typen. Elles blir det
@@ -179,8 +210,9 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
   const type = vindexSprossetype(rad.type_nr);
   const fb = parseFloat(rad.fals_b) || (val.utanMaal ? 1200 : 0);
   const fh = parseFloat(rad.fals_h) || (val.utanMaal ? 1000 : 0);
-  const rb = Math.max(1, parseInt(rad.ruter_b, 10) || (type ? type.rb || type.over.rb : 0));
-  const rh = Math.max(1, parseInt(rad.ruter_h, 10) || (type ? type.rh || 1 : 0));
+  const oppsett = vindexSprosseoppsett(rad);
+  const rb = Math.max(1, oppsett.rb);
+  const rh = Math.max(1, oppsett.rh);
   if (!fb || !fh) return "";
   // Teikninga byggjer seg opp etter kvart som felta blir fylte ut. Står
   // rutetala tomme, blir karmen teikna åleine — og han blir teikna stipla, så
@@ -286,10 +318,8 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
     // Blir han teken bort, forsvinn også delinga han sto for: det han delte
     // var éi rute, ikkje to.
     const stolpeOppe = !!type.midtstolpeOver;
-    const underKol = type.midtstolpe && !stolpeOppe && !midt ? 1 : type.under.rb;
-    const overKol = type.midtstolpe && stolpeOppe && !midt
-      ? Math.max(1, type.over.rb) : type.over.rb;
-    rutenett(gX, gY, gB, overH, overKol, type.over.rh,
+    const underKol = type.midtstolpe && !stolpeOppe && !midt ? 1 : Math.max(1, oppsett.under);
+    rutenett(gX, gY, gB, overH, rb, rh,
              stolpeOppe && !!midt, type.over.kryss, type.gjennomgaande);
     rutenett(gX, underY, gB, underH, underKol, type.under.rh,
              !type.gjennomgaande && !stolpeOppe, false, type.gjennomgaande);
@@ -299,8 +329,8 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
     // Gjennomgåande loddrett sprosse teiknast til slutt og i eitt strekk, så
     // krysset les seg som eit kryss og ikkje som to avkorta stubbar.
     if (type.gjennomgaande)
-      for (let i = 1; i < type.over.rb; i++)
-        del.push(loddrett(gX + (gB / type.over.rb) * i, gY, gH, verk, "sp-verk", "ruter_b"));
+      for (let i = 1; i < rb; i++)
+        del.push(loddrett(gX + (gB / rb) * i, gY, gH, verk, "sp-verk", "ruter_b"));
   } else {
     // Felta gjeld, akkurat som i prisen. Her stod det «typen, elles felta», og
     // då teikna figuren 3 × 3 medan prisen rekna 16 ruter på same linje. Eit
@@ -439,12 +469,10 @@ function vindexSprosselinjepris(rad = {}) {
   // kan ikkje uttrykkast som bredde × høgde, så der er det typen som gjeld,
   // og linja seier frå om det i staden for å teie.
   const type = vindexSprossetype(rad.type_nr);
-  const skrive = (parseInt(rad.ruter_b, 10) || 0) * (parseInt(rad.ruter_h, 10) || 0);
-  const todelt = !!(type && type.over);
-  const frauType = type ? vindexSprossetypeRuter(type) : 0;
-  const ruter = todelt ? frauType : skrive || frauType;
-  // Står det eit rutetal som typen ikkje kan uttrykkje, skal det synast.
-  const rutetalFrauType = todelt && !!skrive && skrive !== frauType;
+  const oppsett = vindexSprosseoppsett(rad);
+  // Typen kan ikkje lenger overstyre linja, så det finst ikkje noko sprik
+  // mellom typen og rutetalet å melde frå om. Åtvaringa er borte med grunnen.
+  const ruter = oppsett.ruter;
   if (!antall || !b || !h || !ruter) return null;
 
   const treff = typeof vindexSprossepris === "function" ? vindexSprossepris(b + h, ruter) : null;
@@ -471,15 +499,13 @@ function vindexSprosselinjepris(rad = {}) {
   if (bue === "D" || bue === "T") leggTil("6297", antall);
 
   // Kryss er eigen artikkel i prislista, og typen kan ha fleire per vindauge.
-  if (type && type.over && type.over.kryss)
-    leggTil("6299", antall * type.over.rb * type.over.rh);
+  if (oppsett.kryss) leggTil("6299", antall * oppsett.kryss);
 
   const grunnsum = treff.pris * antall;
   const tilleggsum = tillegg.reduce((n, t) => n + t.sum, 0);
   return {
     antall,
     ruter,
-    rutetalFrauType,
     einingspris: treff.pris,
     rad: treff.rad,
     kolonne: treff.kolonne,

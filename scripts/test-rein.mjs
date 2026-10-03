@@ -969,12 +969,18 @@ console.log("SPROSSEPRIS OG RUTETAL");
   // Utan rutetal er det framleis typen som gjeld.
   p("tomt rutetal gir typen sitt", P(rad({ type_nr: 1 })).ruter, 9);
 
-  // Dei todelte typane kan ikkje uttrykkast som bredde × høgde. Der gjeld
-  // typen — men linja seier frå i staden for å teie.
-  const todelt = P(rad({ type_nr: 6, ruter_b: 9, ruter_h: 9 }));
-  sjekk("todelt type held sitt eige rutetal", () => todelt.ruter !== 81);
-  p("og seier frå om det", todelt.rutetalFrauType, true);
-  p("eit vanleg rutenett seier ikkje frå", t1_4x4.rutetalFrauType, false);
+  // På dei todelte typane er rutetala på linja rutene i TOPPFELTET, og feltet
+  // under har sitt eige val. Før hadde det ikkje noko val, og då var typen
+  // einerådande: det seljaren skreiv hadde ingenting å seie.
+  p("type 6 er fire ruter oppe og to nede", P(rad({ type_nr: 6 })).ruter, 6);
+  p("fem i toppfeltet blir sju i alt", P(rad({ type_nr: 6, ruter_b: 5 })).ruter, 7);
+  p("to rader i toppfeltet tel med", P(rad({ type_nr: 6, ruter_b: 4, ruter_h: 2 })).ruter, 10);
+  p("og heilt glas under tek bort dei to",
+    P(rad({ type_nr: 6, ruter_under: "1" })).ruter, 5);
+  // Kvar type skal gi nøyaktig det same som før når ingen har rørt felta.
+  for (const [nr, tal] of [[1, 9], [2, 12], [3, 4], [4, 6], [5, 4], [6, 6], [7, 8],
+                           [8, 9], [9, 6], ["K", 4], ["R", 12], ["L3", 8], ["L2", 3]])
+    p(`type ${nr} står uendra på ${tal} ruter`, P(rad({ type_nr: nr })).ruter, tal);
 
   // Vel seljaren «–» på ein berande profil, skal han bort — frå teikninga og
   // frå prisen. Før las begge «feltet eller typen», og då var typen umogleg å

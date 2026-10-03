@@ -901,6 +901,26 @@ console.log("SPROSSETEIKNINGA");
   await sett("ruter_b", 4); await sett("ruter_h", 4);
   sjekk("typen hindrar ikkje at rutetalet gjeld", (await pris()) !== pType);
 
+  // Typeknappen fyller ut skjemaet i staden for å overstyre det. Etter eit
+  // klikk skal felta vise det typen er, og linja skal svare når dei blir
+  // endra — også på dei todelte typane, som før var dei einaste der det
+  // seljaren skreiv ikkje hadde noko å seie.
+  await p.evaluate(() => document.querySelector('[data-sptype="8"][data-sprad="0"]').click());
+  await p.waitForTimeout(600);
+  const verdi = (f) => p.$eval(`#sp_0_${f}`, (e) => e.value);
+  sjekk("typen skriv rutetalet sitt inn i felta",
+    (await verdi("ruter_b")) === "4" && (await verdi("ruter_h")) === "2");
+  sjekk("og seier at det er heilt glas under", (await verdi("ruter_under")) === "1");
+  const for8 = await pris();
+  await sett("ruter_b", 6);
+  sjekk("fleire ruter i toppfeltet kostar meir", (await pris()) !== for8);
+
+  // Feltet gjeld berre der det finst ein losholt.
+  await p.evaluate(() => document.querySelector('[data-sptype="1"][data-sprad="0"]').click());
+  await p.waitForTimeout(600);
+  sjekk("under-feltet er grått på eit vindauge utan losholt",
+    await p.$eval("#sp_0_ruter_under", (e) => e.disabled));
+
   // Eit klikk i teikninga set markøren i feltet som styrer den delen.
   const felt = await p.$$eval(".sprossefigurboks [data-spfelt]",
     (e) => [...new Set(e.map((x) => x.dataset.spfelt))]);
