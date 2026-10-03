@@ -711,6 +711,9 @@ function opneVare(artnr) {
         </select></div>
       ${felt("vf_faktor", "Påslag", (i.kostfaktor || {}).verdi != null ? i.kostfaktor.verdi : "", 'type="number" step="0.01"')}
     </div>
+    <p class="hint">Kursen er <strong>per 1 enhet</strong>. Kina noterer per hundre —
+      står det «100 CNY = 143,92 NOK», er kursen her <strong>1,4392</strong>. «Hent dagens
+      kurs» regner om selv og viser begge tallene.</p>
     <div id="vf_kurssvar" class="notice mt-1 hidden"></div>
     <div id="vf_kostpris" class="notice mt-2"></div>
     <p class="hint" id="vf_arv"></p>
@@ -735,6 +738,11 @@ function opneVare(artnr) {
     );
     $("#vf_kostpris").innerHTML =
       `${tal(r.pris, 4)} ${vindexT(r.valuta)} × ${tal(r.kurs, 4)} = <strong>${kroner(r.iKroner)}</strong>` +
+      // Ingen valuta står i 20 kroner per eining. Eit slikt tal er nesten
+      // alltid ei hundrenotering skriven rett av, og då blir kostprisen hundre
+      // gonger for høg utan å sjå feil ut.
+      (r.kurs > 20 ? ` <span class="merke merke-aatvaring">Kurs ${tal(r.kurs, 2)} er høy for
+        én enhet — er dette notert per 100?</span>` : "") +
       (r.paaslag ? ` + ${kroner(r.paaslag)} påslag` : "") +
       ` &rarr; kostpris <strong>${kroner(r.kostpris)}</strong>`;
   };
