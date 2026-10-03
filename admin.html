@@ -6,7 +6,7 @@
 <title>Hovedkontor — Vindex</title>
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-<link rel="stylesheet" href="css/style.css?v=2692272b">
+<link rel="stylesheet" href="css/style.css?v=d2e9b68f">
 <script>
   try {
     if (localStorage.getItem("vindex_tema") === "mork") {
@@ -121,6 +121,17 @@
     <div id="kampanjar"></div>
   </section>
 
+  <!-- Kunderegisteret. Berre hovudkontoret — sjå firestore.rules for kvifor. -->
+  <section class="mt-3" id="seksjonKundar">
+    <div class="section-head">
+      <h2 class="mt-0">Kunderegister</h2>
+      <p class="lead">Alle kundene, med ordrene deres — fullførte og underveis. Søk på navn,
+        kundenummer, telefon eller poststed. Registeret leses bare av hovedkontoret; selgerne
+        ser kundeopplysningene på sine egne saker, slik de alltid har gjort.</p>
+    </div>
+    <div id="kundar"></div>
+  </section>
+
   <section class="mt-3" id="seksjonRepresentantar">
     <div class="section-head">
       <h2 class="mt-0">Vil bli representant</h2>
@@ -137,17 +148,6 @@
         kilden vi har til hvorfor kundene velger som de gjør.</p>
     </div>
     <div class="grid grid-2" id="grunnar"></div>
-  </section>
-
-  <!-- Kunderegisteret. Berre hovudkontoret — sjå firestore.rules for kvifor. -->
-  <section class="mt-3" id="seksjonKundar">
-    <div class="section-head">
-      <h2 class="mt-0">Kunderegister</h2>
-      <p class="lead">Alle kundene, med ordrene deres — fullførte og underveis. Søk på navn,
-        kundenummer, telefon eller poststed. Registeret leses bare av hovedkontoret; selgerne
-        ser kundeopplysningene på sine egne saker, slik de alltid har gjort.</p>
-    </div>
-    <div id="kundar"></div>
   </section>
 
   <!-- Lager og innkjøp. Erstattar Bravo. Innkjøpsprisane er det mest følsame

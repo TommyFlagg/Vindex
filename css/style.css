@@ -349,6 +349,14 @@ footer.site h4 { color: #fff; margin: 0 0 0.6rem; font-size: 0.95rem; }
 .nowrap { white-space: nowrap; }
 .spinner { text-align: center; color: var(--muted); padding: 2.5rem 1rem; font-weight: 600; }
 
+/* `hidden` skal vinne.
+   Nettlesaren gir [hidden] `display: none`, men den regelen er den svakaste
+   som finst — kva som helst med ein klasse slår den. `.dashbord { display:
+   grid }` gjorde nettopp det: oversikta på hovedkontoret blei ståande, 3 600
+   piksler høg, med `hidden` på seg, og dytta fanen ein hadde valt langt ned.
+   Eit element som er gøymt skal vere borte, uansett kva andre reglar meiner. */
+[hidden] { display: none !important; }
+
 #utskrift { display: none; }
 @media print {
   .topbar, footer.site, .toolbar, .btn, .no-print { display: none !important; }

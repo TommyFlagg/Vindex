@@ -1121,6 +1121,13 @@ console.log("KUNDEREGISTER");
   await p.waitForTimeout(300);
   sjekk("og seksjonen er synleg når fana er vald",
     await p.$eval("#seksjonKundar", (e) => !e.hidden));
+  // Det held ikkje å sjekke attributtet. `.dashbord { display: grid }` slo
+  // [hidden] ein gong, og då stod oversikta att med `hidden` på seg og dytta
+  // fanen ein hadde valt tre tusen piksler ned.
+  sjekk("og dei andre er faktisk borte, ikkje berre merkte",
+    await p.$eval("#seksjonDashbord", (e) => getComputedStyle(e).display === "none"));
+  sjekk("seksjonen ein valde står øvst på skjermen",
+    await p.$eval("#seksjonKundar", (e) => e.getBoundingClientRect().top < 500));
   const for_ = (await rader()).length;
   sjekk("demokundane står der", for_ === 3);
   sjekk("neste ledige nummer blir vist", (await tekst("#kundar")).includes("10004"));
