@@ -142,7 +142,11 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
   const rb = Math.max(1, parseInt(rad.ruter_b, 10) || (type ? type.rb || type.over.rb : 0));
   const rh = Math.max(1, parseInt(rad.ruter_h, 10) || (type ? type.rh || 1 : 0));
   if (!fb || !fh) return "";
-  if (!type && (!rad.ruter_b || !rad.ruter_h)) return "";
+  // Teikninga byggjer seg opp etter kvart som felta blir fylte ut. Står
+  // rutetala tomme, blir karmen teikna åleine — og han blir teikna stipla, så
+  // han ikkje ser ut som eit ferdig svar. Før kom det ingenting, og då var det
+  // umogleg å sjå om måla hadde festa seg.
+  const utanRuter = !type && (!rad.ruter_b || !rad.ruter_h);
 
   const visMaal = val.visMaal !== false;
   const margV = visMaal ? 30 : 2;
@@ -178,12 +182,20 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
   // Profilane blir teikna med ein gradient på tvers, slik ein PVC-profil ser
   // ut i dagslys: lys på den eine kanten, litt grå på den andre. Det er
   // skilnaden mellom ein strek og noko som ser ut som ein list.
-  const loddrett = (xMidt, y, hogd, br, klasse) =>
+  //
+  // Kvar del veit kva felt som styrer han. Klikkar seljaren på ei loddrett
+  // sprosse, er det «ruter i bredden» han vil endre — og då er det det feltet
+  // som skal få markøren. Det er raskare enn å leite i ei rad med fjorten
+  // felt, og det gjer teikninga til ein del av skjemaet i staden for eit bilde
+  // ved sida av.
+  const loddrett = (xMidt, y, hogd, br, klasse, felt) =>
     `<rect x="${n(xMidt - br / 2)}" y="${n(y)}" width="${n(br)}" height="${n(hogd)}"
-      fill="url(#${uid}v)" class="${klasse}"/>`;
-  const vassrett = (x, yMidt, breidd, tj, klasse) =>
+      fill="url(#${uid}v)" class="${klasse}${val.interaktiv && felt ? " sp-klikk" : ""}"${
+      val.interaktiv && felt ? ` data-spfelt="${felt}"` : ""}/>`;
+  const vassrett = (x, yMidt, breidd, tj, klasse, felt) =>
     `<rect x="${n(x)}" y="${n(yMidt - tj / 2)}" width="${n(breidd)}" height="${n(tj)}"
-      fill="url(#${uid}h)" class="${klasse}"/>`;
+      fill="url(#${uid}h)" class="${klasse}${val.interaktiv && felt ? " sp-klikk" : ""}"${
+      val.interaktiv && felt ? ` data-spfelt="${felt}"` : ""}/>`;
 
   /**
    * Eit rutenett innanfor eit rektangel.
@@ -198,10 +210,11 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
       for (let i = 1; i < kolonnar; i++) {
         const berande = tungKol && kolonnar % 2 === 0 && i === kolonnar / 2;
         del.push(loddrett(x + (w / kolonnar) * i, y, hh,
-          berande ? midt : verk, berande ? "sp-berande" : "sp-verk"));
+          berande ? midt : verk, berande ? "sp-berande" : "sp-verk",
+          berande ? "midtstolpe" : "ruter_b"));
       }
     for (let i = 1; i < rader; i++)
-      del.push(vassrett(x, y + (hh / rader) * i, w, verk, "sp-verk"));
+      del.push(vassrett(x, y + (hh / rader) * i, w, verk, "sp-verk", "ruter_h"));
     if (kryss)
       for (let i = 0; i < kolonnar; i++) {
         const x0 = x + (w / kolonnar) * i + verk / 2;
@@ -230,21 +243,22 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
     rutenett(gX, gY, gB, overH, type.over.rb, type.over.rh, false, type.over.kryss, type.gjennomgaande);
     rutenett(gX, underY, gB, underH, type.under.rb, type.under.rh,
              !type.gjennomgaande, false, type.gjennomgaande);
-    del.push(vassrett(gX, yTverr, gB, tverr, lett ? "sp-verk" : "sp-berande"));
+    del.push(vassrett(gX, yTverr, gB, tverr, lett ? "sp-verk" : "sp-berande",
+      lett ? "sprosseverk" : "losholt"));
     // Gjennomgåande loddrett sprosse teiknast til slutt og i eitt strekk, så
     // krysset les seg som eit kryss og ikkje som to avkorta stubbar.
     if (type.gjennomgaande)
       for (let i = 1; i < type.over.rb; i++)
-        del.push(loddrett(gX + (gB / type.over.rb) * i, gY, gH, verk, "sp-verk"));
+        del.push(loddrett(gX + (gB / type.over.rb) * i, gY, gH, verk, "sp-verk", "ruter_b"));
   } else {
     const kolonnar = type ? type.rb : rb;
     const rader = type ? type.rh : rh;
-    rutenett(gX, gY, gB, gH, kolonnar, rader, !!midt, false, false);
+    if (!utanRuter) rutenett(gX, gY, gB, gH, kolonnar, rader, !!midt, false, false);
     // Oddetal ruter gir ingen midtstrek å gjere berande. Då blir midtstolpen
     // teikna i midten likevel — det er der den står.
     if (midt && kolonnar % 2 !== 0)
-      del.push(loddrett(gX + gB / 2, gY, gH, midt, "sp-berande"));
-    if (losholt) del.push(vassrett(gX, gY + gH / 2, gB, losholt, "sp-berande"));
+      del.push(loddrett(gX + gB / 2, gY, gH, midt, "sp-berande", "midtstolpe"));
+    if (losholt) del.push(vassrett(gX, gY + gH / 2, gB, losholt, "sp-berande", "losholt"));
   }
 
   // Buar ligg oppå den øvste ruterekkja.
@@ -310,7 +324,8 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
       <clipPath id="${uid}c"><rect x="${n(gX)}" y="${n(gY)}" width="${n(gB)}" height="${n(gH)}"/></clipPath>
     </defs>
     <g transform="translate(${margV} 0)">
-      <rect x="0" y="0" width="${b}" height="${h}" rx="1.5" fill="url(#${uid}karm)"/>
+      <rect x="0" y="0" width="${b}" height="${h}" rx="1.5" fill="url(#${uid}karm)"${
+        val.interaktiv ? ' class="sp-klikk" data-spfelt="omramming"' : ""}/>
       <rect x="${n(spor)}" y="${n(spor)}" width="${n(b - 2 * spor)}" height="${n(h - 2 * spor)}"
         fill="none" class="sp-spor"/>
       <rect x="${n(gX)}" y="${n(gY)}" width="${n(gB)}" height="${n(gH)}" fill="url(#${uid}glas)"/>
@@ -324,21 +339,26 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
         fill="none" class="sp-glaskant"/>
       ${del.join("")}
       <rect x="0.4" y="0.4" width="${n(b - 0.8)}" height="${n(h - 0.8)}" rx="1.5"
-        fill="none" class="sp-karmkant"/>
+        fill="none" class="sp-karmkant${utanRuter ? " sp-ufullstendig" : ""}"/>
       ${hengslar.join("")}
       ${
         visMaal
-          ? `<line x1="0" y1="${h + 7}" x2="${b}" y2="${h + 7}" class="sp-maal"/>
-             <text x="${b / 2}" y="${h + 18}" class="sp-maaltekst" text-anchor="middle">${fb} mm</text>`
+          ? `<g${val.interaktiv ? ' class="sp-klikk" data-spfelt="fals_b"' : ""}>
+               <line x1="0" y1="${h + 7}" x2="${b}" y2="${h + 7}" class="sp-maal"/>
+               <text x="${b / 2}" y="${h + 18}" class="sp-maaltekst" text-anchor="middle">${fb} mm</text>
+             </g>`
           : ""
       }
     </g>
     ${
       visMaal
-        ? `<line x1="${margV - 7}" y1="0" x2="${margV - 7}" y2="${h}" class="sp-maal"/>
-           <text x="${margV - 11}" y="${h / 2}" class="sp-maaltekst" text-anchor="middle"
-             transform="rotate(-90 ${margV - 11} ${h / 2})">${fh} mm</text>
-           <text x="${margV + b / 2}" y="${h + 30}" class="sp-rutetekst" text-anchor="middle">${undertekst}</text>`
+        ? `<g${val.interaktiv ? ' class="sp-klikk" data-spfelt="fals_h"' : ""}>
+             <line x1="${margV - 7}" y1="0" x2="${margV - 7}" y2="${h}" class="sp-maal"/>
+             <text x="${margV - 11}" y="${h / 2}" class="sp-maaltekst" text-anchor="middle"
+               transform="rotate(-90 ${margV - 11} ${h / 2})">${fh} mm</text>
+           </g>
+           <text x="${margV + b / 2}" y="${h + 30}" class="sp-rutetekst" text-anchor="middle">${
+             utanRuter ? "fyll ut ruter" : undertekst}</text>`
         : ""
     }
   </svg>`;

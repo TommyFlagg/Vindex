@@ -2724,3 +2724,13 @@ body.tema-mork .miljomerke.har-logo { background: #fff; border-color: rgba(255,2
 @media (max-width: 900px) {
   .ordretopp { grid-template-columns: 1fr; }
 }
+
+/* Sprossetegninga er ein del av skjemaet, ikkje eit bilde ved sida av.
+   Kvar del veit kva felt som styrer han, og eit klikk set markøren der. */
+.sprossefigur .sp-klikk { cursor: pointer; }
+.sprossefigur .sp-klikk:hover { filter: brightness(1.18); }
+.sprossefigur .sp-klikk:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Ein karm utan ruter er ikkje eit svar — han er eit skjema som ikkje er
+   ferdig utfylt, og skal sjå slik ut. */
+.sprossefigur .sp-ufullstendig { stroke-dasharray: 4 3; opacity: 0.75; }
+.sprosselinje .sprossefigurboks { position: relative; }

@@ -855,6 +855,71 @@ console.log("AKTIVER INNLOGGING")
   await p.close();
 }
 
+console.log("SPROSSETEIKNINGA");
+{
+  const p = await side("/selger.html", "selger");
+  await p.evaluate(() => {
+    const a = [...document.querySelectorAll(".leadrad")];
+    (a.find((e) => /prosse/i.test(e.textContent)) || a[0]).click();
+  });
+  await p.waitForTimeout(700);
+  await p.evaluate(() => document.querySelector("#opneSprosser").click());
+  await p.waitForTimeout(800);
+
+  const sett = async (f, v) => {
+    await p.fill(`#sp_0_${f}`, String(v));
+    await p.dispatchEvent(`#sp_0_${f}`, "input");
+    await p.waitForTimeout(220);
+  };
+  const pris = () => p.$eval(".sprossepris", (e) => e.textContent.replace(/\s+/g, " "));
+  const figur = () => p.$eval(".sprossefigurboks", (e) => e.innerHTML);
+
+  await sett("antall", 1);
+  await sett("fals_b", 1000);
+  await sett("fals_h", 1200);
+  // Teikninga byggjer seg opp etter kvart. Før kom det ingenting før ALT var
+  // fylt ut, og då var det umogleg å sjå om måla hadde festa seg.
+  sjekk("karmen blir teikna av måla åleine", (await figur()).includes("<svg"));
+  sjekk("og er merkt som uferdig", (await figur()).includes("sp-ufullstendig"));
+
+  // Prisen skal flytte seg når rutetalet endrar seg.
+  await sett("ruter_b", 2); await sett("ruter_h", 2);
+  const p2 = await pris();
+  await sett("ruter_b", 3); await sett("ruter_h", 3);
+  const p3 = await pris();
+  await sett("ruter_b", 4); await sett("ruter_h", 4);
+  const p4 = await pris();
+  sjekk("fire ruter og ni ruter kostar ikkje det same", p2 !== p3);
+  sjekk("og seksten kostar meir enn ni", p3 !== p4);
+  sjekk("karmen er ikkje lenger uferdig", !(await figur()).includes("sp-ufullstendig"));
+
+  // Med ein standardtype valt skal det skrivne rutetalet framleis gjelde.
+  // Før overstyrte typen alltid, og grunnprisen stod stille.
+  await p.evaluate(() => document.querySelector('[data-sptype="1"][data-sprad="0"]').click());
+  await p.waitForTimeout(500);
+  const pType = await pris();
+  await sett("ruter_b", 4); await sett("ruter_h", 4);
+  sjekk("typen hindrar ikkje at rutetalet gjeld", (await pris()) !== pType);
+
+  // Eit klikk i teikninga set markøren i feltet som styrer den delen.
+  const felt = await p.$$eval(".sprossefigurboks [data-spfelt]",
+    (e) => [...new Set(e.map((x) => x.dataset.spfelt))]);
+  sjekk("delane veit kva felt dei høyrer til", felt.includes("ruter_b") && felt.includes("fals_h"));
+  await p.evaluate(() =>
+    document.querySelector('.sprossefigurboks [data-spfelt="ruter_b"]')
+      .dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  await p.waitForTimeout(250);
+  sjekk("klikk på ei loddrett sprosse markerer rutetalet i bredda",
+    (await p.evaluate(() => document.activeElement.id)) === "sp_0_ruter_b");
+  await p.evaluate(() =>
+    document.querySelector('.sprossefigurboks [data-spfelt="fals_h"]')
+      .dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  await p.waitForTimeout(250);
+  sjekk("og klikk på høgdemålet markerer falshøgda",
+    (await p.evaluate(() => document.activeElement.id)) === "sp_0_fals_h");
+  await p.close();
+}
+
 console.log("ORDREKONTORET");
 {
   const p = await side("/ordre.html", "ordre");

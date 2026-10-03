@@ -3481,13 +3481,13 @@ function typeveljarHtml(i, valtType) {
  * typen i normalproporsjon og seier tydeleg at målet manglar. Eit mål vi har
  * funne på er verre enn ingen — så målsettinga blir ståande av.
  */
-function sprossefigurHtml(rad) {
+function sprossefigurHtml(rad, interaktiv = false) {
   const harMaal = parseFloat(rad.fals_b) > 0 && parseFloat(rad.fals_h) > 0;
   if (harMaal) {
-    const teikning = vindexSprossegrafikk(rad);
+    const teikning = vindexSprossegrafikk(rad, { interaktiv });
     if (teikning) return teikning;
   }
-  const utanMaal = vindexSprossegrafikk(rad, { utanMaal: true, visMaal: false });
+  const utanMaal = vindexSprossegrafikk(rad, { utanMaal: true, visMaal: false, interaktiv });
   if (!utanMaal) return '<span class="hint">Velg type, eller fyll inn mål og ruter</span>';
   return utanMaal + '<span class="hint figurmerknad">Tegningen viser typen — fyll inn falsmål</span>';
 }
@@ -3512,7 +3512,7 @@ function sprosseradHtml(rad, i) {
   // skal lese.
   const tom = !Object.values(rad).some((v) => v !== "" && v !== undefined && v !== null);
   return `<div class="sprosselinje${tom ? " linje-tom" : ""}">
-    <div class="sprossefigurboks">${sprossefigurHtml(rad)}</div>
+    <div class="sprossefigurboks" data-figur="${i}">${sprossefigurHtml(rad, true)}</div>
     <div class="sprossefelt">
       <div class="brei">
         <span class="typeetikett">Standardtype</span>
@@ -3648,7 +3648,7 @@ function teiknSprossedialog(lead, fraKladd) {
   const oppdaterLinje = (i) => {
     const boks = document.querySelectorAll(".sprosselinje")[i];
     if (!boks) return;
-    boks.querySelector(".sprossefigurboks").innerHTML = sprossefigurHtml(u.rader[i]);
+    boks.querySelector(".sprossefigurboks").innerHTML = sprossefigurHtml(u.rader[i], true);
     const pris = vindexSprosselinjepris(u.rader[i]);
     const prisboks = boks.querySelector(".sprossepris");
     const knapp = prisboks.querySelector(".sprosselinjeknappar").outerHTML;
@@ -3688,6 +3688,35 @@ function teiknSprossedialog(lead, fraKladd) {
       })
     );
   kopleType();
+
+  /**
+   * Eit klikk i teikninga set markøren i feltet som styrer den delen.
+   *
+   * Ei sprosselinje har fjorten felt. Å finne «ruter i bredden» blant dei tek
+   * lengre tid enn å peike på den loddrette sprossa i teikninga og seie «den
+   * der». Teikninga er laga av dei same tala som felta, så ho veit allereie
+   * kva som høyrer saman — det einaste som mangla var å seie det vidare.
+   *
+   * Lytta ligg på boksen og ikkje på kvar enkelt del, fordi figuren blir
+   * teikna på nytt for kvart tastetrykk. Ei lytte per del ville blitt kopla av
+   * med ein gong.
+   */
+  const kopleFigurklikk = () =>
+    $$("#sprosselinjer .sprossefigurboks").forEach((boks) => {
+      if (boks.dataset.kopla) return;
+      boks.dataset.kopla = "1";
+      boks.addEventListener("click", (e) => {
+        const del = e.target.closest("[data-spfelt]");
+        if (!del) return;
+        const i = boks.dataset.figur;
+        const felt = document.getElementById(`sp_${i}_${del.dataset.spfelt}`);
+        if (!felt) return;
+        felt.focus();
+        if (typeof felt.select === "function") felt.select();
+        felt.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      });
+    });
+  kopleFigurklikk();
 
   const kopleSlett = () => {
     $$("#sprosselinjer [data-spslett]").forEach((b) =>
