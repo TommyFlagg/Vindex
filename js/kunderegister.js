@@ -8,7 +8,7 @@
 // søkbart register ville late dei bla gjennom heile kundemassen.
 // ============================================================================
 
-import { $, $$, app, fb, melding, opneModal, lukkModal } from "./verktoy-felles.js?v=5a3e24de";
+import { $, $$, app, fb, melding, opneModal, lukkModal, skrivUtDel } from "./verktoy-felles.js?v=1196bf7f";
 
 export const kundedata = { kundar: [], henta: false, feil: "" };
 let kundesok = "";
@@ -70,6 +70,7 @@ export function teiknKundar() {
           value="${vindexT(kundesok)}" style="flex:1;min-width:240px">
         <button class="btn btn-sm" id="nyKunde">Ny kunde</button>
         <button class="btn btn-ghost btn-sm" id="importerKundar">Importer fra regnskap</button>
+        <button class="btn btn-ghost btn-sm" id="kundeSkrivUt">Skriv ut</button>
       </div>
       <p class="hint mt-1"><strong>${tal(kundedata.kundar.length)} kunder i registeret</strong>${
         kundesok.trim() ? ` · ${tal(treff.length)} treff` : ""}.
@@ -98,6 +99,9 @@ export function teiknKundar() {
   });
   $("#nyKunde").addEventListener("click", () => opneKunde(null));
   $("#importerKundar").addEventListener("click", opneKundeimport);
+  $("#kundeSkrivUt").addEventListener("click", () =>
+    skrivUtDel($("#kundar"), "Kunderegister",
+      kundesok.trim() ? `Søk: ${kundesok.trim()}` : `${kundedata.kundar.length} kunder`));
   $$("#kundar [data-kunde]").forEach((r) =>
     r.addEventListener("click", () =>
       opneKunde(kundedata.kundar.find((k) => String(k.kundenr) === r.dataset.kunde))

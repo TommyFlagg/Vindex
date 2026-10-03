@@ -13,10 +13,9 @@
 
 import {
   $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
-  datoTekst, melding, opneModal, lukkModal,
-} from "./verktoy-felles.js?v=5a3e24de";
-import { lastKundar, teiknKundar, kundedata } from "./kunderegister.js?v=675f2382";
-import { lastVarsel, teiknVarselboks, varseldata } from "./varselboks.js?v=7991befa";
+  datoTekst, melding, opneModal, lukkModal, skrivUtDel} from "./verktoy-felles.js?v=1196bf7f";
+import { lastKundar, teiknKundar, kundedata } from "./kunderegister.js?v=94bb93bc";
+import { lastVarsel, teiknVarselboks, varseldata } from "./varselboks.js?v=1e01f80a";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visPanel(), { roller: ["ordre", "admin"] });
@@ -123,6 +122,12 @@ function teiknOrdrelop() {
     </div>
     <p class="hint mt-1">${tal(levert)} leverte ordrer er ute av løpet.
       ${ordresok.trim() ? `Søket viser ${tal(ordrar.length)} av de åpne.` : ""}</p>`;
+
+  const utknapp = $("#ordreSkrivUt");
+  if (utknapp && !utknapp.dataset.kopla) {
+    utknapp.dataset.kopla = "1";
+    utknapp.addEventListener("click", () => skrivUtDel($("#ordrelop"), "Ordreløpet"));
+  }
 
   $$("#ordrelop [data-ordre]").forEach((k) =>
     k.addEventListener("click", () => opneOrdrekort(k.dataset.ordre))

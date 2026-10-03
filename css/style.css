@@ -349,8 +349,12 @@ footer.site h4 { color: #fff; margin: 0 0 0.6rem; font-size: 0.95rem; }
 .nowrap { white-space: nowrap; }
 .spinner { text-align: center; color: var(--muted); padding: 2.5rem 1rem; font-weight: 600; }
 
+#utskrift { display: none; }
 @media print {
   .topbar, footer.site, .toolbar, .btn, .no-print { display: none !important; }
+  /* Skal berre ein del av sida på arket, ligg kopien i #utskrift. */
+  body.skriv-ut-del > *:not(#utskrift) { display: none !important; }
+  body.skriv-ut-del #utskrift { display: block !important; }
   body { background: #fff; }
   .detail, .card, .table-scroll { box-shadow: none; border-color: #999; }
 }

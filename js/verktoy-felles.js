@@ -887,6 +887,45 @@ export function skrivUtDialog(slag, kunde = {}, undertittel = "") {
   setTimeout(rydd, 1500);
 }
 
+/**
+ * Skriv ut ei liste eller ein tavle — det som står på skjermen, på eit ark.
+ *
+ * Utskrifta blir laga av ein kopi i ein eigen boks nedst på sida, og berre den
+ * boksen er synleg på arket. Det er vesentleg enklare enn å gøyme resten av
+ * sida felt for felt, og det gjer at knappar, søkefelt og hakar kan takast
+ * bort utan at dei forsvinn frå skjermen medan nokon står og ser på.
+ */
+export function skrivUtDel(el, tittel, undertittel = "") {
+  if (!el) return;
+  let boks = document.getElementById("utskrift");
+  if (!boks) {
+    boks = document.createElement("div");
+    boks.id = "utskrift";
+    document.body.appendChild(boks);
+  }
+  const dato = new Date().toLocaleDateString("nb-NO",
+    { day: "2-digit", month: "2-digit", year: "numeric" });
+  boks.innerHTML = `<div class="utskriftshovud"><h1>${vindexT(tittel)}</h1>
+    <p>${vindexT(undertittel ? undertittel + " · " : "")}${dato} · Vindex AS</p></div>`;
+  boks.appendChild(el.cloneNode(true));
+  // Eit søkefelt på papir er ein tom firkant. Det same er ein knapp.
+  boks.querySelectorAll("button, input, select, textarea, .knapperad, .fanerad")
+      .forEach((n) => n.remove());
+
+  const gammalTittel = document.title;
+  document.title = `${tittel} ${dato}`;
+  document.body.classList.add("skriv-ut-del");
+  const rydd = () => {
+    document.body.classList.remove("skriv-ut-del");
+    boks.innerHTML = "";
+    document.title = gammalTittel;
+    window.removeEventListener("afterprint", rydd);
+  };
+  window.addEventListener("afterprint", rydd);
+  window.print();
+  setTimeout(rydd, 1500);
+}
+
 export function lukkModal() {
   $("#modal").classList.add("hidden");
   document.body.style.overflow = "";

@@ -12,8 +12,8 @@
 // ============================================================================
 
 import {
-  $, $$, app, fb, melding, opneModal, lukkModal,
-} from "./verktoy-felles.js?v=5a3e24de";
+  $, $$, app, fb, melding, opneModal, lukkModal, skrivUtDel,
+} from "./verktoy-felles.js?v=1196bf7f";
 
 // Alt som er henta, samla ein stad. Fyllast i lastLager og lesast av resten.
 const VINDEX_KOSTFAKTORDOK = "_kostfaktor";
@@ -148,9 +148,15 @@ export function teiknLagerside() {
   el.innerHTML = `
     <nav class="fanerad" aria-label="Lager">
       ${FANER.map((f) => `<button class="fane${fane === f.id ? " aktiv" : ""}" data-lagerfane="${f.id}">${vindexT(f.navn)}</button>`).join("")}
+      <button class="btn btn-ghost btn-sm" id="lagerSkrivUt"
+        style="margin-left:auto">Skriv ut</button>
     </nav>
     ${lagerdata.feil ? `<div class="notice notice-warn mt-2">${vindexT(lagerdata.feil)}</div>` : ""}
     <div id="lagerinnhald" class="mt-2"></div>`;
+
+  $("#lagerSkrivUt").addEventListener("click", () =>
+    skrivUtDel($("#lagerinnhald"), (FANER.find((f) => f.id === fane) || {}).navn || "Lager",
+      "Lager"));
 
   $$("[data-lagerfane]").forEach((k) =>
     k.addEventListener("click", () => { fane = k.dataset.lagerfane; visAlle = false; teiknLagerside(); })
