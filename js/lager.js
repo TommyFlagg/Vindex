@@ -134,6 +134,72 @@ const VINDEX_LAGERTYPAR = [
  * den same funksjonen, fordi det er det same spørsmålet.
  */
 // ===========================================================================
+// VALUTAKURS
+// ---------------------------------------------------------------------------
+// Kursen stod som eit tal nokon hadde skrive inn ein gong. Den rører seg, og
+// ein kostpris rekna med fjorårets kurs er feil utan å sjå feil ut.
+//
+// Kjelda er Norges Bank si opne kursteneste. Den krev ingen nøkkel og ingen
+// konto. Svaret blir lese av KOLONNENAMN og ikkje av plassering, fordi eit
+// format som endrar rekkjefølgje er noko ein oppdagar i produksjon.
+//
+// To ting er verdt å vite om svaret:
+//
+//   Nokre valutaer blir noterte per 100 einingar — hundre yen, ikkje éin. Det
+//   står i feltet UNIT_MULT, og blir rekna om her. Utan det ville ein kostpris
+//   blitt hundre gonger for høg, og det er ikkje ein feil som ropar.
+//
+//   Kursen er frå SISTE BANKDAG. Er det laurdag, er det fredagens kurs. Datoen
+//   følgjer med, så den som godkjenner ser kva han godkjenner.
+// ===========================================================================
+
+const vindexKursadresse = (valuta) =>
+  "https://data.norges-bank.no/api/data/EXR/B." +
+  encodeURIComponent(String(valuta || "").trim().toUpperCase()) +
+  ".NOK.SP?lastNObservations=1&format=csv";
+
+/**
+ * Les kurssvaret frå Norges Bank.
+ *
+ * Returnerer `{ kurs, dato, raa, per }` eller null. `raa` er talet slik det
+ * stod, `per` er kor mange einingar det gjeld — begge blir viste, så den som
+ * godkjenner kan sjå at omrekninga er rett.
+ */
+function vindexLesKursSvar(tekst) {
+  const linjer = String(tekst || "").split(/\r?\n/).filter((l) => l.trim());
+  if (linjer.length < 2) return null;
+  const skilje = (linjer[0].match(/;/g) || []).length >= (linjer[0].match(/,/g) || []).length ? ";" : ",";
+  const del = (l) => l.split(skilje).map((c) => c.trim().replace(/^"|"$/g, ""));
+  const hovud = del(linjer[0]).map((c) => c.toUpperCase());
+  const kol = (namn) => hovud.indexOf(namn);
+  const iVerdi = kol("OBS_VALUE");
+  const iDato = kol("TIME_PERIOD");
+  if (iVerdi < 0) return null;
+  const rad = del(linjer[linjer.length - 1]);
+  const raa = parseFloat(String(rad[iVerdi] || "").replace(",", "."));
+  if (!isFinite(raa) || raa <= 0) return null;
+  const iMult = kol("UNIT_MULT");
+  const mult = iMult >= 0 ? parseInt(rad[iMult], 10) || 0 : 0;
+  const per = Math.pow(10, mult);
+  return { kurs: raa / per, raa, per, dato: iDato >= 0 ? rad[iDato] || "" : "" };
+}
+
+/**
+ * Er den nye kursen til å tru på?
+ *
+ * Ein kurs som har flytta seg meir enn halvparten sidan sist er anten ei
+ * verdshending eller ein lesefeil, og i begge tilfelle skal eit menneske sjå
+ * på den før kostprisen på 790 artiklar blir rekna om.
+ */
+function vindexKursrimeleg(ny, gammal) {
+  const g = parseFloat(gammal) || 0;
+  const n = parseFloat(ny) || 0;
+  if (!n) return false;
+  if (!g) return true;
+  return n / g >= 0.5 && n / g <= 2;
+}
+
+// ===========================================================================
 // RESERVASJON
 // ---------------------------------------------------------------------------
 // Ein stadfesta ordre og ein utlevert ordre er to ulike ting for lageret. Før

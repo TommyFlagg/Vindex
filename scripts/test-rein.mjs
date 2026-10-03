@@ -426,6 +426,49 @@ console.log("STRUKTURVARER");
   sjekk("ringen blir broten", () => r.ring === true);
 }
 
+console.log("VALUTAKURS FRÅ NORGES BANK");
+{
+  const L = G("vindexLesKursSvar");
+  // Svaret blir lese av kolonnenamn og ikkje av plassering. Eit format som
+  // byter rekkjefølgje er noko ein elles oppdagar i produksjon.
+  const csv = [
+    "FREQ;BASE_CUR;QUOTE_CUR;TENOR;DECIMALS;CALCULATED;UNIT_MULT;COLLECTION;TIME_PERIOD;OBS_VALUE",
+    "B;CNY;NOK;SP;4;false;0;C;2026-10-02;1,4521",
+  ].join("\n");
+  const cny = L(csv);
+  p("kursen blir lesen", cny.kurs, 1.4521);
+  p("og datoen med", cny.dato, "2026-10-02");
+
+  // Nokre valutaer er noterte per hundre einingar. Utan UNIT_MULT ville
+  // kostprisen blitt hundre gonger for høg — og det er ikkje ein feil som ropar.
+  const jpy = L([
+    "FREQ;BASE_CUR;QUOTE_CUR;UNIT_MULT;TIME_PERIOD;OBS_VALUE",
+    "B;JPY;NOK;2;2026-10-02;7,0450",
+  ].join("\n"));
+  p("hundre yen blir rekna om til éin", jpy.kurs, 0.070450);
+  p("og det står kva som var notert", jpy.per, 100);
+
+  // Kolonnane kan byte plass utan at noko går gale.
+  const snudd = L([
+    "OBS_VALUE,TIME_PERIOD,BASE_CUR,UNIT_MULT",
+    "1.4521,2026-10-02,CNY,0",
+  ].join("\n"));
+  p("komma som skiljeteikn går òg", snudd.kurs, 1.4521);
+
+  p("tomt svar gir ingenting", L(""), null);
+  p("svar utan tal gir ingenting", L("FREQ;BASE_CUR\nB;CNY"), null);
+
+  const R = G("vindexKursrimeleg");
+  p("ei lita rørsle er rimeleg", R(1.47, 1.45), true);
+  p("ei dobling er det ikkje", R(2.95, 1.45), false);
+  p("ei halvering heller ikkje", R(0.7, 1.45), false);
+  p("utan ein gammal kurs er alt rimeleg", R(1.45, 0), true);
+  p("null er aldri ein kurs", R(0, 1.45), false);
+
+  p("adressa spør om rett valutapar",
+    G("vindexKursadresse")("cny").includes("/EXR/B.CNY.NOK.SP?"), true);
+}
+
 console.log("LAGERVERDI");
 {
   const varer = {

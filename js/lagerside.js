@@ -658,6 +658,8 @@ function opneVare(artnr) {
       ${felt("vf_innpris", "Innkjøpspris", i.innkjopspris || "", 'type="number" step="0.0001"')}
       ${felt("vf_valuta", "Valuta", i.valuta || "NOK")}
       ${felt("vf_kurs", "Kurs", i.kurs || 1, 'type="number" step="0.0001"')}
+      <div class="field"><label>&nbsp;</label>
+        <button class="btn btn-ghost btn-sm" type="button" id="vf_hentkurs">Hent dagens kurs</button></div>
       <div class="field"><label for="vf_faktortype">Kostfaktor</label>
         <select id="vf_faktortype">
           <option value="">Følg artikkelgruppen</option>
@@ -666,6 +668,7 @@ function opneVare(artnr) {
         </select></div>
       ${felt("vf_faktor", "Påslag", (i.kostfaktor || {}).verdi != null ? i.kostfaktor.verdi : "", 'type="number" step="0.01"')}
     </div>
+    <div id="vf_kurssvar" class="notice mt-1 hidden"></div>
     <div id="vf_kostpris" class="notice mt-2"></div>
     <p class="hint" id="vf_arv"></p>
     ${ny ? "" : `<p class="hint mt-2">Beholdning nå: <strong>${tal(saldo)}</strong> ${vindexT(v.enhet || "")}.</p>`}
@@ -692,6 +695,60 @@ function opneVare(artnr) {
       (r.paaslag ? ` + ${kroner(r.paaslag)} påslag` : "") +
       ` &rarr; kostpris <strong>${kroner(r.kostpris)}</strong>`;
   };
+  // Kursen blir henta, vist og GODKJENT — ikkje skriven rett inn. Eit tal som
+  // endrar kostprisen på heile registeret skal eit menneske ha sett på.
+  $("#vf_hentkurs").addEventListener("click", async () => {
+    const knapp = $("#vf_hentkurs");
+    const valuta = String($("#vf_valuta").value || "").trim().toUpperCase();
+    const svarboks = $("#vf_kurssvar");
+    const sei = (html, klasse = "notice") => {
+      svarboks.className = `${klasse} mt-1`;
+      svarboks.innerHTML = html;
+      svarboks.classList.remove("hidden");
+    };
+    if (!valuta || valuta === "NOK") {
+      sei("Kronekurs er alltid 1 — det er ingenting å hente.", "notice");
+      return;
+    }
+    knapp.disabled = true;
+    const gammalTekst = knapp.textContent;
+    knapp.textContent = "Henter …";
+    try {
+      const res = await fetch(vindexKursadresse(valuta), { headers: { Accept: "text/csv" } });
+      if (!res.ok) throw new Error("Norges Bank svarte " + res.status);
+      const kurs = vindexLesKursSvar(await res.text());
+      if (!kurs) throw new Error("Svaret kunne ikke leses");
+      const naa = Number($("#vf_kurs").value) || 0;
+      const rimeleg = vindexKursrimeleg(kurs.kurs, naa);
+      sei(
+        `<strong>${valuta} ${tal(kurs.kurs, 4)}</strong> per enhet` +
+          `${kurs.per > 1 ? ` (notert ${tal(kurs.raa, 4)} per ${tal(kurs.per)})` : ""}` +
+          `${kurs.dato ? ` · kurs fra ${vindexT(kurs.dato)}` : ""} · Norges Bank.` +
+          `${naa ? ` Står nå på ${tal(naa, 4)}.` : ""}` +
+          (rimeleg ? "" : " <strong>Dette er mer enn en halvering eller dobling —" +
+            " sjekk at det stemmer før du bruker det.</strong>") +
+          ` <button class="btn btn-sm" type="button" id="vf_brukkurs">Bruk ${tal(kurs.kurs, 4)}</button>`,
+        rimeleg ? "notice" : "notice notice-warn"
+      );
+      $("#vf_brukkurs").addEventListener("click", () => {
+        $("#vf_kurs").value = kurs.kurs;
+        $("#vf_kurs").dispatchEvent(new Event("input", { bubbles: true }));
+        sei(`Kursen er satt til ${tal(kurs.kurs, 4)}. Den lagres sammen med artikkelen.`,
+          "notice notice-good");
+      });
+    } catch (e) {
+      sei(
+        `Fikk ikke hentet kursen: ${vindexT(e && e.message ? e.message : String(e))}. ` +
+          "Skriv den inn manuelt — kursen står på fakturaen fra leverandøren, " +
+          "eller på norges-bank.no.",
+        "notice notice-warn"
+      );
+    } finally {
+      knapp.disabled = false;
+      knapp.textContent = gammalTekst;
+    }
+  });
+
   ["vf_innpris", "vf_valuta", "vf_kurs", "vf_faktor", "vf_faktortype"].forEach((id) =>
     $("#" + id).addEventListener("input", vis)
   );
