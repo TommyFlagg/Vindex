@@ -429,6 +429,7 @@ console.log("STRUKTURVARER");
 console.log("VALUTAKURS FRÅ NORGES BANK");
 {
   const L = G("vindexLesKursSvar");
+  const R = G("vindexKursrimeleg");
   // Svaret blir lese av kolonnenamn og ikkje av plassering. Eit format som
   // byter rekkjefølgje er noko ein elles oppdagar i produksjon.
   const csv = [
@@ -448,6 +449,21 @@ console.log("VALUTAKURS FRÅ NORGES BANK");
   p("hundre yen blir rekna om til éin", jpy.kurs, 0.070450);
   p("og det står kva som var notert", jpy.per, 100);
 
+  // Den verkelege noteringa, 03.10.2026: 100 CNY = 143,92 NOK. Kostprisen skal
+  // reknast med 1,4392 per yuan — ikkje 143,92. Det er hundre gonger, og det
+  // er ikkje ein feil som ser feil ut i ei liste over 790 artiklar.
+  const ekte = L([
+    "FREQ;BASE_CUR;QUOTE_CUR;TENOR;UNIT_MULT;TIME_PERIOD;OBS_VALUE",
+    "B;CNY;NOK;SP;2;2026-10-03;143,9200",
+  ].join("\n"));
+  p("hundre yuan er 143,92 kroner", ekte.raa, 143.92);
+  p("og då er éin yuan 1,4392", ekte.kurs, 1.4392);
+  p("noteringa blir hugsa", ekte.per, 100);
+  // Kjem talet likevel ustempla, skal det ikkje sleppe inn stille.
+  const ustempla = L("BASE_CUR;TIME_PERIOD;OBS_VALUE\nCNY;2026-10-03;143,9200");
+  p("utan UNIT_MULT blir talet ståande som det er", ustempla.kurs, 143.92);
+  p("og då seier rimelegheitssjekken frå", R(ustempla.kurs, 1.4392), false);
+
   // Kolonnane kan byte plass utan at noko går gale.
   const snudd = L([
     "OBS_VALUE,TIME_PERIOD,BASE_CUR,UNIT_MULT",
@@ -458,7 +474,6 @@ console.log("VALUTAKURS FRÅ NORGES BANK");
   p("tomt svar gir ingenting", L(""), null);
   p("svar utan tal gir ingenting", L("FREQ;BASE_CUR\nB;CNY"), null);
 
-  const R = G("vindexKursrimeleg");
   p("ei lita rørsle er rimeleg", R(1.47, 1.45), true);
   p("ei dobling er det ikkje", R(2.95, 1.45), false);
   p("ei halvering heller ikkje", R(0.7, 1.45), false);

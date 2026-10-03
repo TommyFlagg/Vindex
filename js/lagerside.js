@@ -721,8 +721,13 @@ function opneVare(artnr) {
       const naa = Number($("#vf_kurs").value) || 0;
       const rimeleg = vindexKursrimeleg(kurs.kurs, naa);
       sei(
-        `<strong>${valuta} ${tal(kurs.kurs, 4)}</strong> per enhet` +
-          `${kurs.per > 1 ? ` (notert ${tal(kurs.raa, 4)} per ${tal(kurs.per)})` : ""}` +
+        // Kursen blir vist slik han blir oppgitt — «100 CNY = 143,92 NOK» er
+        // det ein finn igjen på nettbanken. Talet systemet reknar med står
+        // ved sida av, så omrekninga er til å kontrollere og ikkje å tru på.
+        (kurs.per > 1
+          ? `<strong>${tal(kurs.per)} ${valuta} = ${tal(kurs.raa, 4)} NOK</strong>` +
+            ` — det gir <strong>${tal(kurs.kurs, 4)}</strong> per ${valuta}`
+          : `<strong>1 ${valuta} = ${tal(kurs.kurs, 4)} NOK</strong>`) +
           `${kurs.dato ? ` · kurs fra ${vindexT(kurs.dato)}` : ""} · Norges Bank.` +
           `${naa ? ` Står nå på ${tal(naa, 4)}.` : ""}` +
           (rimeleg ? "" : " <strong>Dette er mer enn en halvering eller dobling —" +

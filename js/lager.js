@@ -181,7 +181,11 @@ function vindexLesKursSvar(tekst) {
   const iMult = kol("UNIT_MULT");
   const mult = iMult >= 0 ? parseInt(rad[iMult], 10) || 0 : 0;
   const per = Math.pow(10, mult);
-  return { kurs: raa / per, raa, per, dato: iDato >= 0 ? rad[iDato] || "" : "" };
+  // 143,92 delt på hundre blir 1,4391999999999998 i flyttal. Det talet blir
+  // lagra, vist og gonga med 790 innkjøpsprisar, så det skal ikkje få lov til
+  // å oppstå: åtte desimalar er meir enn nokon valutakurs treng.
+  const kurs = Number((raa / per).toFixed(8));
+  return { kurs, raa, per, dato: iDato >= 0 ? rad[iDato] || "" : "" };
 }
 
 /**
