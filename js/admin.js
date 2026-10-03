@@ -1401,9 +1401,23 @@ async function aktiverInnlogging(p) {
       + "Kopier User UID fra Authentication → Users — den er vanligvis 28 tegn.");
     return;
   }
-  if (app.seljarar.some((s) => s.id === uid)) {
-    vis("Den uid-en er allerede i bruk av " + (app.seljarar.find((s) => s.id === uid) || {}).navn + ".");
+  // Finst det alt ei rad på den uid-en?
+  //
+  // Har den et navn, er den en annen person, og da skal ingenting skje. Men
+  // en rad UTEN navn er ikke en person — det er en tom rad fra en halvveis
+  // oppretting eller en test. Den skal ikke stå i veien; den skal skrives
+  // over. Før sa meldingen «allerede i bruk av undefined», som er sant og
+  // ubrukelig på samme tid.
+  const brukt = app.seljarar.find((s) => s.id === uid);
+  if (brukt && String(brukt.navn || "").trim()) {
+    vis(`Den uid-en tilhører allerede ${brukt.navn}. `
+      + "Hver person må ha sin egen bruker i Firebase Authentication — "
+      + `sjekk at du kopierte riktig rad. Uid: ${uid}`);
     return;
+  }
+  if (brukt) {
+    vis(`Det lå en tom rad på denne uid-en fra før (uid: ${uid}). `
+      + "Den blir skrevet over nå.");
   }
 
   const knapp = $("#pf_aktiver");
