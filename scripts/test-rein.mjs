@@ -1004,6 +1004,12 @@ console.log("SPROSSEPRIS OG RUTETAL");
   p("men ikkje når han er vald bort",
     klikkfelt({ type_nr: 8, midtstolpe: "0" }).includes("midtstolpe"), false);
 
+  // Teikninga og prisen skal seie det same. Før følgde prisen felta medan
+  // figuren følgde typen: linja viste 3 × 3 og rekna 16 ruter.
+  const loddrette = (r) => (teikn(r).match(/url\(#\w+v\)/g) || []).length;
+  p("figuren følgjer rutetalet seljaren skriv", loddrette({ type_nr: 1, ruter_b: 4, ruter_h: 4 }), 3);
+  p("og typen sitt når linja ikkje seier noko", loddrette({ type_nr: 1 }), 2);
+
   // Midtstolpen på type 8 står i toppfeltet. Den store ruta under er heilt
   // glas — ein stolpe tvers gjennom glaset er ikkje det vindauget dei lagar.
   p("type 8 har ni ruter", G("vindexSprossetypeRuter")(G("vindexSprossetype")(8)), 9);

@@ -302,8 +302,11 @@ function vindexSprossegrafikk(rad = {}, val = {}) {
       for (let i = 1; i < type.over.rb; i++)
         del.push(loddrett(gX + (gB / type.over.rb) * i, gY, gH, verk, "sp-verk", "ruter_b"));
   } else {
-    const kolonnar = type ? type.rb : rb;
-    const rader = type ? type.rh : rh;
+    // Felta gjeld, akkurat som i prisen. Her stod det «typen, elles felta», og
+    // då teikna figuren 3 × 3 medan prisen rekna 16 ruter på same linje. Eit
+    // bilete som seier noko anna enn prisen er verre enn ikkje noko bilete.
+    const kolonnar = rb;
+    const rader = rh;
     if (!utanRuter) rutenett(gX, gY, gB, gH, kolonnar, rader, !!midt, false, false);
     // Oddetal ruter gir ingen midtstrek å gjere berande. Då blir midtstolpen
     // teikna i midten likevel — det er der den står.
