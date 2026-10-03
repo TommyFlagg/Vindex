@@ -12,11 +12,11 @@
 import {
   $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
   datoTekst, lagreLead, melding, opneModal, lukkModal, visDatavarsel, demoAnmeldingar,
-} from "./verktoy-felles.js?v=b21307b2";
+} from "./verktoy-felles.js?v=2543871d";
 import { lastPrisdata, VINDEX_PRISDATA_DOKUMENT } from "./datalast.js?v=8d397edf";
-import { lastLager, teiknLagerside } from "./lagerside.js?v=7b55d812";
-import { lastKundar, teiknKundar } from "./kunderegister.js?v=0455cb07";
-import { lastVarsel, teiknVarselboks } from "./varselboks.js?v=237db534";
+import { lastLager, teiknLagerside } from "./lagerside.js?v=e6cd5627";
+import { lastKundar, teiknKundar } from "./kunderegister.js?v=78f6a1fc";
+import { lastVarsel, teiknVarselboks } from "./varselboks.js?v=7c5c8dac";
 
 settTeiknar(() => teiknAlt());
 settOppstart(() => visPanel(), { berreAdmin: true });
@@ -41,6 +41,20 @@ visDemohint(
 // Snarvegane er blitt faner. Kvar fane hugsar `data-hopp` til den fyrste
 // seksjonen sin, så ei lenke eller ein test som peikte på ein seksjon
 // framleis finn vegen.
+
+// Stilling og tilgang er to ulike ting, og det var verdt å skilje dei.
+//
+// «Regnskap» og «Daglig leder» er kva folk GJER. «Administrator» er kva dei
+// får SJÅ. Randi er rekneskap og treng å sjå alt; Magnus er dagleg leiar og
+// treng det same. To stillingar, same tilgang — og om vi hadde laga ei ny
+// tilgangsrolle for kvar stilling, ville reglane vakse med éin regel per
+// stillingstittel for alltid.
+//
+// Lista er forslag, ikkje eit val: feltet tek imot kva som helst.
+const VINDEX_STILLINGAR = [
+  "Selger", "Forhandler", "Daglig leder", "Regnskap", "Ordrekontor",
+  "Lager", "Produksjon", "Innkjøp", "Markedsføring",
+];
 
 const ADMINFANER = [
   { id: "oversikt", navn: "Oversikt", seksjonar: ["seksjonDashbord"] },
@@ -155,10 +169,11 @@ async function visPanel() {
   $$("#snarvegar .fane").forEach((k) =>
     k.addEventListener("click", () => {
       visAdminfane(k.dataset.fane);
-      // Fanerada skal bli ståande der den er. Hoppar sida til toppen av
-      // seksjonen, forsvinn knappane ein nettopp trykte på.
+      // Fanerada øvst i bildet, så innholdet i fanen ligger rett under den.
+      // Med «nearest» flyttet siden seg ikke når raden allerede var synlig,
+      // og da så det ut som om knappen ikke gjorde noe.
       const panel = $("#kontrollpanel");
-      if (panel) panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      if (panel) panel.scrollIntoView({ behavior: "smooth", block: "start" });
     })
   );
   // Rekkjefølgja: ei lenke rett til ein seksjon vinn over det ein såg sist.
@@ -224,7 +239,7 @@ async function hentRepresentantar() {
     return;
   }
   try {
-    const { fb } = await import("./verktoy-felles.js?v=b21307b2");
+    const { fb } = await import("./verktoy-felles.js?v=2543871d");
     const q = fb.query(fb.representantarCol(), fb.orderBy("opprettet", "desc"), fb.limit(200));
     representantar = (await fb.getDocs(q)).docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (err) {
@@ -763,7 +778,7 @@ async function lagreAarstal() {
 
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
+      const { fb } = await import("./verktoy-felles.js?v=2543871d");
       await fb.setDoc(fb.settingsDoc("aarstal"), { driftsinntekter: tal });
     }
     // Eit tal nokon har skrive inn sjølv er stadfesta — til skilnad frå det eg
@@ -1012,6 +1027,10 @@ function aarsveljar(aarListe) {
 /** Eitt kort per person i apparatet, med distrikta som kan hakast av. */
 function apparatKort(s) {
   const kontakt = [s.telefon, s.epost].filter(Boolean).join(" · ");
+  // Stillinga først, der den finst: «Regnskap» seier meir om kven dette er
+  // enn «Administrator», som berre seier kva ho får sjå.
+  const stilling = s.stilling
+    ? `<span class="tag">${vindexT(s.stilling)}</span>` : "";
   const arkivert = vindexErArkivert(s);
   // Merket skal seie det viktigaste først. Manglande innlogging slår både
   // «arkivert» og «inaktiv»: ein rad utan Firebase-bruker ser ferdig ut, men
@@ -1037,7 +1056,7 @@ function apparatKort(s) {
     return `<div class="card${arkivert ? " arkivkort" : ""}">
       <div class="detail-head">
         <h3 class="mt-0 mb-0">${vindexT(s.navn)}</h3>
-        ${merke}
+        ${stilling}${merke}
       </div>
       <p class="hint">${kontakt || "Ingen kontaktinfo"}</p>
       <p class="hint mb-0">${
@@ -1252,6 +1271,13 @@ function opnePersonskjema(person) {
           (f) => `<div class="field"><label for="pf_${f.id}">${vindexT(f.navn)}</label>
             <input id="pf_${f.id}" type="${f.type}" value="${String(p[f.id] || "").replace(/"/g, "&quot;")}"></div>`
         ).join("")}
+        <div class="field"><label for="pf_stilling">Stilling</label>
+          <input id="pf_stilling" list="stillingar" autocomplete="off"
+            value="${String(p.stilling || "").replace(/"/g, "&quot;")}"
+            placeholder="Selger">
+          <datalist id="stillingar">
+            ${VINDEX_STILLINGAR.map((t) => `<option value="${vindexT(t)}">`).join("")}
+          </datalist></div>
         <div class="field"><label for="pf_type">Type</label>
           <select id="pf_type">
             <option value="selger"${p.type !== "forhandler" ? " selected" : ""}>Egen selger</option>
@@ -1356,14 +1382,23 @@ async function aktiverInnlogging(p) {
   const vis = (t) => {
     feil.textContent = t;
     feil.classList.remove("hidden");
+    // Feltet står nederst i en lang dialog. Sto meldingen der uten dette, var
+    // den usynlig under distriktslisten — og knappen så ut som den ikke virket.
+    feil.scrollIntoView({ behavior: "smooth", block: "center" });
   };
   feil.classList.add("hidden");
 
-  const uid = ($("#pf_nyuid").value || "").trim();
-  // Reglene krever 28 tegn på seljarId. Står det noe annet her, blir raden
-  // lagret og deretter like ubrukelig som før — bare vanskeligere å se.
-  if (uid.length !== VINDEX_UID_LENGD) {
-    vis(`En Firebase-uid er ${VINDEX_UID_LENGD} tegn. Denne er ${uid.length}. Kopier User UID fra Authentication → Users.`);
+  // Det som blir limt inn fra en konsoll har gjerne med seg mellomrom,
+  // linjeskift eller anførselstegn. Det er ikke brukerens feil, og det er ikke
+  // noe å stoppe på.
+  const uid = ($("#pf_nyuid").value || "")
+    .replace(/[\s\u00a0\u200b-\u200d\ufeff"'`]/g, "");
+  // En Firebase-uid er som regel 28 tegn, men ikke alltid: Firebase tillater
+  // opptil 128. Her sto det et absolutt krav om 28, og en gyldig uid på 27
+  // eller 29 ble avvist med en melding ingen fikk se.
+  if (uid.length < 20 || uid.length > 128) {
+    vis(`Dette ser ikke ut som en Firebase-uid: ${uid.length} tegn. `
+      + "Kopier User UID fra Authentication → Users — den er vanligvis 28 tegn.");
     return;
   }
   if (app.seljarar.some((s) => s.id === uid)) {
@@ -1383,7 +1418,7 @@ async function aktiverInnlogging(p) {
       p.id = uid;
       p.harInnlogging = true;
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
+      const { fb } = await import("./verktoy-felles.js?v=2543871d");
       await fb.setDoc(fb.sellerDoc(uid), { ...resten, arkivert: false, harInnlogging: true });
       await fb.setDoc(fb.omsetningDoc(uid), { historikk: historikk || {} });
 
@@ -1453,6 +1488,7 @@ async function lagrePerson(p, ny) {
     telefon: verdi("telefon").trim(),
     epost: verdi("epost").trim(),
     ansatt: verdi("ansatt"),
+    stilling: verdi("stilling").trim(),
     type: $("#pf_type").value,
     rolle: $("#pf_rolle").value,
     distrikt: $$("#personskjema [data-pdistrikt]:checked").map((i) => i.value),
@@ -1463,7 +1499,7 @@ async function lagrePerson(p, ny) {
       if (ny) app.seljarar.push({ ...data, id: "ny-" + Date.now(), historikk, arkivert: false });
       else Object.assign(p, data, { historikk });
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
+      const { fb } = await import("./verktoy-felles.js?v=2543871d");
       if (ny) {
         // Er uid-en oppgitt, blir raden lagd under den med ein gong, og
         // personen kan logge inn og få saker frå første stund.
@@ -1531,7 +1567,7 @@ async function vekslArkiv(p) {
   const data = vindexArkiverData(p, dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
+      const { fb } = await import("./verktoy-felles.js?v=2543871d");
       await fb.updateDoc(fb.sellerDoc(p.id), data);
     }
     Object.assign(p, data);
@@ -1552,7 +1588,7 @@ async function lagreDistrikt(seljarId) {
   seljar.distrikt = valde;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
+      const { fb } = await import("./verktoy-felles.js?v=2543871d");
       await fb.updateDoc(fb.sellerDoc(seljarId), { distrikt: valde });
       await byggRuting();
     }
@@ -1572,7 +1608,7 @@ async function lagreDistrikt(seljarId) {
  * innlogga. Difor ligg berre ID-ane der — ingen namn, ingen kontaktinfo.
  */
 async function byggRuting() {
-  const { fb } = await import("./verktoy-felles.js?v=b21307b2");
+  const { fb } = await import("./verktoy-felles.js?v=2543871d");
   // Formen må vere den bestillingsskjemaet les: distrikt-id -> liste med
   // selger-id-ar. Er det fleire i same distrikt, roterer skjemaet mellom dei.
   // Dokumentet ligg flatt, uten «distrikt»-nivå, og heiter settings/ruting.
@@ -1980,7 +2016,7 @@ async function knytAnmelding(id, seljarId) {
   if (!a) return;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
+      const { fb } = await import("./verktoy-felles.js?v=2543871d");
       await fb.updateDoc(fb.reviewDoc(id), { seljarId: seljarId || null });
     }
     a.seljarId = seljarId || null;
@@ -2116,7 +2152,7 @@ async function lagreGjeninntaking(s, dato) {
   const data = vindexGjeninntaData(dato);
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
+      const { fb } = await import("./verktoy-felles.js?v=2543871d");
       await fb.updateDoc(fb.sellerDoc(s.id), data);
     }
     Object.assign(s, data);
@@ -2494,7 +2530,7 @@ async function lagreKampanje(kam, ny, data) {
       if (ny) app.kampanjar.push({ ...full, id: "k-" + Date.now(), opprettaAv: app.brukar.navn });
       else Object.assign(kam, full);
     } else {
-      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
+      const { fb } = await import("./verktoy-felles.js?v=2543871d");
       if (ny) {
         const ref = await fb.addDoc(fb.campaignsCol(), {
           ...full,
@@ -2520,7 +2556,7 @@ async function vekslKampanje(k) {
   const paa = k.aktiv === false;
   try {
     if (!VINDEX_DEMOMODUS) {
-      const { fb } = await import("./verktoy-felles.js?v=b21307b2");
+      const { fb } = await import("./verktoy-felles.js?v=2543871d");
       await fb.updateDoc(fb.campaignDoc(k.id), { aktiv: paa });
     }
     k.aktiv = paa;
@@ -3030,7 +3066,7 @@ async function kjorPersonimport() {
       if (VINDEX_DEMOMODUS) {
         app.seljarar.push({ ...data, id: "imp-" + Date.now() + "-" + inn, historikk });
       } else {
-        const { fb } = await import("./verktoy-felles.js?v=b21307b2");
+        const { fb } = await import("./verktoy-felles.js?v=2543871d");
         const ref = await fb.addDoc(fb.sellersCol(), data);
         await fb.setDoc(fb.omsetningDoc(ref.id), { historikk });
         app.seljarar.push({ ...data, id: ref.id, historikk });

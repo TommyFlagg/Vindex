@@ -133,10 +133,65 @@ export function visDemohint(tekst) {
   if (el) el.innerHTML = `<div class="notice notice-warn mt-2">${tekst}</div>`;
 }
 
+/**
+ * Nytt passord til den som har gløymt sitt.
+ *
+ * Firebase sender lenka, ikkje vi.
+ *
+ * Svaret er med vilje det same anten adressa finst eller ikkje. Ei side som
+ * seier «den e-posten finst ikkje» fortel kven som jobbar her til kven som
+ * helst som spør, og det er ikkje sida sin jobb.
+ *
+ * Den gamle utgåva — berre på salsverktøyet — kalla Firebase utan å ta imot
+ * feil. Skreiv nokon ei adresse som ikkje fanst, kasta kallet, og det skjedde
+ * ingenting i det heile. Ei knapp som ikkje gjer noko er verre enn ingen knapp.
+ */
+const glemtknapp = $("#glemtPassord");
+if (glemtknapp)
+  glemtknapp.addEventListener("click", async () => {
+    const svar = $("#loginSvar");
+    const feil = $("#loginFeil");
+    feil.classList.add("hidden");
+    const epost = ($("#loginEpost").value || "").trim();
+    const sei = (tekst, klasse = "notice") => {
+      svar.className = `${klasse} mt-1`;
+      svar.textContent = tekst;
+      svar.classList.remove("hidden");
+    };
+    if (!epost) {
+      sei("Skriv e-postadressen din i feltet over først, så sender vi en lenke dit.",
+        "notice notice-warn");
+      $("#loginEpost").focus();
+      return;
+    }
+    if (VINDEX_DEMOMODUS) {
+      sei("Demomodus — ingen e-post blir sendt.");
+      return;
+    }
+    glemtknapp.disabled = true;
+    try {
+      await fb.sendPasswordResetEmail(fb.auth, epost);
+    } catch (err) {
+      // Feil som ikkje handlar om adressa skal framleis seiast frå om.
+      if (err.code !== "auth/user-not-found" && err.code !== "auth/invalid-email") {
+        console.error(err);
+        sei("Fikk ikke sendt lenken. Prøv igjen om litt, eller kontakt hovedkontoret.",
+          "notice notice-warn");
+        glemtknapp.disabled = false;
+        return;
+      }
+    }
+    sei(`Hvis ${epost} har en konto her, er det sendt en lenke dit for å sette nytt passord. `
+      + "Sjekk søppelpost hvis den ikke dukker opp.");
+    glemtknapp.disabled = false;
+  });
+
 $("#loginSkjema").addEventListener("submit", async (e) => {
   e.preventDefault();
   const feil = $("#loginFeil");
   feil.classList.add("hidden");
+  const svarboks = $("#loginSvar");
+  if (svarboks) svarboks.classList.add("hidden");
   const knapp = $("#loginKnapp");
   knapp.disabled = true;
   knapp.textContent = "Logger inn …";
@@ -171,22 +226,6 @@ $("#loginSkjema").addEventListener("submit", async (e) => {
     knapp.disabled = false;
     knapp.textContent = "Logg inn";
   }
-});
-
-const glemt = $("#glemtLenke");
-if (glemt) glemt.addEventListener("click", async (e) => {
-  e.preventDefault();
-  const epost = $("#loginEpost").value.trim();
-  const feil = $("#loginFeil");
-  if (!epost) {
-    feil.textContent = "Skriv inn e-postadressen din først, så sender vi en lenke.";
-    feil.classList.remove("hidden");
-    return;
-  }
-  if (VINDEX_DEMOMODUS) return;
-  await fb.sendPasswordResetEmail(fb.auth, epost);
-  feil.textContent = "Sendt! Sjekk innboksen for lenke til nytt passord.";
-  feil.classList.remove("hidden");
 });
 
 $("#loggUt").addEventListener("click", async () => {

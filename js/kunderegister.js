@@ -8,7 +8,7 @@
 // søkbart register ville late dei bla gjennom heile kundemassen.
 // ============================================================================
 
-import { $, $$, app, fb, melding, opneModal, lukkModal, skrivUtDel } from "./verktoy-felles.js?v=b21307b2";
+import { $, $$, app, fb, melding, opneModal, lukkModal, skrivUtDel } from "./verktoy-felles.js?v=2543871d";
 
 export const kundedata = { kundar: [], henta: false, feil: "" };
 let kundesok = "";
