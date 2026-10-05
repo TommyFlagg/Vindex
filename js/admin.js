@@ -14,7 +14,7 @@ import {
   datoTekst, lagreLead, melding, opneModal, lukkModal, visDatavarsel, demoAnmeldingar,
 } from "./verktoy-felles.js?v=2543871d";
 import { lastPrisdata, VINDEX_PRISDATA_DOKUMENT } from "./datalast.js?v=8d397edf";
-import { lastLager, teiknLagerside } from "./lagerside.js?v=474dc6ad";
+import { lastLager, teiknLagerside } from "./lagerside.js?v=380ddbf6";
 import { lastKundar, teiknKundar } from "./kunderegister.js?v=78f6a1fc";
 import { lastVarsel, teiknVarselboks } from "./varselboks.js?v=7c5c8dac";
 

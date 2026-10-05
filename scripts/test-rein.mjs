@@ -395,6 +395,29 @@ console.log("LAGERSALDO AV RØRSLER");
     T(tellevarer, poster, { lokasjonar: [] }).length, 0);
   p("og utan filter i det heile kjem alt", T(tellevarer, poster).length, liste.length);
 
+  // Tellinga fører DIFFERANSEN, ikkje det talde talet. Lagerrekneskapen er ei
+  // rekkje hendingar, og «det var tolv fleire enn vi trudde» er ei av dei.
+  const TR = G("vindexTellerorsler");
+  const telt = {
+    "7522|Lager 3": "7400",   // forventa 7372 → +28
+    "7551|Lager 3": "1873",   // forventa 1873 → ingen avvik
+    "9999|": "5",             // forventa 0 → +5
+  };
+  const rorsler = TR(liste, telt, { tid: "2026-10-05", ref: "Varetelling" });
+  p("berre linjer med avvik blir førte", rorsler.length, 2);
+  p("og det er differansen som blir ført",
+    rorsler.find((r) => r.artnr === "7522").antall, 28);
+  p("ein artikkel som ikkje stod der i det heile", 
+    rorsler.find((r) => r.artnr === "9999").antall, 5);
+  p("lokasjonen følgjer med", rorsler.find((r) => r.artnr === "7522").lokasjon, "Lager 3");
+  p("rørsla er ei telling", rorsler[0].type, "telling");
+  // Ei tom rute tyder «ikkje talt», ikkje «talt til null» — og skilnaden er
+  // heile lageret på ein artikkel.
+  p("tom rute blir hoppa over", TR(liste, { "7522|Lager 3": "" }).length, 0);
+  p("det same gjer ei rute som ikkje finst", TR(liste, {}).length, 0);
+  p("men null er eit tal",
+    TR(liste, { "7522|Lager 3": "0" })[0].antall, -7372);
+
   const LL = G("vindexLokasjonsliste")(tellevarer, poster);
   p("lokasjonane som finst", LL.map((l) => l.lokasjon), ["", "Lager 3", "Stavik"]);
   p("med tal på artiklar", LL.find((l) => l.lokasjon === "Lager 3").artiklar, 2);

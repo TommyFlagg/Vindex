@@ -469,6 +469,77 @@ async function oppdaterLagervarsel() {
   }
 }
 
+/**
+ * Knappen som hentar dagens kurs.
+ *
+ * Same sak på artikkelkortet og på innkjøpsordren, så den står eitt sted.
+ * Felta heiter `<prefiks>_valuta`, `<prefiks>_kurs` og `<prefiks>_kurssvar`.
+ *
+ * Kursen blir henta, VIST og godkjent — ikkje skriven rett inn. Eit tal som
+ * endrar kostprisen på heile registeret skal eit menneske ha sett på først.
+ */
+function kopleKurshenting(prefiks, kvar) {
+  const knapp = $(`#${prefiks}_hentkurs`);
+  if (!knapp) return;
+  knapp.addEventListener("click", async () => {
+    const valuta = String($(`#${prefiks}_valuta`).value || "").trim().toUpperCase();
+    const svarboks = $(`#${prefiks}_kurssvar`);
+    const sei = (html, klasse = "notice") => {
+      svarboks.className = `${klasse} mt-1`;
+      svarboks.innerHTML = html;
+      svarboks.classList.remove("hidden");
+    };
+    if (!valuta || valuta === "NOK") {
+      sei("Kronekurs er alltid 1 — det er ingenting å hente.", "notice");
+      return;
+    }
+    knapp.disabled = true;
+    const gammalTekst = knapp.textContent;
+    knapp.textContent = "Henter …";
+    try {
+      const res = await fetch(vindexKursadresse(valuta), { headers: { Accept: "text/csv" } });
+      if (!res.ok) throw new Error("Norges Bank svarte " + res.status);
+      const kurs = vindexLesKursSvar(await res.text());
+      if (!kurs) throw new Error("Svaret kunne ikke leses");
+      const naa = Number($(`#${prefiks}_kurs`).value) || 0;
+      const rimeleg = vindexKursrimeleg(kurs.kurs, naa);
+      sei(
+        // Kursen blir vist slik han blir oppgitt — «100 CNY = 143,92 NOK» er
+        // det ein finn igjen i nettbanken. Talet systemet reknar med står ved
+        // sida av, så omrekninga er til å kontrollere og ikkje å tru på.
+        (kurs.per > 1
+          ? `<strong>${tal(kurs.per)} ${valuta} = ${tal(kurs.raa, 4)} NOK</strong>` +
+            ` — det gir <strong>${tal(kurs.kurs, 4)}</strong> per ${valuta}`
+          : `<strong>1 ${valuta} = ${tal(kurs.kurs, 4)} NOK</strong>`) +
+          `${kurs.dato ? ` · kurs fra ${vindexT(kurs.dato)}` : ""} · Norges Bank.` +
+          `${naa ? ` Står nå på ${tal(naa, 4)}.` : ""}` +
+          (rimeleg ? "" : " <strong>Dette er mer enn en halvering eller dobling —" +
+            " sjekk at det stemmer før du bruker det.</strong>") +
+          ` <button class="btn btn-sm" type="button" id="${prefiks}_brukkurs">Bruk ${tal(kurs.kurs, 4)}</button>`,
+        rimeleg ? "notice" : "notice notice-warn"
+      );
+      $(`#${prefiks}_brukkurs`).addEventListener("click", () => {
+        const felt = $(`#${prefiks}_kurs`);
+        felt.value = kurs.kurs;
+        felt.dispatchEvent(new Event("input", { bubbles: true }));
+        felt.dispatchEvent(new Event("change", { bubbles: true }));
+        sei(`Kursen er satt til ${tal(kurs.kurs, 4)}. Den lagres sammen med ${kvar}.`,
+          "notice notice-good");
+      });
+    } catch (e) {
+      sei(
+        `Fikk ikke hentet kursen: ${vindexT(e && e.message ? e.message : String(e))}. ` +
+          "Skriv den inn manuelt — kursen står på fakturaen fra leverandøren, " +
+          "eller på norges-bank.no.",
+        "notice notice-warn"
+      );
+    } finally {
+      knapp.disabled = false;
+      knapp.textContent = gammalTekst;
+    }
+  });
+}
+
 // -- Varetelling -------------------------------------------------------------
 //
 // Ei telling går fysisk. Nokon går langs hyllene med eit ark og tel, og
@@ -482,6 +553,10 @@ async function oppdaterLagervarsel() {
 // ettergå ein mistanke, og då er det nettopp avviket ein er ute etter.
 
 let telleval = { lokasjonar: [], blind: true };
+// Tala som blir skrivne inn att, nøkla på artikkel og lokasjon. Dei ligg her
+// og ikkje i feltet, så dialogen kan teiknast på nytt utan at nokon mistar
+// det dei har skrive.
+let telletal = {};
 
 function opneTelleliste() {
   const varekart = {};
@@ -518,6 +593,7 @@ function opneTelleliste() {
         står på hyllen, er nettopp det en telling skal finne.</p>
       <div id="telleark" class="hidden"></div>`,
       `<button class="btn" id="telleSkriv">Skriv ut telleliste</button>
+       <button class="btn btn-accent" id="telleFoer">Før inn tall</button>
        <button class="btn btn-ghost" id="telleLukk">Lukk</button>`);
 
     $("#telleLukk").addEventListener("click", lukkModal);
@@ -539,6 +615,13 @@ function opneTelleliste() {
     $("#telleBlind").addEventListener("change", () => {
       telleval.blind = $("#telleBlind").checked; teikn();
     });
+    $("#telleFoer").addEventListener("click", () => {
+      if (!rader.length) {
+        melding("Velg minst én lokasjon først.", "warn");
+        return;
+      }
+      opneTelleinnforing(rader);
+    });
     $("#telleSkriv").addEventListener("click", () => {
       if (!rader.length) {
         melding("Velg minst én lokasjon først.", "warn");
@@ -550,6 +633,114 @@ function opneTelleliste() {
         telleval.lokasjonar.length === stader.length
           ? "Alle lokasjoner"
           : telleval.lokasjonar.map((l) => l || "uten lokasjon").join(", "));
+    });
+  };
+  teikn();
+}
+
+/**
+ * Tala frå arket, inn igjen.
+ *
+ * Same rekkjefølgje som arket — det er heile poenget. Den som sit med papiret
+ * skal kunne gå nedover begge samtidig utan å leite.
+ *
+ * Her er forventa antal alltid synleg, sjølv om arket var blindt. Under
+ * tellinga skal ein ikkje sjå fasiten; når tala skal førast, er det nettopp
+ * AVVIKET ein er ute etter, og det skal synast før nokon trykkjer lagre.
+ */
+function opneTelleinnforing(rader) {
+  const teikn = () => {
+    const rorsler = vindexTellerorsler(rader, telletal);
+    const skrivne = rader.filter((r) =>
+      telletal[`${r.artnr}|${r.lokasjon}`] !== undefined
+      && telletal[`${r.artnr}|${r.lokasjon}`] !== "").length;
+    const verdi = rorsler.reduce((n, r) => n + r.antall * kostprisFor(r.artnr), 0);
+
+    opneModal("Før inn telling", `
+      <p class="hint">Skriv tallene fra arket. <strong>Tom rute betyr «ikke talt»</strong> —
+        ikke «talt til null». Bare linjer med avvik blir ført, og de blir ført som
+        differansen: lageret er en rekke hendelser, og en telling er en av dem.</p>
+      <div class="tabellramme" style="max-height:52vh;overflow:auto">
+        <table class="tabell">
+          <thead><tr><th>Artnr</th><th>Benevning</th><th>Lokasjon</th>
+            <th class="hgr">Forventet</th><th class="hgr">Talt</th><th class="hgr">Avvik</th></tr></thead>
+          <tbody>${rader.map((r) => {
+            const n = `${r.artnr}|${r.lokasjon}`;
+            const skrive = telletal[n];
+            const har = skrive !== undefined && skrive !== "";
+            const avvik = har ? parseFloat(skrive) - r.forventa : null;
+            return `<tr${avvik ? ' class="lagerlaagt"' : ""}>
+              <td><code>${vindexT(r.artnr)}</code></td>
+              <td>${vindexT(r.benevning)}</td>
+              <td>${r.lokasjon ? vindexT(r.lokasjon) : '<span class="hint">—</span>'}</td>
+              <td class="hgr">${tal(r.forventa)}</td>
+              <td class="hgr"><input class="minsteinn" type="number" step="0.01"
+                inputmode="decimal" data-telt="${vindexT(n)}"
+                value="${har ? vindexT(String(skrive)) : ""}"></td>
+              <td class="hgr">${avvik === null ? '<span class="hint">—</span>'
+                : avvik === 0 ? '<span class="hint">0</span>'
+                : `<strong>${avvik > 0 ? "+" : ""}${tal(avvik)}</strong>`}</td>
+            </tr>`;
+          }).join("")}</tbody>
+        </table>
+      </div>
+      <div class="notice mt-2">
+        <strong>${tal(skrivne)} av ${tal(rader.length)} linjer er talt.</strong>
+        ${rorsler.length
+          ? ` ${tal(rorsler.length)} har avvik, til sammen ${kroner(verdi)} i lagerverdi.`
+          : " Ingen avvik — ingenting blir ført."}
+      </div>`,
+      `<button class="btn" id="telleLagre"${rorsler.length ? "" : " disabled"}>${
+         `Før ${tal(rorsler.length)} ${rorsler.length === 1 ? "rettelse" : "rettelser"}`}</button>
+       <button class="btn btn-ghost" id="telleTilbake">Tilbake</button>`);
+
+    $$("[data-telt]").forEach((felt) => {
+      felt.addEventListener("change", () => {
+        telletal[felt.dataset.telt] = felt.value;
+        const plass = $$("[data-telt]").indexOf(felt);
+        teikn();
+        // Teikninga tek fokus. Gi det tilbake til neste rute, så ein kan gå
+        // nedover lista med tabulator slik ein går nedover arket.
+        const alle = $$("[data-telt]");
+        const neste = alle[Math.min(plass + 1, alle.length - 1)];
+        if (neste) { neste.focus(); neste.select(); }
+      });
+    });
+    $("#telleTilbake").addEventListener("click", opneTelleliste);
+    const lagre = $("#telleLagre");
+    if (!rorsler.length) return;
+    lagre.addEventListener("click", async () => {
+      lagre.disabled = true;
+      const dato = new Date().toLocaleDateString("nb-NO");
+      const ferdige = vindexTellerorsler(rader, telletal, { ref: `Varetelling ${dato}` });
+      if (VINDEX_DEMOMODUS) {
+        ferdige.forEach((r) => lagerdata.poster.push({ id: "t" + Math.random(), ...r }));
+        telletal = {};
+        lukkModal(); teiknLagerside();
+        melding(`${ferdige.length} rettelser ført (demomodus).`);
+        return;
+      }
+      let inn = 0;
+      for (let i = 0; i < ferdige.length; i += 150) {
+        const bolk = ferdige.slice(i, i + 150);
+        const batch = fb.writeBatch(fb.db);
+        bolk.forEach((r) => batch.set(fb.doc(fb.lagerpostCol()), r));
+        try {
+          await batch.commit();
+          inn += bolk.length;
+          lagre.textContent = `Fører … ${inn} av ${ferdige.length}`;
+        } catch (e) {
+          console.error(e);
+          melding(`Stoppet etter ${inn} rettelser: ${e && e.message ? e.message : e}`, "warn");
+          lagre.disabled = false;
+          return;
+        }
+      }
+      telletal = {};
+      await lastLager();
+      lukkModal();
+      teiknLagerside();
+      melding(`Varetelling ført: ${tal(inn)} rettelser.`);
     });
   };
   teikn();
@@ -943,64 +1134,7 @@ function opneVare(artnr) {
       (r.paaslag ? ` + ${kroner(r.paaslag)} påslag` : "") +
       ` &rarr; kostpris <strong>${kroner(r.kostpris)}</strong>`;
   };
-  // Kursen blir henta, vist og GODKJENT — ikkje skriven rett inn. Eit tal som
-  // endrar kostprisen på heile registeret skal eit menneske ha sett på.
-  $("#vf_hentkurs").addEventListener("click", async () => {
-    const knapp = $("#vf_hentkurs");
-    const valuta = String($("#vf_valuta").value || "").trim().toUpperCase();
-    const svarboks = $("#vf_kurssvar");
-    const sei = (html, klasse = "notice") => {
-      svarboks.className = `${klasse} mt-1`;
-      svarboks.innerHTML = html;
-      svarboks.classList.remove("hidden");
-    };
-    if (!valuta || valuta === "NOK") {
-      sei("Kronekurs er alltid 1 — det er ingenting å hente.", "notice");
-      return;
-    }
-    knapp.disabled = true;
-    const gammalTekst = knapp.textContent;
-    knapp.textContent = "Henter …";
-    try {
-      const res = await fetch(vindexKursadresse(valuta), { headers: { Accept: "text/csv" } });
-      if (!res.ok) throw new Error("Norges Bank svarte " + res.status);
-      const kurs = vindexLesKursSvar(await res.text());
-      if (!kurs) throw new Error("Svaret kunne ikke leses");
-      const naa = Number($("#vf_kurs").value) || 0;
-      const rimeleg = vindexKursrimeleg(kurs.kurs, naa);
-      sei(
-        // Kursen blir vist slik han blir oppgitt — «100 CNY = 143,92 NOK» er
-        // det ein finn igjen på nettbanken. Talet systemet reknar med står
-        // ved sida av, så omrekninga er til å kontrollere og ikkje å tru på.
-        (kurs.per > 1
-          ? `<strong>${tal(kurs.per)} ${valuta} = ${tal(kurs.raa, 4)} NOK</strong>` +
-            ` — det gir <strong>${tal(kurs.kurs, 4)}</strong> per ${valuta}`
-          : `<strong>1 ${valuta} = ${tal(kurs.kurs, 4)} NOK</strong>`) +
-          `${kurs.dato ? ` · kurs fra ${vindexT(kurs.dato)}` : ""} · Norges Bank.` +
-          `${naa ? ` Står nå på ${tal(naa, 4)}.` : ""}` +
-          (rimeleg ? "" : " <strong>Dette er mer enn en halvering eller dobling —" +
-            " sjekk at det stemmer før du bruker det.</strong>") +
-          ` <button class="btn btn-sm" type="button" id="vf_brukkurs">Bruk ${tal(kurs.kurs, 4)}</button>`,
-        rimeleg ? "notice" : "notice notice-warn"
-      );
-      $("#vf_brukkurs").addEventListener("click", () => {
-        $("#vf_kurs").value = kurs.kurs;
-        $("#vf_kurs").dispatchEvent(new Event("input", { bubbles: true }));
-        sei(`Kursen er satt til ${tal(kurs.kurs, 4)}. Den lagres sammen med artikkelen.`,
-          "notice notice-good");
-      });
-    } catch (e) {
-      sei(
-        `Fikk ikke hentet kursen: ${vindexT(e && e.message ? e.message : String(e))}. ` +
-          "Skriv den inn manuelt — kursen står på fakturaen fra leverandøren, " +
-          "eller på norges-bank.no.",
-        "notice notice-warn"
-      );
-    } finally {
-      knapp.disabled = false;
-      knapp.textContent = gammalTekst;
-    }
-  });
+  kopleKurshenting("vf", "artikkelen");
 
   ["vf_innpris", "vf_valuta", "vf_kurs", "vf_faktor", "vf_faktortype"].forEach((id) =>
     $("#" + id).addEventListener("input", vis)
@@ -1345,9 +1479,15 @@ function opnePo(b) {
         ${felt("pf_lev", "Leverandør", po.leverandor)}
         ${felt("pf_valuta", "Valuta", po.valuta)}
         ${felt("pf_kurs", "Kurs", po.kurs, 'type="number" step="0.0001"')}
+        <div class="field"><label>&nbsp;</label>
+          <button class="btn btn-ghost btn-sm" type="button" id="pf_hentkurs">Hent dagens kurs</button></div>
         ${felt("pf_sendt", "Sendt", po.sendt, 'type="date"')}
         ${felt("pf_lokasjon", "Mottas på", po.lokasjon)}
       </div>
+      <div id="pf_kurssvar" class="notice mt-1 hidden"></div>
+      <p class="hint">Kursen gjelder <strong>denne ordren</strong> og blir stående — en ordre
+        skal regnes med kursen den ble gjort til, ikke med dagens. Hent dagens kurs når du
+        oppretter ordren, eller skriv den av fakturaen.</p>
       <p class="hint">Status: <strong>${vindexT(status)}</strong> — regnet av linjene, ikke lagret.</p>
 
       <h3 class="mt-2">Linjer</h3>
@@ -1374,6 +1514,8 @@ function opnePo(b) {
         <button class="btn btn-ghost" id="pf_ankomst">Registrer ankomst</button>`}
         <button class="btn" id="pf_lagre">Lagre</button>
         <button class="btn btn-ghost" id="pf_avbryt">Avbryt</button>`);
+
+    kopleKurshenting("pf", "innkjøpsordren");
 
     const les = () => {
       po.nr = String($("#pf_nr").value || "").trim();

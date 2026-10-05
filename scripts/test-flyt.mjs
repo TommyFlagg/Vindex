@@ -1235,6 +1235,36 @@ console.log("LAGER OG INNKJØP");
   await p.waitForTimeout(350);
   sjekk("ingen lokasjonar valt gir ingen linjer",
     (await p.$eval("#modalInnhald", (e) => e.textContent)).includes("0 linjer"));
+  // Tala frå arket, inn igjen. Same rekkjefølgje som arket — det er heile
+  // poenget: den som sit med papiret skal gå nedover begge samtidig.
+  await p.evaluate(() => document.querySelector("#telleAlle").click());
+  await p.waitForTimeout(350);
+  await p.click("#telleFoer");
+  await p.waitForTimeout(500);
+  sjekk("eitt felt per linje", (await p.$$("[data-telt]")).length >= 2);
+  sjekk("forventa antal er synleg her, sjølv om arket var blindt",
+    (await p.$eval("#modalInnhald", (e) => e.textContent)).includes("Forventet"));
+  sjekk("ingenting å føre før noko er skrive",
+    await p.$eval("#telleLagre", (e) => e.disabled));
+  // Dialogen blir teikna på nytt for kvart tal, så elementa må hentast på
+  // nytt kvar gong — eit handtak frå før omteikninga peikar på ingenting.
+  const forste = "[data-telt]:first-of-type";
+  await p.fill(forste, "9999");
+  await p.dispatchEvent(forste, "change");
+  await p.waitForTimeout(450);
+  const oppsummering = await p.$eval("#modalInnhald", (e) => e.textContent.replace(/\s+/g, " "));
+  sjekk("talet blir talt med", /1 av \d+ linjer er talt/.test(oppsummering));
+  sjekk("og avviket blir rekna i kroner", /i lagerverdi/.test(oppsummering));
+  sjekk("då er det noko å føre",
+    !(await p.$eval("#telleLagre", (e) => e.disabled)));
+  // Ei tom rute er «ikkje talt», ikkje «talt til null».
+  await p.fill(forste, "");
+  await p.dispatchEvent(forste, "change");
+  await p.waitForTimeout(450);
+  sjekk("tom rute tel ikkje som ei telling",
+    await p.$eval("#telleLagre", (e) => e.disabled));
+  await p.evaluate(() => document.querySelector("#telleTilbake").click());
+  await p.waitForTimeout(400);
   await p.evaluate(() => document.querySelector("#telleLukk").click());
   await p.waitForTimeout(300);
 

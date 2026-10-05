@@ -243,6 +243,41 @@ function vindexTelleliste(varer, poster, val = {}) {
     || String(a.artnr).localeCompare(String(b.artnr), "nb", { numeric: true }));
 }
 
+/**
+ * Rørslene ei telling skal føre.
+ *
+ * Differansen, ikkje det talde talet. Lagerrekneskapen er ei rekkje hendingar
+ * — «det kom 500 inn», «det gjekk 120 ut» — og ei telling er ei hending av
+ * same slag: «det var tolv fleire enn vi trudde». Førte vi det talde talet,
+ * ville historikken slutta å stemme med seg sjølv.
+ *
+ * Linjer som ikkje er fylte ut blir hoppa over. Ei tom rute tyder «ikkje talt»,
+ * ikkje «talt til null» — og skilnaden er heile lageret på ein artikkel.
+ */
+function vindexTellerorsler(rader, talte, val = {}) {
+  const tid = val.tid || new Date().toISOString();
+  const ref = val.ref || "Varetelling";
+  const ut = [];
+  (rader || []).forEach((r) => {
+    const nokkel = `${r.artnr}|${r.lokasjon}`;
+    const skrive = (talte || {})[nokkel];
+    if (skrive === undefined || skrive === null || skrive === "") return;
+    const talt = parseFloat(skrive);
+    if (!isFinite(talt)) return;
+    const diff = talt - (parseFloat(r.forventa) || 0);
+    if (!diff) return;
+    ut.push({
+      artnr: String(r.artnr),
+      lokasjon: r.lokasjon || "",
+      antall: diff,
+      type: "telling",
+      ref,
+      tid,
+    });
+  });
+  return ut;
+}
+
 /** Lokasjonane som finst, med kor mange artiklar som står på kvar. */
 function vindexLokasjonsliste(varer, poster) {
   const tel = {};
