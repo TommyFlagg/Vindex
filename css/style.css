@@ -357,6 +357,14 @@ footer.site h4 { color: #fff; margin: 0 0 0.6rem; font-size: 0.95rem; }
    Eit element som er gøymt skal vere borte, uansett kva andre reglar meiner. */
 [hidden] { display: none !important; }
 
+/* Telleskjemaet. Feltet ein skriv i skal vere stort nok til ein blyant og ein
+   hanske, og lokasjonen skal bryte lista synleg — den som går langs hyllene
+   skal sjå kvar han er utan å lese. */
+.telleark { font-size: .82rem; }
+.telleark .tellefelt { min-width: 5.5rem; border-bottom: 1px solid #666; height: 1.9rem; }
+.telleark .tellelokasjon td { background: #eee; padding-top: .6rem; border-top: 2px solid #999; }
+@media print { .telleark { page-break-inside: auto; } .telleark tr { page-break-inside: avoid; } }
+
 #utskrift { display: none; }
 @media print {
   .topbar, footer.site, .toolbar, .btn, .no-print { display: none !important; }

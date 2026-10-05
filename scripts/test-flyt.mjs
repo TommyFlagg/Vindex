@@ -1214,6 +1214,30 @@ console.log("LAGER OG INNKJØP");
     await p.$eval("#seksjonKundar", (e) => e.hidden));
   sjekk("strukturvara er merkt", (await tekst('tr[data-vare="3010"] .merke')) === "struktur");
 
+  // Telleskjemaet: hak av lokasjonar, skriv ut, gå langs hyllene.
+  await p.click("#telleliste");
+  await p.waitForTimeout(500);
+  sjekk("lokasjonane kan hakast av", (await p.$$("[data-tellelok]")).length >= 2);
+  await p.evaluate(() => { window.print = () => {}; document.querySelector("#telleSkriv").click(); });
+  await p.waitForTimeout(400);
+  const ark = () => p.$eval("#utskrift", (e) => e.innerHTML);
+  sjekk("arket blir laga", (await ark()).includes("telleark"));
+  // Ser teljaren at det skal stå 1 270, tel han til 1 270.
+  sjekk("blindtelling viser ikkje forventa antall", !(await ark()).includes("Forventet"));
+  sjekk("men det er plass til å skrive", (await ark()).includes("tellefelt"));
+  sjekk("og nokon må signere", (await ark()).includes("Telt av"));
+  await p.evaluate(() => document.querySelector("#telleBlind").click());
+  await p.waitForTimeout(350);
+  await p.evaluate(() => document.querySelector("#telleSkriv").click());
+  await p.waitForTimeout(400);
+  sjekk("den som vil ha tala med, får dei", (await ark()).includes("Forventet"));
+  await p.evaluate(() => document.querySelector("#telleIngen").click());
+  await p.waitForTimeout(350);
+  sjekk("ingen lokasjonar valt gir ingen linjer",
+    (await p.$eval("#modalInnhald", (e) => e.textContent)).includes("0 linjer"));
+  await p.evaluate(() => document.querySelector("#telleLukk").click());
+  await p.waitForTimeout(300);
+
   // Minstetalet blir skrive rett i lista, og merket følgjer det same tala blir
   // skrivne — ikkje det som stod då sida vart lasta. 7522 har 7 372 på lager.
   sjekk("minstefeltet står i rada", await finst('tr[data-vare="7522"] [data-minste]'));

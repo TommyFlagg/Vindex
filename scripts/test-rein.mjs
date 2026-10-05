@@ -364,6 +364,41 @@ console.log("LAGERSALDO AV RØRSLER");
   p("uttaket er ei vanleg ordrerørsle", uttak.rorsler[0].type, "ordre");
   p("og til saman går tolv ut", slepp.rorsler[0].antall + uttak.rorsler[0].antall, 0);
 
+  // Tellelista følgjer føtene, ikkje registeret: lokasjon først, artikkelnummer
+  // innanfor.
+  const T = G("vindexTelleliste");
+  const tellevarer = {
+    7522: { artnr: "7522", benevning: "Skrue" },
+    7551: { artnr: "7551", benevning: "List" },
+    3030: { artnr: "3030", benevning: "Arbeidskost", lagervare: false },
+    9999: { artnr: "9999", benevning: "Aldri rørt" },
+  };
+  const liste = T(tellevarer, poster);
+  p("arbeidskost er ikkje noko å telje", liste.some((r) => r.artnr === "3030"), false);
+  p("ein artikkel som står to stader får to linjer",
+    liste.filter((r) => r.artnr === "7522").length, 2);
+  // Ei vare systemet trur er tom, men som står på hylla, er nettopp det ei
+  // telling skal finne. Den må stå på lista for å bli funnen.
+  p("ein artikkel utan rørsler står på lista likevel",
+    liste.some((r) => r.artnr === "9999"), true);
+  p("sortert på lokasjon først",
+    liste.map((r) => r.lokasjon), ["", "Lager 3", "Lager 3", "Stavik"]);
+  p("og artikkelnummer innanfor",
+    liste.filter((r) => r.lokasjon === "Lager 3").map((r) => r.artnr), ["7522", "7551"]);
+  p("med forventa tal per lokasjon",
+    liste.find((r) => r.artnr === "7522" && r.lokasjon === "Stavik").forventa, 500);
+  p("berre dei lokasjonane ein har valt",
+    T(tellevarer, poster, { lokasjonar: ["Stavik"] }).map((r) => r.artnr), ["7522"]);
+  // Ingen liste = alt. Tom liste = ingenting. Den som har huka av alle hakene
+  // vekk har bedt om ingen linjer, ikkje om heile registeret.
+  p("ingen lokasjonar valt gir ingen linjer",
+    T(tellevarer, poster, { lokasjonar: [] }).length, 0);
+  p("og utan filter i det heile kjem alt", T(tellevarer, poster).length, liste.length);
+
+  const LL = G("vindexLokasjonsliste")(tellevarer, poster);
+  p("lokasjonane som finst", LL.map((l) => l.lokasjon), ["", "Lager 3", "Stavik"]);
+  p("med tal på artiklar", LL.find((l) => l.lokasjon === "Lager 3").artiklar, 2);
+
   // Saldogrunnlaget er ein snarveg, ikkje ei ny sanning: grunnlag pluss det
   // som har kome etterpå skal gi nøyaktig same svar som å lese alt.
   const B = G("vindexByggSnapshot");

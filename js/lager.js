@@ -203,6 +203,60 @@ function vindexKursrimeleg(ny, gammal) {
   return n / g >= 0.5 && n / g <= 2;
 }
 
+/**
+ * Tellelista: ein artikkel per lokasjon, klar til å skrivast ut og gåast med.
+ *
+ * Ei varetelling går fysisk: ein går langs hyllene og tel. Difor er lista
+ * sortert på LOKASJON først og artikkelnummer etterpå — det er den rekkjefølgja
+ * føtene går i, ikkje den registeret står i.
+ *
+ * Artiklar med saldo null blir med når ein tel ein heil lokasjon. Ei vare som
+ * systemet trur er tom, men som står på hylla, er nettopp det ei telling skal
+ * finne — og den blir aldri funnen om linja ikkje står der.
+ */
+function vindexTelleliste(varer, poster, val = {}) {
+  // Ingen liste i det heile = alt. Ei TOM liste = ingenting. Det er to ulike
+  // ting: den som har huka av alle hakene vekk har bedt om ingen linjer, og
+  // skal ikkje få heile registeret i fanget.
+  const valde = Array.isArray(val.lokasjonar) ? new Set(val.lokasjonar) : null;
+  const rader = [];
+  Object.values(varer || {}).forEach((v) => {
+    if (!v || v.lagervare === false) return;
+    const per = vindexSaldoPerLokasjon(poster, v.artnr);
+    const stader = Object.keys(per);
+    // Ein artikkel utan ei einaste rørsle har ingen lokasjon å stå på. Han
+    // høyrer heime på tellelista for «uten lokasjon», ikkje ingen stad.
+    if (!stader.length) stader.push("");
+    stader.forEach((lok) => {
+      if (valde && !valde.has(lok)) return;
+      rader.push({
+        artnr: v.artnr,
+        benevning: v.benevning || "",
+        enhet: v.enhet || "stk",
+        lokasjon: lok,
+        forventa: per[lok] || 0,
+      });
+    });
+  });
+  return rader.sort((a, b) =>
+    String(a.lokasjon).localeCompare(String(b.lokasjon), "nb")
+    || String(a.artnr).localeCompare(String(b.artnr), "nb", { numeric: true }));
+}
+
+/** Lokasjonane som finst, med kor mange artiklar som står på kvar. */
+function vindexLokasjonsliste(varer, poster) {
+  const tel = {};
+  Object.values(varer || {}).forEach((v) => {
+    if (!v || v.lagervare === false) return;
+    const stader = Object.keys(vindexSaldoPerLokasjon(poster, v.artnr));
+    if (!stader.length) stader.push("");
+    stader.forEach((lok) => (tel[lok] = (tel[lok] || 0) + 1));
+  });
+  return Object.keys(tel)
+    .sort((a, b) => String(a).localeCompare(String(b), "nb"))
+    .map((lokasjon) => ({ lokasjon, artiklar: tel[lokasjon] }));
+}
+
 // ===========================================================================
 // SALDOGRUNNLAG
 // ---------------------------------------------------------------------------

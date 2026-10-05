@@ -288,6 +288,7 @@ function teiknVarer(el) {
         <button class="btn btn-ghost btn-sm" id="kostfaktorar">Kostfaktor per gruppe</button>
         <button class="btn btn-ghost btn-sm" id="importerStruktur">Importer strukturer</button>
         <button class="btn btn-ghost btn-sm" id="minstelager">Sett minstebeholdning</button>
+        <button class="btn btn-ghost btn-sm" id="telleliste">Varetelling</button>
       </div>
       <label class="hakelinje mt-1"><input type="checkbox" id="berreLager"
         ${berreLagervarer ? "checked" : ""}> Vis kun lagervarer
@@ -330,6 +331,7 @@ function teiknVarer(el) {
   $("#kostfaktorar").addEventListener("click", opneGruppefaktorar);
   $("#importerStruktur").addEventListener("click", opneStrukturimport);
   $("#minstelager").addEventListener("click", opneMinstelager);
+  $("#telleliste").addEventListener("click", opneTelleliste);
   // Minstetalet kan skrivast rett i lista. Å opne eit artikkelkort for kvar av
   // 790 varer er ikkje ein jobb nokon gjer — og eit tal som er tungt å endre
   // blir ståande feil.
@@ -465,6 +467,122 @@ async function oppdaterLagervarsel() {
   } catch (e) {
     console.warn("Fikk ikke oppdatert lagervarslene.", e);
   }
+}
+
+// -- Varetelling -------------------------------------------------------------
+//
+// Ei telling går fysisk. Nokon går langs hyllene med eit ark og tel, og
+// skjemaet skal følgje føtene: ein lokasjon av gangen, artiklane i nummerorden
+// innanfor. Difor hakene — ein tel sjeldan heile lageret på ein gong, men ein
+// hylle eller eit rom.
+//
+// Forventa tal kan haldast skjult. Det er ikkje pirk: ser teljaren at det skal
+// stå 1 270, tel han til 1 270. Ei blindtelling finn feil; ei stadfesting
+// finn dei ikkje. Men den som vil ha tala med, får det — somme tider skal ein
+// ettergå ein mistanke, og då er det nettopp avviket ein er ute etter.
+
+let telleval = { lokasjonar: [], blind: true };
+
+function opneTelleliste() {
+  const varekart = {};
+  lagerdata.varer.forEach((v) => (varekart[v.artnr] = v));
+  const stader = vindexLokasjonsliste(varekart, lagerdata.poster);
+  if (!telleval.lokasjonar.length) telleval.lokasjonar = stader.map((s) => s.lokasjon);
+
+  const teikn = () => {
+    const rader = vindexTelleliste(varekart, lagerdata.poster,
+      { lokasjonar: telleval.lokasjonar });
+    opneModal("Varetelling", `
+      <p>Velg hvilke lokasjoner som skal telles. Listen sorteres på lokasjon og
+        artikkelnummer — samme rekkefølge som den som går langs hyllene.</p>
+      <div class="tabellramme" style="max-height:34vh;overflow:auto">
+        <table class="tabell">
+          <thead><tr><th></th><th>Lokasjon</th><th class="hgr">Artikler</th></tr></thead>
+          <tbody>${stader.map((s) => `<tr>
+            <td><input type="checkbox" data-tellelok="${vindexT(s.lokasjon)}"
+              ${telleval.lokasjonar.includes(s.lokasjon) ? "checked" : ""}></td>
+            <td>${s.lokasjon ? vindexT(s.lokasjon) : '<em>uten lokasjon</em>'}</td>
+            <td class="hgr">${tal(s.artiklar)}</td></tr>`).join("")}</tbody>
+        </table>
+      </div>
+      <div class="knapperad mt-1">
+        <button class="btn btn-ghost btn-sm" id="telleAlle">Velg alle</button>
+        <button class="btn btn-ghost btn-sm" id="telleIngen">Velg ingen</button>
+      </div>
+      <label class="hakelinje mt-2"><input type="checkbox" id="telleBlind"
+        ${telleval.blind ? "checked" : ""}> Blindtelling — ikke vis forventet antall
+        <span class="hint">— ser telleren at det skal stå 1 270, teller han til 1 270.
+          En blindtelling finner feil; en bekreftelse gjør det ikke.</span></label>
+      <p class="hint mt-2"><strong>${tal(rader.length)} linjer</strong> i tellelisten.
+        Artikler med null på lageret er med: en vare systemet tror er tom, men som
+        står på hyllen, er nettopp det en telling skal finne.</p>
+      <div id="telleark" class="hidden"></div>`,
+      `<button class="btn" id="telleSkriv">Skriv ut telleliste</button>
+       <button class="btn btn-ghost" id="telleLukk">Lukk</button>`);
+
+    $("#telleLukk").addEventListener("click", lukkModal);
+    $$("[data-tellelok]").forEach((h) =>
+      h.addEventListener("change", () => {
+        const lok = h.dataset.tellelok;
+        telleval.lokasjonar = h.checked
+          ? [...new Set([...telleval.lokasjonar, lok])]
+          : telleval.lokasjonar.filter((x) => x !== lok);
+        teikn();
+      })
+    );
+    $("#telleAlle").addEventListener("click", () => {
+      telleval.lokasjonar = stader.map((s) => s.lokasjon); teikn();
+    });
+    $("#telleIngen").addEventListener("click", () => {
+      telleval.lokasjonar = []; teikn();
+    });
+    $("#telleBlind").addEventListener("change", () => {
+      telleval.blind = $("#telleBlind").checked; teikn();
+    });
+    $("#telleSkriv").addEventListener("click", () => {
+      if (!rader.length) {
+        melding("Velg minst én lokasjon først.", "warn");
+        return;
+      }
+      const ark = $("#telleark");
+      ark.innerHTML = tellearkHtml(rader, telleval.blind);
+      skrivUtDel(ark, "Varetelling",
+        telleval.lokasjonar.length === stader.length
+          ? "Alle lokasjoner"
+          : telleval.lokasjonar.map((l) => l || "uten lokasjon").join(", "));
+    });
+  };
+  teikn();
+}
+
+/** Sjølve arket. Ei linje per artikkel per lokasjon, med plass til å skrive. */
+function tellearkHtml(rader, blind) {
+  let foregaaende = null;
+  const linjer = rader.map((r) => {
+    const nyLokasjon = r.lokasjon !== foregaaende;
+    foregaaende = r.lokasjon;
+    return `${nyLokasjon
+      ? `<tr class="tellelokasjon"><td colspan="${blind ? 5 : 6}"><strong>${
+          r.lokasjon ? vindexT(r.lokasjon) : "Uten lokasjon"}</strong></td></tr>`
+      : ""}
+      <tr>
+        <td><code>${vindexT(r.artnr)}</code></td>
+        <td>${vindexT(r.benevning)}</td>
+        <td>${vindexT(r.enhet)}</td>
+        ${blind ? "" : `<td class="hgr">${tal(r.forventa)}</td>`}
+        <td class="tellefelt"></td>
+        <td class="tellefelt"></td>
+      </tr>`;
+  }).join("");
+  return `<table class="tabell telleark">
+    <thead><tr><th>Artnr</th><th>Benevning</th><th>Enhet</th>
+      ${blind ? "" : '<th class="hgr">Forventet</th>'}
+      <th>Talt antall</th><th>Merknad</th></tr></thead>
+    <tbody>${linjer}</tbody>
+  </table>
+  <p style="margin-top:1.5rem">Telt av: ______________________________
+    &nbsp;&nbsp;&nbsp; Dato: ________________
+    &nbsp;&nbsp;&nbsp; Kontrollert av: ______________________________</p>`;
 }
 
 // -- Minstebeholdning --------------------------------------------------------
