@@ -416,7 +416,7 @@ function varerad(v) {
   const laagt = lagervare && minste > 0 && saldoTal - reservert < minste;
   return `<tr data-vare="${vindexT(v.artnr)}" style="cursor:pointer"${laagt ? ' class="lagerlaagt"' : ""}>
     <td><code>${vindexT(v.artnr)}</code></td>
-    <td>${vindexT(v.benevning)}${v.bestarAv && v.bestarAv.length ? ' <span class="merke">struktur</span>' : ""}
+    <td>${vindexT(v.benevning)}${vindexErStrukturvare(v) ? ' <span class="merke">struktur</span>' : ""}
       ${v.lagervare === false ? ' <span class="hint">ikke lagervare</span>' : ""}</td>
     <td>${vindexT(v.enhet || "")}</td>
     <td class="hgr">${v.veilPris ? kroner(v.veilPris) : ""}</td>
@@ -1269,7 +1269,7 @@ function opneVare(artnr) {
     <div id="vf_kostpris" class="notice mt-2"></div>
     <p class="hint" id="vf_arv"></p>
     ${ny ? "" : `<p class="hint mt-2">Beholdning nå: <strong>${tal(saldo)}</strong> ${vindexT(v.enhet || "")}.</p>`}
-    ${ny || !(v.bestarAv && v.bestarAv.length) ? "" : strukturvising(v)}
+    ${ny || !vindexErStrukturvare(v) ? "" : strukturvising(v)}
   `, `<button class="btn" id="vf_lagre">Lagre</button>
       <button class="btn btn-ghost" id="vf_avbryt">Avbryt</button>`);
 
@@ -1307,6 +1307,7 @@ function opneVare(artnr) {
 
   $("#vf_avbryt").addEventListener("click", lukkModal);
   $("#vf_lagre").addEventListener("click", () => lagreVare(ny, v));
+  if (!ny && vindexErStrukturvare(v)) kopleProduksjon(v);
 }
 
 async function lagreVare(ny, gammal) {
@@ -1326,6 +1327,7 @@ async function lagreVare(ny, gammal) {
   };
   // Strukturen blir ståande som han er — han blir ikkje redigert herfrå.
   if (gammal.bestarAv) vare.bestarAv = gammal.bestarAv;
+  if (gammal.strukturvare) vare.strukturvare = true;
 
   const type = $("#vf_faktortype").value;
   const innkjop = {
@@ -1968,6 +1970,70 @@ async function brukPoprisar(po) {
 // Strukturvarer
 // ---------------------------------------------------------------------------
 
+/** Dei same artiklane som oppslag på artnr. */
+function varekart() {
+  return Object.fromEntries(lagerdata.varer.map((x) => [String(x.artnr), x]));
+}
+
+/**
+ * Produksjon: ferdigvara går inn, og delane går ut. Salget trekkjer berre
+ * ferdigvara, så det er her delane forsvinn frå lageret.
+ */
+function kopleProduksjon(v) {
+  const teikn = () => {
+    const n = Number($("#pr_antall").value) || 0;
+    const kart = varekart();
+    const delar = (kart[String(v.artnr)] || {}).bestarAv || [];
+    const r = vindexProduksjonsrorsler(kart, lagerdata.poster, v.artnr, n);
+    const rader = delar.map((d) => {
+      const trengs = Math.round((parseFloat(d.antall) || 0) * n * 10000) / 10000;
+      const har = vindexLagersaldo(lagerdata.poster, d.artnr);
+      return `<tr><td><code>${vindexT(d.artnr)}</code></td>
+        <td>${vindexT((kart[String(d.artnr)] || {}).benevning || "")}</td>
+        <td class="hgr">${tal(trengs, trengs % 1 ? 2 : 0)}</td>
+        <td class="hgr">${tal(har, har % 1 ? 2 : 0)}</td>
+        <td>${trengs > har ? '<span class="tag tag-bad">mangler</span>' : ""}</td></tr>`;
+    }).join("");
+    $("#pr_fasit").innerHTML = r.feil
+      ? `<div class="notice notice-warn mt-1">${vindexT(r.feil)}</div>`
+      : `<table class="tabell mt-1">
+          <thead><tr><th>Artnr</th><th>Del</th><th class="hgr">Trengs</th>
+            <th class="hgr">På lager</th><th></th></tr></thead>
+          <tbody>${rader}</tbody></table>
+          ${r.mangel.length
+            ? `<div class="notice notice-warn mt-1">Det mangler deler på lageret. Produksjonen kan
+                 føres likevel, og da går saldoen under null til noen har talt opp.</div>`
+            : ""}`;
+    $("#pr_lagre").disabled = Boolean(r.feil);
+  };
+  $("#pr_antall").addEventListener("input", teikn);
+  $("#pr_lagre").addEventListener("click", () => kjorProduksjon(v));
+  teikn();
+}
+
+async function kjorProduksjon(v) {
+  const n = Number($("#pr_antall").value) || 0;
+  const r = vindexProduksjonsrorsler(varekart(), lagerdata.poster, v.artnr, n);
+  if (r.feil) { melding(r.feil, "warn"); return; }
+
+  if (VINDEX_DEMOMODUS) {
+    r.rorsler.forEach((x, i) => lagerdata.poster.push({ id: "p" + Date.now() + i, ...x }));
+    lukkModal(); teiknLagerside();
+    melding(`${tal(n)} ${v.artnr} er laga (demomodus).`);
+    return;
+  }
+  // Ferdigvara og delar i same skriving: anten går det heile, eller ingenting.
+  const batch = fb.writeBatch(fb.db);
+  r.rorsler.forEach((x) => batch.set(fb.doc(fb.lagerpostCol()), x));
+  try {
+    await batch.commit();
+    await lastLager(); lukkModal(); teiknLagerside();
+    melding(`${tal(n)} ${v.artnr} er laga, og delene er tatt ut av lageret.`);
+  } catch (e) {
+    melding("Fikk ikke ført produksjonen: " + (e && e.message ? e.message : e), "warn");
+  }
+}
+
 /** Stykklista på varekortet, med det delene koster NÅ. */
 function strukturvising(v) {
   const kart = {};
@@ -1991,7 +2057,16 @@ function strukturvising(v) {
     <div class="notice mt-1">Delene koster <strong>${kroner(rekna.kostpris)}</strong> til sammen i dag.
       ${rekna.ring ? "<strong>Advarsel: strukturen inneholder seg selv.</strong>" : ""}</div>
     <p class="hint">Kostprisen på en strukturvare lagres ikke — den regnes av delene hver gang. Et
-      frosset tall her ville sagt at en ferdigvare koster det samme i fjor som i år.</p>`;
+      frosset tall her ville sagt at en ferdigvare koster det samme i fjor som i år.</p>
+    <h3 class="mt-2">Før inn produksjon</h3>
+    <p class="hint">Når ferdigvara er laga, går delene ut av lageret og ferdigvara inn. Ved salg
+      blir det bare ferdigvara som trekkes.</p>
+    <div class="feltrutenett">
+      <div class="field"><label for="pr_antall">Antall laget</label>
+        <input id="pr_antall" type="number" min="1" step="1" inputmode="numeric" value="1"></div>
+    </div>
+    <div id="pr_fasit"></div>
+    <button class="btn mt-1" id="pr_lagre" type="button">Før inn produksjon</button>`;
 }
 
 let strukturtekst = "";
@@ -2062,7 +2137,7 @@ function teiknStrukturfasit() {
           <td class="hgr">${tal(d.antall, d.antall % 1 ? 4 : 0)}</td>
           <td class="hgr">${d.kostpris == null ? "" : tal(d.kostpris, 4)}</td>
           <td class="hgr">${d.sum == null ? "" : tal(d.sum, 4)}</td>
-          <td>${d.stemmer === false ? '<span class="tag tag-bad">går ikke opp</span>' : ""}</td>
+          <td>${d.opsjon ? '<span class="tag">opsjon, ikke med</span>' : ""}${d.stemmer === false ? '<span class="tag tag-bad">går ikke opp</span>' : ""}</td>
         </tr>`).join("")}</tbody>
       </table>
       <p class="hint">Summen av linjene: <strong>${tal(st.rekna, 4)}</strong>${
@@ -2088,12 +2163,12 @@ async function kjorStrukturimport() {
     try {
       if (VINDEX_DEMOMODUS) {
         const j = lagerdata.varer.findIndex((v) => String(v.artnr) === vare.artnr);
-        if (j >= 0) lagerdata.varer[j] = { ...lagerdata.varer[j], bestarAv: vare.bestarAv };
-        else lagerdata.varer.push({ artnr: vare.artnr, benevning: st.benevning, bestarAv: vare.bestarAv, lagervare: true });
+        if (j >= 0) lagerdata.varer[j] = { ...lagerdata.varer[j], bestarAv: vare.bestarAv, strukturvare: true };
+        else lagerdata.varer.push({ artnr: vare.artnr, benevning: st.benevning, bestarAv: vare.bestarAv, strukturvare: true, lagervare: true });
       } else {
         // merge: varekortet finst frå før med benevning, gruppe og enhet. Vi
         // legg berre stykklista på det — resten skal stå som det står.
-        await fb.setDoc(fb.vareDoc(vare.artnr), { bestarAv: vare.bestarAv }, { merge: true });
+        await fb.setDoc(fb.vareDoc(vare.artnr), { bestarAv: vare.bestarAv, strukturvare: true }, { merge: true });
       }
       inn++;
       knapp.textContent = `Legger inn … ${inn} av ${r.strukturar.length}`;

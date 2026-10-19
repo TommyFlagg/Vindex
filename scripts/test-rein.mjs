@@ -609,9 +609,10 @@ console.log("LAGERVERDI");
     7522: { artnr: "7522", benevning: "Picket A11", gruppe: 1, kostpris: 3.89, veilPris: 12, lagervare: true },
     // 363 av 788 artiklar er arbeid og frakt. Dei har kostpris, men ingen saldo.
     3030: { artnr: "3030", benevning: "Arbeidskost", gruppe: 16, kostpris: 8.3, veilPris: 6.66, lagervare: false },
-    // Strukturvarer ville talt verdien to gonger.
-    3010: { artnr: "3010", benevning: "Terrasseplank", gruppe: 3, kostpris: 327.76, veilPris: 800,
-            lagervare: true, bestarAv: [{ artnr: "3310", antall: 6.55 }] },
+    3310: { artnr: "3310", benevning: "Terrassebord", gruppe: 3, kostpris: 50.04, veilPris: 122, lagervare: true },
+    // Strukturvara blir tekne med til kostpris rekna av delane: 6,55 × 50,04.
+    3010: { artnr: "3010", benevning: "Terrasseplank", gruppe: 3, veilPris: 800,
+            lagervare: true, strukturvare: true, bestarAv: [{ artnr: "3310", antall: 6.55 }] },
   };
   const poster = [
     { artnr: "7522", lokasjon: "Lager 3", antall: 1000, tid: "2026-09-02" },
@@ -619,10 +620,52 @@ console.log("LAGERVERDI");
     { artnr: "3010", lokasjon: "Lager 3", antall: 10, tid: "2026-09-02" },
   ];
   const v = G("vindexLagerverdi")(varer, poster);
-  p("berre lagervarer tel", v.kostverdi, 3890);
-  p("salgsverdi", v.salgsverdi, 12000);
+  // 3890 + 10 × 327,762
+  p("lagervarer og strukturvarer tel", v.kostverdi, 7167.62);
+  p("salgsverdi", v.salgsverdi, 20000);
   p("éi lokasjon", v.lokasjonar.length, 1);
   p("og den heiter Lager 3", v.lokasjonar[0].lokasjon, "Lager 3");
+}
+
+console.log("PRODUKSJON");
+{
+  const varer = {
+    3310: { artnr: "3310", kostpris: 50.04, lagervare: true, lokasjon: "Lager 3" },
+    3010: { artnr: "3010", veilPris: 800, lagervare: true, lokasjon: "Lager 3", strukturvare: true,
+            bestarAv: [{ artnr: "3310", antall: 6.55 }] },
+  };
+  const poster = [{ artnr: "3310", lokasjon: "Lager 3", antall: 100, tid: "2026-09-02" }];
+  const PR = G("vindexProduksjonsrorsler");
+
+  // 10 m² laga: 65,5 lm går ut, 10 m² kjem inn.
+  const r = PR(varer, poster, "3010", 10);
+  p("ingen feil", r.feil, null);
+  p("ferdigvara inn", r.rorsler.find((x) => x.artnr === "3010").antall, 10);
+  p("delane ut", r.rorsler.find((x) => x.artnr === "3310").antall, -65.5);
+  p("ingen mangel", r.mangel.length, 0);
+  p("alt er produksjon", r.rorsler.every((x) => x.type === "produksjon"), true);
+
+  // For lite på lager blir meldt, men det blir ført likevel.
+  const lite = PR(varer, [{ artnr: "3310", lokasjon: "Lager 3", antall: 50, tid: "2026-09-02" }], "3010", 10);
+  p("mangel blir meldt", lite.mangel, [{ artnr: "3310", trengs: 65.5, har: 50 }]);
+  p("og produksjonen blir ført", lite.rorsler.length, 2);
+
+  // Ein artikkel utan stykkliste og eit antal på null er feil, ikkje ei rørsle.
+  sjekk("vanleg vare kan ikkje lagast", () => PR(varer, poster, "3310", 1).feil !== null);
+  sjekk("null er ikkje eit antal", () => PR(varer, poster, "3010", 0).feil !== null);
+
+  // Salg trekkjer berre ferdigvara: delane blir ikkje røyrde.
+  const sal = G("vindexOrdrerorsler")([{ kode: "3010", antall: 2 }], {}, varer, { type: "ordre" });
+  p("salg trekkjer ferdigvara", sal.rorsler.map((x) => x.artnr + ":" + x.antall), ["3010:-2"]);
+
+  // Verdien blir ikkje borte og ikkje dobbelt: delane går ned like mykje som ferdigvara går opp.
+  const LV = G("vindexLagerverdi");
+  p("verdien er den same etter produksjon",
+    LV(varer, [...poster, ...r.rorsler]).kostverdi, LV(varer, poster).kostverdi);
+
+  // Merkinga følgjer strukturen, også når stykklista er tom.
+  p("opsjon-struktur er merka", G("vindexErStrukturvare")({ artnr: "7572", bestarAv: [], strukturvare: true }), true);
+  p("vanleg vare er ikkje merka", G("vindexErStrukturvare")({ artnr: "7522" }), false);
 }
 
 console.log("INNKJØPSORDRE");

@@ -562,6 +562,24 @@ function vindexStrukturKostpris(artnr, varer, kostprisFor, sett = []) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Ei strukturvare er merkt av importen. Då gjeld det òg når stykklista er tom,
+ * til dømes når alle delane er opsjonar.
+ */
+function vindexErStrukturvare(v) {
+  return Boolean(v && (v.strukturvare || (v.bestarAv || []).length));
+}
+
+/**
+ * Kostpris per stk. Ein strukturvare har ingen eigen kostpris: han er summen
+ * av delane slik dei kostar no.
+ */
+function vindexKostprisNaa(varer, v) {
+  if (!(v.bestarAv || []).length) return parseFloat(v.kostpris) || 0;
+  return vindexStrukturKostpris(String(v.artnr), varer,
+    (a) => ((varer || {})[String(a)] || {}).kostpris).kostpris;
+}
+
+/**
  * Lagerverdien, gruppert på lokasjon.
  *
  * Same tal som Bravo-rapporten: kostverdi og salgsverdi per lokasjon, og ein
@@ -571,8 +589,9 @@ function vindexStrukturKostpris(artnr, varer, kostprisFor, sett = []) {
  *   Varer som ikkje er lagervare. 363 av 788 artiklar er arbeid, frakt og
  *   montering — dei har kostpris, men skal aldri ha saldo.
  *
- *   Strukturvarer. Dei er sette saman av artiklar som alt er med i lista, og
- *   ville talt verdien to gonger.
+ *   Strukturvarer blir tekne med, til kostpris rekna av delane. Delane går ut av
+ *   lageret når ferdigvara blir laga (sjå vindexProduksjonsrorsler), og då flyttar
+ *   verdien seg frå delane til ferdigvara. Ingen av dei blir talt to gonger.
  */
 function vindexLagerverdi(varer, poster, val = {}) {
   const lokasjonar = {};
@@ -581,14 +600,13 @@ function vindexLagerverdi(varer, poster, val = {}) {
 
   Object.values(varer || {}).forEach((v) => {
     if (v.lagervare === false) return;
-    if ((v.bestarAv || []).length) return;
     if (val.gruppe && String(v.gruppe) !== String(val.gruppe)) return;
 
     const perLok = vindexSaldoPerLokasjon(poster, v.artnr);
     Object.entries(perLok).forEach(([lok, saldo]) => {
       if (val.lokasjon && lok !== val.lokasjon) return;
       if (!saldo) return;
-      const kost = saldo * (parseFloat(v.kostpris) || 0);
+      const kost = saldo * vindexKostprisNaa(varer, v);
       const salg = saldo * (parseFloat(v.veilPris) || 0);
       const rad = (lokasjonar[lok] = lokasjonar[lok] || { lokasjon: lok, linjer: [], kostverdi: 0, salgsverdi: 0 });
       rad.linjer.push({ artnr: v.artnr, benevning: v.benevning, saldo, kostverdi: kost, salgsverdi: salg });
@@ -998,6 +1016,56 @@ function vindexOrdrerorsler(linjer, alt = {}, varer = {}, val = {}) {
 }
 
 // ===========================================================================
+// PRODUKSJON
+// ---------------------------------------------------------------------------
+// Strukturvarer blir laga på lager før dei blir selde. Ved produksjon går delane
+// ut og ferdigvara inn. Ved salg blir berre ferdigvara trekt, og då røyrer ikkje
+// salget delane.
+//
+// Delane er sjølve lagerartiklane. Er ein del ein strukturvare sjølv, må han
+// lagast først, på si eiga produksjonsordre. Difor er det ikkje rekursivt her.
+//
+// Mangel blir meldt, ikkje blokkert. Det som er laga, er laga, og lageret skal
+// vise det. Saldoen kan då gå under null til nokon har telt opp.
+// ===========================================================================
+
+/**
+ * Rørslene for ein produksjonsordre på `antall` ferdige av `artnr`.
+ * `poster` er lagerrørslene, brukt til å sjå at delane finst.
+ */
+function vindexProduksjonsrorsler(varer, poster, artnr, antall, val = {}) {
+  const vare = (varer || {})[String(artnr)];
+  const n = parseFloat(antall) || 0;
+  const ut = { rorsler: [], mangel: [], feil: null };
+  if (!vare || !(vare.bestarAv || []).length) {
+    ut.feil = "Varen har ingen stykkliste, så den kan ikke lages på lager.";
+    return ut;
+  }
+  if (!(n > 0)) {
+    ut.feil = "Antallet må være større enn null.";
+    return ut;
+  }
+  const tid = val.tid || new Date().toISOString();
+  const ref = val.ref || "Produksjon " + tid.slice(0, 10);
+
+  ut.rorsler.push({
+    artnr: String(artnr), lokasjon: val.lokasjon || vare.lokasjon || "",
+    antall: n, type: "produksjon", ref, tid,
+  });
+  vare.bestarAv.forEach((d) => {
+    const del = (varer || {})[String(d.artnr)] || {};
+    const trengs = Math.round((parseFloat(d.antall) || 0) * n * 10000) / 10000;
+    const har = vindexLagersaldo(poster, d.artnr);
+    if (har < trengs) ut.mangel.push({ artnr: String(d.artnr), trengs, har });
+    ut.rorsler.push({
+      artnr: String(d.artnr), lokasjon: del.lokasjon || "",
+      antall: -trengs, type: "produksjon", ref, tid,
+    });
+  });
+  return ut;
+}
+
+// ===========================================================================
 // STRUKTURVARER — STYKKLISTA
 // ---------------------------------------------------------------------------
 // Lagerverdi-rapporten har ingen stykklistekolonne, så importen av varelista
@@ -1040,8 +1108,12 @@ function vindexStrukturtal(verdi) {
   return Number.isFinite(t) ? t : null;
 }
 
-const VINDEX_STRUKTUR_HOVUD = /^\s*Strukturnr\s*:?\s*([0-9A-Za-zÆØÅæøå\-.]+)\s*,?\s*(.*)$/i;
+const VINDEX_STRUKTUR_HOVUD = /^\s*Strukturnr\.?\s*:?\s*([0-9A-Za-zÆØÅæøå\-]+)\s*,?\s*(.*)$/i;
 const VINDEX_STRUKTUR_TOTAL = /^\s*Total\s+Kostpris.*?:?\s*([\d\s.,]+)\s*$/i;
+// Den nye utskrifta skriv totalen som «Materialkostnader».
+const VINDEX_STRUKTUR_MATERIAL = /^\s*Materialkostnader\s+([\d\s.,]+)\s*$/i;
+// Sidefoten «15.09.2026 19:31 Side 4 av 717» ser ut som ei komponentlinje, men er det ikkje.
+const VINDEX_STRUKTUR_SIDE = /\bSide \d+ av \d+\s*$/;
 
 /**
  * Les strukturutskrifta.
@@ -1059,7 +1131,9 @@ function vindexStrukturrader(tekst) {
 
   const lukk = () => {
     if (!no_) return;
-    no_.rekna = Math.round(no_.delar.reduce((s, d) => s + (d.sum || 0), 0) * 10000) / 10000;
+    // Opsjonslinjer er valfrie, så dei er ikkje med i summen. Bravo tek med éin av
+    // dei i totalen når fleire er merkte, og vi veit ikkje kva for éin.
+    no_.rekna = Math.round(no_.delar.reduce((s, d) => s + (d.opsjon ? 0 : d.sum || 0), 0) * 10000) / 10000;
     strukturar.push(no_);
     no_ = null;
   };
@@ -1083,21 +1157,36 @@ function vindexStrukturrader(tekst) {
     }
 
     if (!no_) return;
+    if (VINDEX_STRUKTUR_SIDE.test(linje)) return;
 
-    const bitar = linje.trim().split(/\s+/);
-    // Minst artikkelnummer, eitt ord benevning og eit antal.
-    if (bitar.length < 3 || !/^[0-9]/.test(bitar[0])) {
-      if (!/^(Artnr|Består|Benevning)/i.test(linje.trim())) {
-        hoppa.push({ linje: i + 1, tekst: linje.trim().slice(0, 80) });
-      }
+    const material = linje.match(VINDEX_STRUKTUR_MATERIAL);
+    if (material) {
+      if (no_.oppgitt == null) no_.oppgitt = vindexStrukturtal(material[1]);
       return;
     }
 
+    const bitar = linje.trim().split(/\s+/);
+    // Ei komponentlinje tek med artikkelnummeret først. Det andre er etikettar
+    // («Lønnskostnad»), «INGEN Ikke valgt», og parentesane rundt understrukturar.
+    // Ingen av dei er data, så dei blir ikkje meldt som hoppa over.
+    if (!/^[0-9]/.test(bitar[0])) return;
+    // «4503, Stakitt …» er ei oppramsing i «Brukes av art.nr.», og «1 stk.
+    // Strukturen understrukturer» er ei forklaring. Ingen av dei er komponentar.
+    if (bitar[0].endsWith(",") || /Strukturen\s+understrukturer/.test(linje)) return;
+
+    // Opsjonslinjene har eit flagg til slutt: «… 17.6432 1». Flagget er ikkje ein pris.
+    let opsjon = false;
+    if (bitar.length > 2 && /^\d$/.test(bitar[bitar.length - 1]) && /\.\d+$/.test(bitar[bitar.length - 2])) {
+      opsjon = true;
+      bitar.pop();
+    }
+
+    // Understrukturar har ei stjerne etter antalet («1.0000*»). Stjerna er ikkje tal.
     // Bakfrå: sum, kostpris, antall — så mange av dei som faktisk er tal.
     const tal = [];
     let j = bitar.length - 1;
-    while (j > 0 && tal.length < 3 && /^[\d.,]+$/.test(bitar[j])) {
-      tal.unshift(vindexStrukturtal(bitar[j]));
+    while (j > 0 && tal.length < 3 && /^[\d.,]+\*?$/.test(bitar[j])) {
+      tal.unshift(vindexStrukturtal(bitar[j].replace("*", "")));
       j--;
     }
     if (!tal.length) {
@@ -1120,6 +1209,7 @@ function vindexStrukturrader(tekst) {
       stemmer: sum == null || kostpris == null
         ? null
         : Math.abs(antall * kostpris - sum) <= Math.max(0.005, Math.abs(sum) * 0.0005),
+      opsjon,
     });
   });
 
@@ -1138,11 +1228,13 @@ function vindexStrukturrader(tekst) {
 function vindexStrukturTilVare(struktur) {
   return {
     artnr: struktur.artnr,
+    strukturvare: true,
     // Kostprisen blir ikkje lagra. Den er summen av delane, og delane har sine
     // eigne innkjøpsprisar som endrar seg. Eit frose tal her ville sagt at ei
     // ferdigvare kostar det same i fjor som i år.
+    // Opsjonar blir ikkje lagde inn før nokon har valt dei.
     bestarAv: struktur.delar
-      .filter((d) => d.artnr && d.antall)
+      .filter((d) => d.artnr && d.antall && !d.opsjon)
       .map((d) => ({ artnr: String(d.artnr), antall: d.antall })),
   };
 }
