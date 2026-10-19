@@ -574,6 +574,35 @@ console.log("VALUTAKURS FRÅ NORGES BANK");
     G("vindexKursadresse")("cny").includes("/EXR/B.CNY.NOK.SP?"), true);
 }
 
+console.log("ÅRSKURS OG KURSHISTORIKK");
+{
+  const KP = G("vindexKursPaaDato");
+  const K = G("vindexKostpris");
+  const logg = [
+    { valuta: "CNY", fra: 1.40, til: 1.45, tid: "2026-01-05T09:00:00.000Z" },
+    { valuta: "CNY", fra: 1.45, til: 1.5, tid: "2026-03-01T09:00:00.000Z" },
+    { valuta: "NOK", fra: null, til: 1, tid: "2026-01-01T00:00:00.000Z" },
+  ];
+  // Historikka er svaret på «kva galdt då?». Ei endring gjeld frå tidspunktet
+  // ho blei lagra, og ikkje tilbake i tid.
+  p("kursen midt i februar var 1,45", KP(logg, "CNY", "2026-02-15T12:00:00.000Z"), 1.45);
+  p("kursen etter 1. mars var 1,50", KP(logg, "CNY", "2026-04-01T12:00:00.000Z"), 1.5);
+  p("før første endring fanst ingen kurs", KP(logg, "CNY", "2025-12-31T12:00:00.000Z"), null);
+  p("kroner har sin eigen rad", KP(logg, "NOK", "2026-06-01T00:00:00.000Z"), 1);
+  p("ugyldig dato gir ingenting", KP(logg, "CNY", "ikkje ein dato"), null);
+
+  // Årskursen gjeld for alle artiklane i valutaen. Artikkelen sin eigen kurs er
+  // ein gammal kopi frå innkjøpet, og blir berre brukt når ingen årskurs finst.
+  const vare = { innkjopspris: 10, valuta: "CNY", kurs: 1.4 };
+  p("årskursen går framfor artikkelen sin kurs", K(vare, undefined, 1.5).kurs, 1.5);
+  p("og kostprisen blir rekna med han", K(vare, undefined, 1.5).iKroner, 15);
+  p("utan årskurs gjeld artikkelen sin kurs", K(vare).kurs, 1.4);
+  p("kroner har ikkje kurs i det heile",
+    K({ innkjopspris: 10, valuta: "NOK", kurs: 1 }, undefined, 1.5).kurs, 1);
+  // Den verkelege noteringa frå 19.10.2026: 100 CNY = 143,92 NOK → 1,4392 per yuan.
+  p("årskursen blir brukt utan avrunding", K(vare, undefined, 1.4392).iKroner, 14.392);
+}
+
 console.log("LAGERVERDI");
 {
   const varer = {

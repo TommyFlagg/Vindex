@@ -8,7 +8,7 @@
 // ingen ser er det same som ikkje noko varsel.
 // ============================================================================
 
-import { $, $$, app, fb, melding, opneModal, lukkModal, datoTekst } from "./verktoy-felles.js?v=2543871d";
+import { $, $$, app, fb, melding, opneModal, lukkModal, datoTekst } from "./verktoy-felles.js?v=9079c0f3";
 
 export const varseldata = { varsel: [], henta: false };
 

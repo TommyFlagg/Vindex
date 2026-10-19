@@ -1214,6 +1214,16 @@ console.log("LAGER OG INNKJØP");
     await p.$eval("#seksjonKundar", (e) => e.hidden));
   sjekk("strukturvara er merkt", (await tekst('tr[data-vare="3010"] .merke')) === "struktur");
 
+  // Årskursen: éin rad per valuta, historikk under, og oppslag på dato.
+  await p.click('[data-lagerfane="valuta"]');
+  await p.waitForTimeout(400);
+  sjekk("valutafana viser årskursen", (await tekst("#lagerinnhald")).includes("Årskurs"));
+  sjekk("historikken over endringar er med", (await tekst("#lagerinnhald")).includes("Historikk"));
+  sjekk("CNY står med sin årskurs i lista",
+    (await tekst("#lagerinnhald")).includes("1,4500"));
+  await p.click('[data-lagerfane="varer"]');
+  await p.waitForTimeout(300);
+
   // Telleskjemaet: hak av lokasjonar, skriv ut, gå langs hyllene.
   await p.click("#telleliste");
   await p.waitForTimeout(500);

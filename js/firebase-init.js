@@ -179,6 +179,10 @@ const varselCol = () => collection(db, "varsel");
 // Saldogrunnlaget: summen av alle rørsler fram til eit tidspunkt. Ein snarveg,
 // ikkje ei sanning — den kan byggjast opp att frå rørslene når som helst.
 const lagersaldoDoc = () => dok("lagersaldo", "snapshot");
+// Årskursen per valuta, og historikka over han. Historikka er berre til å leggje til i.
+const valutakursCol = () => collection(db, "valutakurs");
+const valutakursDoc = (v) => dok("valutakurs", String(v));
+const valutakursLoggCol = () => collection(db, "valutakursLogg");
 const varselDoc = (id) => dok("varsel", id);
 
 export {
@@ -211,6 +215,9 @@ export {
   varselCol,
   varselDoc,
   lagersaldoDoc,
+  valutakursCol,
+  valutakursDoc,
+  valutakursLoggCol,
   doc,
   getDoc,
   setDoc,

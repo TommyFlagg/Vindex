@@ -65,6 +65,24 @@ function vindexGyldigFaktor(f) {
 }
 
 /**
+ * Kursen som galdt for ei valuta på ein dato.
+ *
+ * `logg` er historikka over årskursen: éi linje per endring, med `til` (den nye
+ * kursen) og `tid` (når ho blei lagra). Svaret er den siste endringa som var
+ * gjort innan datoen. Finst ingen, er svaret null — då var det ingen kurs enno.
+ */
+function vindexKursPaaDato(logg, valuta, dato) {
+  const t = new Date(dato).getTime();
+  if (!isFinite(t)) return null;
+  const v = String(valuta || "").toUpperCase();
+  const treff = (logg || [])
+    .filter((x) => String(x.valuta || "").toUpperCase() === v)
+    .filter((x) => new Date(x.tid).getTime() <= t)
+    .sort((a, b) => new Date(b.tid) - new Date(a.tid));
+  return treff.length ? parseFloat(treff[0].til) || null : null;
+}
+
+/**
  * Kostpris frå innkjøpspris.
  *
  * Kjeda er: pris hos leverandøren → valutakurs → påslag → kostpris.
@@ -74,7 +92,7 @@ function vindexGyldigFaktor(f) {
  * eller fordi leverandøren sette opp prisen. Det er skilnaden på eit tal og
  * eit rekneskap.
  */
-function vindexKostpris(innkjop = {}, faktor) {
+function vindexKostpris(innkjop = {}, faktor, arskurs) {
   // Feltet heiter `innkjopspris` i basen. Det stod `pris` her ein gong, og
   // det var ingen som merka det: dialogen rekna rett fordi han bygde sitt
   // eige objekt, medan lista viste strek fordi ho las dokumentet slik det
@@ -82,7 +100,14 @@ function vindexKostpris(innkjop = {}, faktor) {
   const pris = parseFloat(innkjop.innkjopspris) || 0;
   // Kurs 1 når varen er kjøpt i kroner. Ein manglande kurs skal ikkje bli null
   // — då ville alt vore gratis.
-  const kurs = innkjop.kurs === undefined || innkjop.kurs === null || innkjop.kurs === ""
+  // Årskursen frå hovudkontoret går framfor artikkelen sin eigen kurs. Den
+  // kursen er ein gammal kopi frå innkjøpet, og skal ikkje gjelde når det finst
+  // ein årskurs for valutaen.
+  const valuta = innkjop.valuta || "NOK";
+  const felles = valuta !== "NOK" && parseFloat(arskurs) > 0;
+  const kurs = felles
+    ? parseFloat(arskurs)
+    : innkjop.kurs === undefined || innkjop.kurs === null || innkjop.kurs === ""
     ? 1
     : parseFloat(innkjop.kurs) || 0;
   const iKroner = pris * kurs;

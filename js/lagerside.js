@@ -13,7 +13,7 @@
 
 import {
   $, $$, app, fb, melding, opneModal, lukkModal, skrivUtDel,
-} from "./verktoy-felles.js?v=2543871d";
+} from "./verktoy-felles.js?v=9079c0f3";
 
 // Alt som er henta, samla ein stad. Fyllast i lastLager og lesast av resten.
 const VINDEX_KOSTFAKTORDOK = "_kostfaktor";
@@ -24,6 +24,7 @@ export const lagerdata = {
   // Saldoen blir rekna av eit grunnlag pluss rørslene etter det. Historikken
   // lenger tilbake blir henta når nokon ber om den.
   heileHistorikken: false, grunnlagTid: "", nyeRorsler: 0,
+  arskurs: {}, valutaLogg: [],
 };
 
 let fane = "varer";
@@ -131,6 +132,20 @@ export async function lastLager() {
   // Har det hopa seg opp nok rørsler etter grunnlaget, blir det skrive på nytt.
   // Det skjer når hovudkontoret er inne, og krev ingen tenar.
   if (lagerdata.nyeRorsler > 500) skrivSaldogrunnlag();
+  // Årskursen og historikken over han. Små samlingar: ei linje per valuta, og
+  // ei linje per endring.
+  try {
+    const [vk, lg] = await Promise.all([
+      fb.getDocs(fb.valutakursCol()),
+      fb.getDocs(fb.valutakursLoggCol()),
+    ]);
+    lagerdata.arskurs = {};
+    vk.docs.forEach((d) => (lagerdata.arskurs[d.id] = d.data() || {}));
+    lagerdata.valutaLogg = lg.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    lagerdata.arskurs = {};
+    lagerdata.valutaLogg = [];
+  }
   // Varsla blir sjekka når hovudkontoret opnar lageret. Dei treng ingen
   // tenar: den som kan bestille er den som er her.
   oppdaterLagervarsel();
@@ -163,6 +178,10 @@ export async function lastLager() {
 
 function demolager() {
   lagerdata.heileHistorikken = true;
+  lagerdata.arskurs = { CNY: { valuta: "CNY", kurs: 1.45, endraTid: "2026-01-05T09:00:00.000Z", endraAvNavn: "Magnus Farstad" } };
+  lagerdata.valutaLogg = [
+    { id: "d1", valuta: "CNY", fra: 1.40, til: 1.45, tid: "2026-01-05T09:00:00.000Z", avNavn: "Magnus Farstad", merknad: "Årskurs 2026" },
+  ];
   lagerdata.varer = [
     { artnr: "7522", benevning: "Picket A11 127x127", gruppe: "1", enhet: "stk", lagervare: true, veilPris: 12 },
     { artnr: "7551", benevning: "Stolpe 127x127 hvit", gruppe: "1", enhet: "stk", lagervare: true, veilPris: 289 },
@@ -202,6 +221,7 @@ const FANER = [
   { id: "varer", navn: "Varer" },
   { id: "beholdning", navn: "Beholdning" },
   { id: "bevegelser", navn: "Bevegelser" },
+  { id: "valuta", navn: "Valutakurs" },
   { id: "innkjop", navn: "Innkjøpsordrer" },
 ];
 
@@ -230,6 +250,7 @@ export function teiknLagerside() {
   const inn = $("#lagerinnhald");
   if (fane === "varer") teiknVarer(inn);
   else if (fane === "beholdning") teiknBeholdning(inn);
+  else if (fane === "valuta") teiknValuta(inn);
   else if (fane === "bevegelser") {
     // Bevegelsesfana ER historikken. Den hentar heile vegen tilbake, og gjer
     // det her i staden for ved kvar sidelasting.
@@ -256,7 +277,8 @@ function kostprisFor(artnr) {
   const faktor = vindexKostfaktor(
     { gruppe: vare.gruppe, kostfaktor: i.kostfaktor }, lagerdata.grupper, lagerdata.standard
   );
-  return vindexKostpris(i, faktor).kostpris;
+  const arskurs = (lagerdata.arskurs[i.valuta || "NOK"] || {}).kurs;
+  return vindexKostpris(i, faktor, arskurs).kostpris;
 }
 
 // -- Varer -------------------------------------------------------------------
@@ -523,7 +545,7 @@ function kopleKurshenting(prefiks, kvar) {
         felt.value = kurs.kurs;
         felt.dispatchEvent(new Event("input", { bubbles: true }));
         felt.dispatchEvent(new Event("change", { bubbles: true }));
-        sei(`Kursen er satt til ${tal(kurs.kurs, 4)}. Den lagres sammen med ${kvar}.`,
+        sei(`Kursen er satt til ${tal(kurs.kurs, 4)}. Trykk Lagre for å ta han med.`,
           "notice notice-good");
       });
     } catch (e) {
@@ -538,6 +560,123 @@ function kopleKurshenting(prefiks, kvar) {
       knapp.textContent = gammalTekst;
     }
   });
+}
+
+// -- Valutakurs -------------------------------------------------------------
+//
+// Hovudkontoret set årskursen per valuta. Han gjeld for alle artiklane i
+// valutaen og for nye innkjøpsordrar, og han blir ståande til nokon endrar han.
+// Kvar endring blir lagt til i historikken — ingen godkjenning, berre spor.
+// Då kan ein gå tilbake i tid og sjå kva ein vare kosta på ein dato.
+
+function teiknValuta(el) {
+  const kanEndre = app.brukar && app.brukar.rolle === "admin";
+  const kursar = lagerdata.arskurs || {};
+  const valutaar = Object.keys(kursar).sort();
+  const logg = [...(lagerdata.valutaLogg || [])]
+    .sort((a, b) => String(b.tid || "").localeCompare(String(a.tid || "")));
+
+  el.innerHTML = `
+    <div class="panel">
+      <p class="hint">Årskursen blir sett av hovudkontoret og gjeld for heile året. Han blir
+        ståande til han blir endra, og kvar endring blir logga. Ein innkjøpsordre blir rekna med
+        kursen som galdt då ordren blei laga.</p>
+      <table class="tabell mt-2">
+        <thead><tr><th>Valuta</th><th class="hgr">Årskurs</th><th>Sist endra</th><th>Av</th></tr></thead>
+        <tbody>${valutaar.length ? valutaar.map((v) => `<tr>
+          <td><strong>${vindexT(v)}</strong></td>
+          <td class="hgr">${tal(kursar[v].kurs, 4)}</td>
+          <td>${kursar[v].endraTid ? vindexT(new Date(kursar[v].endraTid).toLocaleDateString("nb-NO")) : ""}</td>
+          <td>${vindexT(kursar[v].endraAvNavn || "")}</td></tr>`).join("")
+          : `<tr><td colspan="4"><span class="hint">Ingen årskurs er satt ennå.</span></td></tr>`}</tbody>
+      </table>
+
+      ${kanEndre ? `
+      <h3 class="mt-2">Sett årskurs</h3>
+      <div class="feltrutenett">
+        ${felt("vk_valuta", "Valuta", "CNY")}
+        ${felt("vk_kurs", "Kurs (per 1 enhet)", "", 'type="number" step="0.0001"')}
+        <div class="field"><label>&nbsp;</label>
+          <button class="btn btn-ghost btn-sm" type="button" id="vk_hentkurs">Hent fra Norges Bank</button></div>
+        ${felt("vk_merknad", "Merknad (valgfritt)", "")}
+      </div>
+      <div id="vk_kurssvar" class="notice mt-1 hidden"></div>
+      <div class="knapperad mt-1"><button class="btn" id="vk_lagre">Lagre årskurs</button></div>
+      <p class="hint">Kurs er per 1 enhet. Kina noterer per hundre — «100 CNY = 143,92 NOK» gir 1,4392.
+        Store svingingar justerer du her; merknaden er der for å forklare kvifor.</p>`
+      : `<p class="hint mt-2">Det er hovudkontoret som set årskursen.</p>`}
+
+      <h3 class="mt-2">Kva kurs galdt på ein dato?</h3>
+      <div class="knapperad">
+        ${felt("vk_oppslag_valuta", "Valuta", "CNY")}
+        ${felt("vk_oppslag_dato", "Dato", "", 'type="date"')}
+        <button class="btn btn-ghost btn-sm" type="button" id="vk_slaa">Slå opp</button>
+      </div>
+      <div id="vk_svar" class="notice mt-1 hidden"></div>
+
+      <h3 class="mt-2">Historikk</h3>
+      ${logg.length ? `<table class="tabell">
+        <thead><tr><th>Når</th><th>Valuta</th><th class="hgr">Frå</th><th class="hgr">Til</th><th>Av</th><th>Merknad</th></tr></thead>
+        <tbody>${logg.map((x) => `<tr>
+          <td>${vindexT(new Date(x.tid).toLocaleString("nb-NO", { dateStyle: "short", timeStyle: "short" }))}</td>
+          <td>${vindexT(x.valuta)}</td>
+          <td class="hgr">${x.fra == null ? '<span class="hint">—</span>' : tal(x.fra, 4)}</td>
+          <td class="hgr">${tal(x.til, 4)}</td>
+          <td>${vindexT(x.avNavn || "")}</td>
+          <td>${vindexT(x.merknad || "")}</td></tr>`).join("")}</tbody>
+      </table>` : `<div class="notice mt-1">Ingen endringar er logga ennå.</div>`}
+    </div>`;
+
+  kopleKurshenting("vk", "årskursen");
+  $("#vk_slaa").addEventListener("click", () => {
+    const v = String($("#vk_oppslag_valuta").value || "").trim().toUpperCase();
+    const d = $("#vk_oppslag_dato").value;
+    const svar = $("#vk_svar");
+    svar.classList.remove("hidden");
+    if (!v || !d) { svar.textContent = "Skriv inn valuta og dato."; return; }
+    const kurs = vindexKursPaaDato(lagerdata.valutaLogg, v, d + "T23:59:59");
+    svar.textContent = kurs == null
+      ? `Ingen årskurs for ${v} på ${d}.`
+      : `Årskursen for ${v} på ${d} var ${tal(kurs, 4)}.`;
+  });
+  if (kanEndre) $("#vk_lagre").addEventListener("click", lagreValutakurs);
+}
+
+/**
+ * Set ny årskurs. Ingen godkjenning: lagra med det same, og endringa blir
+ * lagt til i historikken med kven, når og kva kursen var før.
+ */
+async function lagreValutakurs() {
+  const valuta = String($("#vk_valuta").value || "").trim().toUpperCase();
+  const ny = parseFloat(String($("#vk_kurs").value).replace(",", "."));
+  if (!valuta || valuta === "NOK") { melding("Kronekurs er alltid 1 — ingenting å lagre.", "warn"); return; }
+  if (!(ny > 0)) { melding("Skriv inn kursen først.", "warn"); return; }
+  const fra = (lagerdata.arskurs[valuta] || {}).kurs;
+  if (fra === ny) { melding("Kursen er uendra.", "warn"); return; }
+
+  const naa = new Date().toISOString();
+  const avNavn = app.brukar.navn || app.brukar.epost || "";
+  const merknad = String($("#vk_merknad").value || "").trim();
+  const doc = { valuta, kurs: ny, endraTid: naa, endraAv: app.brukar.uid || "", endraAvNavn: avNavn };
+  const linje = { valuta, fra: fra == null ? null : fra, til: ny, tid: naa,
+    av: app.brukar.uid || "", avNavn, merknad };
+
+  if (VINDEX_DEMOMODUS) {
+    lagerdata.arskurs[valuta] = doc;
+    lagerdata.valutaLogg.push({ id: "demo-" + naa, ...linje });
+    teiknLagerside();
+    melding("Årskurs lagra (demomodus).");
+    return;
+  }
+  try {
+    await fb.setDoc(fb.valutakursDoc(valuta), doc, { merge: true });
+    await fb.addDoc(fb.valutakursLoggCol(), linje);
+    await lastLager();
+    teiknLagerside();
+    melding(`Årskurs ${valuta} satt til ${tal(ny, 4)}.`);
+  } catch (e) {
+    melding("Fikk ikke lagra årskursen: " + (e && e.message ? e.message : e), "warn");
+  }
 }
 
 // -- Varetelling -------------------------------------------------------------
@@ -1122,7 +1261,8 @@ function opneVare(artnr) {
     const r = vindexKostpris(
       { innkjopspris: Number($("#vf_innpris").value) || 0, valuta: $("#vf_valuta").value,
         kurs: Number($("#vf_kurs").value) || 1 },
-      type ? { type, verdi: Number($("#vf_faktor").value) || 0 } : arva
+      type ? { type, verdi: Number($("#vf_faktor").value) || 0 } : arva,
+      (lagerdata.arskurs[$("#vf_valuta").value] || {}).kurs
     );
     $("#vf_kostpris").innerHTML =
       `${tal(r.pris, 4)} ${vindexT(r.valuta)} × ${tal(r.kurs, 4)} = <strong>${kroner(r.iKroner)}</strong>` +
@@ -1466,7 +1606,7 @@ function opnePo(b) {
   const ny = !b;
   const po = b ? JSON.parse(JSON.stringify(b)) : {
     nr: String(Math.max(0, ...lagerdata.bestillingar.map((x) => Number(x.nr) || 0)) + 1),
-    leverandor: "", valuta: "CNY", kurs: 1, sendt: "", lokasjon: "", linjer: [],
+    leverandor: "", valuta: "CNY", kurs: ((lagerdata.arskurs || {}).CNY || {}).kurs || 1, sendt: "", lokasjon: "", linjer: [],
   };
   if (!po.linjer.length) po.linjer.push({ artnr: "", bestilt: 0, enhetspris: 0 });
 

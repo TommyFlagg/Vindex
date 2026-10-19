@@ -398,6 +398,24 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Årskursen per valuta. Hovudkontoret set han; alle som ser lageret kan lese
+    // han. Ingen godkjenning — endringa blir logga i valutakursLogg.
+    match /valutakurs/{valuta} {
+      allow read: if erAdmin() || erLager() || erOrdrekontor();
+      allow write: if erAdmin();
+    }
+
+    // Historikka over årskursen. Berre å leggje til i: ei endring blir aldri
+    // redigert eller sletta, berre følgd av ei ny linje.
+    match /valutakursLogg/{id} {
+      allow read: if erAdmin() || erLager() || erOrdrekontor();
+      allow create: if erAdmin()
+                    && request.resource.data.valuta is string
+                    && request.resource.data.til is number
+                    && request.resource.data.tid is string;
+      allow update, delete: if false;
+    }
+
     // Saldogrunnlaget: summen av alle rørslene fram til eit tidspunkt, lagra
     // som eitt dokument. Det er ein snarveg og ikkje ei sanning — rørslene er
     // framleis fasiten, og grunnlaget blir bygd opp att av dei med jamne
