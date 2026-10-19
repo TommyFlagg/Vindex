@@ -9,7 +9,7 @@
 // ============================================================================
 
 import { $, $$, app, fb, melding, opneModal, lukkModal, skrivUtDel } from "./verktoy-felles.js?v=9079c0f3";
-import { eksportValg, kopleEksport, tabellRader } from "./eksport.js?v=05fb8360";
+import { eksportValg, kopleEksport, tabellRader } from "./eksport.js?v=db485cc8";
 
 export const kundedata = { kundar: [], henta: false, feil: "" };
 let kundesok = "";

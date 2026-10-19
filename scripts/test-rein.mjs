@@ -864,6 +864,178 @@ console.log("ORDRE TREKKER FRÅ LAGERET");
   p("og linje med null", O([{ kode: "7522", antall: 0 }], {}, varer).rorsler.length, 0);
 }
 
+console.log("3010 ER 3310 I M², OG SALET TREKKJER 3310");
+{
+  // Same planke, to målingar. 3310 er lagervara i lm; 3010 er den same
+  // planken selt i m², og har inga beholdning sjølv.
+  const O = G("vindexOrdrerorsler");
+  const varer = {
+    3310: { artnr: "3310", benevning: "Terrassegulv", kostpris: 50.04, lagervare: true, lokasjon: "Lager ute" },
+    3010: { artnr: "3010", benevning: "Terrasseplank", veilPris: 800, lagervare: false,
+            strukturvare: true, bestarAv: [{ artnr: "3310", antall: 6.55 }] },
+  };
+  const poster = [{ artnr: "3310", lokasjon: "Lager ute", antall: 100, type: "telling", tid: "2026-09-02" }];
+
+  const sal = O([{ kode: "3010", antall: 2 }], {}, varer, { ref: "O-1", tid: "2026-10-01" });
+  p("salet av 3010 trekkjer 3310 i lm", sal.rorsler.map((x) => x.artnr + ":" + x.antall), ["3310:-13.1"]);
+  p("på lokasjonen til 3310", sal.rorsler[0].lokasjon, "Lager ute");
+  p("reknestykket står i m²", sal.trekt, { 3010: 2 });
+  // Ordren blir endra frå to til fem m². Då går tre m² til, og det er 19,65 lm.
+  const endra = O([{ kode: "3010", antall: 5 }], sal.trekt, varer);
+  p("endringa i m² blir ført i lm", endra.rorsler.map((x) => x.artnr + ":" + x.antall), ["3310:-19.65"]);
+  // Ein kunde kjøper 3010 og 3310 på same ordre: to uttak, begge mot 3310.
+  const blanda = O([{ kode: "3010", antall: 1 }, { kode: "3310", antall: 2 }], {}, varer);
+  p("begge uttaka går mot 3310", blanda.rorsler.every((x) => x.artnr === "3310"), true);
+  p("og til saman 8,55 lm", Math.round(blanda.rorsler.reduce((n, x) => n + x.antall, 0) * 100) / 100, -8.55);
+  // Det kan ikkje lagast 3010 på lager. Planken er ikkje ei eige lagervare.
+  p("3010 kan ikkje produserast til lager",
+    G("vindexProduksjonsrorsler")(varer, poster, "3010", 10).feil !== null, true);
+  // Og 3010 har ingen eigen linje i beholdninga, tellelista eller lagerverdien.
+  p("beholdninga har berre 3310", G("vindexBeholdningsliste")(varer, poster).map((r) => r.artnr), ["3310"]);
+  p("tellelista har berre 3310", G("vindexTelleliste")(varer, poster).map((r) => r.artnr), ["3310"]);
+  p("lagerverdien er 100 lm à 50,04", G("vindexLagerverdi")(varer, poster).kostverdi, 5004);
+}
+
+console.log("LOKASJON PÅ VAREKORTET");
+{
+  const S = G("vindexStader");
+  p("heime utan rørsler", S({ artnr: "9001", lokasjon: "Seksjoner" }, {}), ["Seksjoner"]);
+  p("rørsle på annan stad gir båe", S({ artnr: "7522", lokasjon: "Lager 3" }, { Stavik: 500 }), ["Stavik", "Lager 3"]);
+  p("heime og rørsle same stad gir éin", S({ artnr: "7522", lokasjon: "Lager 3" }, { "Lager 3": 7372 }), ["Lager 3"]);
+  p("utan lokasjon og rørsler er det «uten lokasjon»", S({ artnr: "9999" }, {}), [""]);
+
+  // Ein artikkel som aldri er rørt, skal likevel finnast der han står.
+  const varer = {
+    9001: { artnr: "9001", benevning: "Gjerde", lokasjon: "Seksjoner", lagervare: true },
+    2001: { artnr: "2001", benevning: "Skrue", lagervare: true },
+  };
+  p("tellinga tek med heime-lokasjonen utan rørsler",
+    G("vindexTelleliste")(varer, []).map((r) => [r.artnr, r.lokasjon, r.forventa]),
+    [["2001", "", 0], ["9001", "Seksjoner", 0]]);
+  p("lokasjonslista teller han òg",
+    G("vindexLokasjonsliste")(varer, []).map((l) => [l.lokasjon, l.artiklar]),
+    [["", 1], ["Seksjoner", 1]]);
+
+  // Beholdninga: éi linje per artikkel og lokasjon, valde lokasjonar, og
+  // «uten lokasjon» heilt nedst.
+  const BL = G("vindexBeholdningsliste");
+  const v2 = {
+    7522: { artnr: "7522", benevning: "Skrue", lokasjon: "Lager 3", lagervare: true, kostpris: 2, veilPris: 10 },
+    9001: { artnr: "9001", benevning: "Gjerde", lokasjon: "Seksjoner", lagervare: true, kostpris: 5 },
+    9999: { artnr: "9999", benevning: "Aldri", lagervare: true },
+    3030: { artnr: "3030", benevning: "Arbeid", lokasjon: "Stavik", lagervare: false },
+  };
+  const post2 = [
+    { artnr: "7522", lokasjon: "Lager 3", antall: 100, type: "telling", tid: "2026-09-02" },
+    { artnr: "9999", lokasjon: "", antall: 5, type: "telling", tid: "2026-09-02" },
+  ];
+  const rader = BL(v2, post2);
+  p("beholdninga: éi linje per artikkel og lokasjon",
+    rader.map((r) => [r.artnr, r.lokasjon, r.saldo]),
+    [["7522", "Lager 3", 100], ["9001", "Seksjoner", 0], ["9999", "", 5]]);
+  p("med kostverdi og salgsverdi", [rader[0].kostverdi, rader[0].salgsverdi], [200, 1000]);
+  p("berre dei valde lokasjonane", BL(v2, post2, { lokasjonar: ["Seksjoner"] }).map((r) => r.artnr), ["9001"]);
+  p("ingen valde gir ingen linjer", BL(v2, post2, { lokasjonar: [] }).length, 0);
+
+  // Ein stad som er talt ned til null, er ikkje ein stad artikkelen står på.
+  // Linja skal ikkje bli liggjande i tellelista etter ei telling eller eit uttak.
+  p("ein stad som er tømd står ikkje lenger på lista",
+    S({ artnr: "7522", lokasjon: "B" }, { A: 0, B: 4 }), ["B"]);
+  p("og tellelista følgjer med",
+    G("vindexTelleliste")({ 7522: { artnr: "7522", lokasjon: "B", lagervare: true } },
+      [{ artnr: "7522", lokasjon: "A", antall: 0, type: "telling", tid: "2026-10-01" },
+       { artnr: "7522", lokasjon: "B", antall: 4, type: "telling", tid: "2026-10-01" }])
+      .map((r) => r.lokasjon), ["B"]);
+
+  // Lesing av lokasjonslista: semikolon, kopi frå telleutskrifta, og feil.
+  const LES = G("vindexLesLokasjonar");
+  const csv = LES("lokasjon;artikkelnr\n2box;3256\nLager 1;7550\n");
+  p("csv: to rader, ingen feil", [csv.rader.length, csv.feil.length, csv.dublettar.length], [2, 0, 0]);
+  p("csv: lokasjonen først", [csv.rader[1].artnr, csv.rader[1].lokasjon], ["7550", "Lager 1"]);
+  const kopi = LES([
+    "Lagertelling - opptellingsunderlag - Listenr: 56 - sortert på lokasjon   05.10.2026 10:12   Side 1 av 25",
+    "Lokasjon           Artikkelnr.            Benevning                                 Art.gruppe Enhet Utg. LF Fys. saldo   Telleres.   Artikkelnr.     Disp. Reservert",
+    "Lager:         1    Vindex",
+    "2box               3256                   Firkantskive 11x30x3MM FZV S4B            17         STK     0   J        57    ______      3256              57         0",
+    "",
+    "Lager 1                7550                   A01 Flat Topp utv. for stolpe            1          STK     0   J       300    ______      7550             300        191",
+    "                                          127x127mm",
+    "Vindex AS",
+  ].join("\n"));
+  p("kopi frå telleutskrifta: to artiklar, ingen feil",
+    [kopi.rader.map((r) => r.artnr + "@" + r.lokasjon), kopi.feil.length], [["3256@2box", "7550@Lager 1"], 0]);
+  const dobbel = LES("2box;3256\nLager 3;3256");
+  p("same artikkel to stader er ein dublett", dobbel.dublettar, [{ artnr: "3256", lokasjonar: ["2box", "Lager 3"] }]);
+  p("og då blir ingen rad rekna som god", dobbel.rader.length, 1);
+  p("ei linje utan lokasjon og artikkelnr er ein feil", LES("2box\n").feil.length, 1);
+
+  // Planen for importen: kva som endrar seg, og kva som står i vegen.
+  const PL = G("vindexPlanLokasjonsimport");
+  const varer3 = {
+    3256: { artnr: "3256", lokasjon: "2box", lagervare: true },
+    7550: { artnr: "7550", lagervare: true },
+    3310: { artnr: "3310", lokasjon: "Lager ute", lagervare: true },
+    7522: { artnr: "7522", lokasjon: "Lager 3", lagervare: true },
+    3010: { artnr: "3010", lokasjon: "1a2", lagervare: false },
+  };
+  const lista = LES("2box;3256\nLager 1;7550\nStavik;3310\n2box;9999");
+  const plan = PL(varer3, lista.rader,
+    [{ artnr: "3310", lokasjon: "Lager ute", antall: 10, type: "telling", tid: "2026-09-02" }]);
+  p("uendra blir talt", plan.uendra, 1);
+  p("nye og endra får ny lokasjon", plan.sett.map((s) => s.artnr), ["7550", "3310"]);
+  p("med gammal lokasjon der han fanst", plan.sett[0].fra + "|" + plan.sett[0].til, "|Lager 1");
+  p("ukjend artikkel blir ikkje oppretta", plan.ukjende, ["9999"]);
+  p("og der det står beholdning på ein annan stad", plan.annan, ["3310"]);
+  p("lagervara som står ute av lista, blir synt", plan.ikkjeMed, ["7522"]);
+  p("ikkje-lagervarer blir ikkje synt", plan.ikkjeMed.includes("3010"), false);
+
+  // Ein import utan lokasjonskolonne skal ikkje nulle ut varekortet.
+  const DI = G("vindexDelImportrad");
+  p("import med lokasjon set varekortet",
+    DI({ artnr: "7522", benevning: "Skrue", lokasjon: "Lager 3", saldo: 5, kostpris: 1 }).vare.lokasjon, "Lager 3");
+  p("import utan lokasjon rører ikkje feltet",
+    "lokasjon" in DI({ artnr: "9999", benevning: "Aldri", saldo: 0 }).vare, false);
+}
+
+console.log("SKREVET SUM, OG STRUKTURVARENE I SUMMEN");
+{
+  // Skrevet sum er kostprisen sjølv, og ho gjeld berre artikkelen den står på.
+  const KP = G("vindexKostpris");
+  const r = KP({ innkjopspris: 40, valuta: "NOK" }, { type: "skrevet", verdi: 61.5 }, null);
+  p("skrevet sum er kostprisen", r.kostpris, 61.5);
+  p("påslaget er det som står att", r.paaslag, 21.5);
+  p("skrevet sum gjeld som artikkelfaktor", G("vindexGyldigFaktor")({ type: "skrevet", verdi: 61.5 }), true);
+  const gruppe = G("vindexKostfaktor")({ gruppe: "3" }, { 3: { type: "skrevet", verdi: 5 } }, null);
+  p("ei gruppe kan ikkje setje kostprisen for alle", gruppe.kjelde, "standard");
+  const eiga = G("vindexKostfaktor")({ gruppe: "3", kostfaktor: { type: "skrevet", verdi: 61.5 } },
+    { 3: { type: "prosent", verdi: 10 } }, null);
+  p("artikkelens eigen skrevet sum vinn over gruppa", [eiga.kjelde, eiga.type], ["artikkel", "skrevet"]);
+
+  // Strukturvarene står ikkje i lista, men verdien deira står på lokasjonen sin,
+  // og lista pluss strukturane gir same lagerverdi som lagerverdi-rekninga.
+  const varer = {
+    7522: { artnr: "7522", benevning: "Skrue", lokasjon: "Lager 3", lagervare: true, kostpris: 2, veilPris: 10 },
+    9001: { artnr: "9001", benevning: "Gjerde", lokasjon: "Seksjoner", lagervare: true, kostpris: 5 },
+    9999: { artnr: "9999", benevning: "Aldri", lagervare: true },
+    5001: { artnr: "5001", benevning: "Ferdig", lokasjon: "Lager 3", lagervare: true, strukturvare: true,
+            bestarAv: [{ artnr: "7522", antall: 2 }], veilPris: 20 },
+  };
+  const poster = [
+    { artnr: "7522", lokasjon: "Lager 3", antall: 100, type: "telling", tid: "2026-09-02" },
+    { artnr: "9999", lokasjon: "", antall: 5, type: "telling", tid: "2026-09-02" },
+    { artnr: "5001", lokasjon: "Lager 3", antall: 10, type: "produksjon", tid: "2026-09-03" },
+  ];
+  const BL = G("vindexBeholdningsliste");
+  const SS = G("vindexStrukturSummer");
+  p("strukturvarene står ikkje i lista", BL(varer, poster).map((x) => x.artnr), ["7522", "9001", "9999"]);
+  p("men verdien står per lokasjon", SS(varer, poster).map((s) => [s.lokasjon, s.kostverdi, s.salgsverdi]),
+    [["Lager 3", 40, 200]]);
+  p("ingen valde gir ingen strukturar", SS(varer, poster, { lokasjonar: [] }).length, 0);
+  const alt = [...BL(varer, poster), ...SS(varer, poster)].reduce((n, x) => n + x.kostverdi, 0);
+  p("lista pluss strukturane er lagerverdien", Math.round(alt * 100) / 100,
+    G("vindexLagerverdi")(varer, poster).kostverdi);
+}
+
 console.log("LES INN PERSONAR FRÅ EIT REKNEARK");
 {
   const T = G("vindexPersontal");

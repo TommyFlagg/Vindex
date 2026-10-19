@@ -33,6 +33,10 @@
 //
 // Faktoren kan vere prosent eller kroner. «12 % påslag» og «fem kroner i
 // frakt per stk» er to ulike ting, og begge finst.
+//
+// Og så er det skrevet sum: kostprisen sjølv, skriven inn på artikkelen. Den er
+// ikkje eit påslag, og ho gjeld berre éin artikkel — ei gruppe kan ikkje setje
+// kostprisen for alle artiklane i gruppa.
 const VINDEX_KOSTFAKTOR_STANDARD = { type: "prosent", verdi: 0 };
 
 /**
@@ -46,7 +50,7 @@ function vindexKostfaktor(artikkel, grupper, standard) {
   if (vindexGyldigFaktor(eigen)) return { ...eigen, kjelde: "artikkel" };
 
   const gruppe = (grupper || {})[String((artikkel || {}).gruppe)];
-  if (vindexGyldigFaktor(gruppe)) return { ...gruppe, kjelde: "gruppe" };
+  if (vindexGyldigFaktor(gruppe) && gruppe.type !== "skrevet") return { ...gruppe, kjelde: "gruppe" };
 
   const std = vindexGyldigFaktor(standard) ? standard : VINDEX_KOSTFAKTOR_STANDARD;
   return { ...std, kjelde: "standard" };
@@ -56,7 +60,7 @@ function vindexKostfaktor(artikkel, grupper, standard) {
 function vindexGyldigFaktor(f) {
   return (
     f &&
-    (f.type === "prosent" || f.type === "kroner") &&
+    (f.type === "prosent" || f.type === "kroner" || f.type === "skrevet") &&
     f.verdi !== null &&
     f.verdi !== undefined &&
     f.verdi !== "" &&
@@ -114,7 +118,13 @@ function vindexKostpris(innkjop = {}, faktor, arskurs) {
 
   const f = vindexGyldigFaktor(faktor) ? faktor : VINDEX_KOSTFAKTOR_STANDARD;
   const verdi = parseFloat(f.verdi) || 0;
-  const paaslag = f.type === "kroner" ? verdi : (iKroner * verdi) / 100;
+  // Ved skrevet sum er kostprisen det talet står for. Innkjøpsprisen og kursen
+  // står då att som forklaring, og påslaget er det som skil dei to.
+  const skrevet = f.type === "skrevet";
+  const paaslag = f.type === "kroner" ? verdi
+    : skrevet ? verdi - iKroner
+    : (iKroner * verdi) / 100;
+  const kost = skrevet ? verdi : iKroner + paaslag;
 
   return {
     pris,
@@ -123,7 +133,7 @@ function vindexKostpris(innkjop = {}, faktor, arskurs) {
     iKroner: Math.round(iKroner * 10000) / 10000,
     faktor: f,
     paaslag: Math.round(paaslag * 10000) / 10000,
-    kostpris: Math.round((iKroner + paaslag) * 10000) / 10000,
+    kostpris: Math.round(kost * 10000) / 10000,
   };
 }
 
@@ -248,11 +258,9 @@ function vindexTelleliste(varer, poster, val = {}) {
   Object.values(varer || {}).forEach((v) => {
     if (!v || v.lagervare === false) return;
     const per = vindexSaldoPerLokasjon(poster, v.artnr);
-    const stader = Object.keys(per);
-    // Ein artikkel utan ei einaste rørsle har ingen lokasjon å stå på. Han
-    // høyrer heime på tellelista for «uten lokasjon», ikkje ingen stad.
-    if (!stader.length) stader.push("");
-    stader.forEach((lok) => {
+    // Ein artikkel utan ei einaste rørsle står likevel på lokasjonen sin på
+    // varekortet. Utan den ville han ikkje vere å finne når ein tel den staden.
+    vindexStader(v, per).forEach((lok) => {
       if (valde && !valde.has(lok)) return;
       rader.push({
         artnr: v.artnr,
@@ -308,13 +316,187 @@ function vindexLokasjonsliste(varer, poster) {
   const tel = {};
   Object.values(varer || {}).forEach((v) => {
     if (!v || v.lagervare === false) return;
-    const stader = Object.keys(vindexSaldoPerLokasjon(poster, v.artnr));
-    if (!stader.length) stader.push("");
-    stader.forEach((lok) => (tel[lok] = (tel[lok] || 0) + 1));
+    vindexStader(v, vindexSaldoPerLokasjon(poster, v.artnr))
+      .forEach((lok) => (tel[lok] = (tel[lok] || 0) + 1));
   });
   return Object.keys(tel)
     .sort((a, b) => String(a).localeCompare(String(b), "nb"))
     .map((lokasjon) => ({ lokasjon, artiklar: tel[lokasjon] }));
+}
+
+// ===========================================================================
+// LOKASJON PÅ VAREKORTET
+// ---------------------------------------------------------------------------
+// Vindex har eitt hovudlager, og kvar artikkel står på éin lokasjon i det:
+// hylla eller plassen han ligg på. Lokasjonen står på varekortet. Ei rørsle
+// får lokasjonen då ho blir ført, og tek han med seg — ei gamal rørsle endrar
+// seg ikkje sjølv om varekortet blir flytta.
+//
+// Varekortlokasjonen gjeld òg for ein artikkel utan rørsler. Ein artikkel som
+// aldri har vore rørt, men som står i Seksjoner, skal finnast i tellelista for
+// Seksjoner — og det kan ikkje rørslene seie, for det er ingen.
+// ===========================================================================
+
+/**
+ * Lokasjonane ein artikkel står på: dei der det finst rørsler, og lokasjonen
+ * på varekortet. Ingen av delane gir «uten lokasjon», som er teksten "".
+ *
+ * `per` er vindexSaldoPerLokasjon for artikkelen. Kallaren har han alt, og
+ * då blir han ikkje rekna ut to gonger.
+ */
+function vindexStader(vare, per) {
+  // Ein stad der summen er null, er ikkje ein stad artikkelen står på. Det er
+  // det som står att etter ei telling eller eit uttak, og det skal ikkje halde
+  // ei linje levande i tellelista. Det same gjer vindexSnapshotPostar.
+  const stader = Object.keys(per || {}).filter((lok) => per[lok]);
+  const hjem = (vare || {}).lokasjon || "";
+  if (hjem && !stader.includes(hjem)) stader.push(hjem);
+  if (!stader.length) stader.push("");
+  return stader;
+}
+
+/**
+ * Beholdninga per lokasjon, éi linje per artikkel og lokasjon. Det er denne
+ * lista som blir skriven ut eller lasta ned.
+ *
+ * `val.lokasjonar` avgrensar til dei valde. null er alle, og ei tom liste er
+ * ingen — same semantikk som tellelista. Den som har huka av alle hakene vekk
+ * har bedt om ingen linjer, ikkje om heile lageret.
+ *
+ * Artiklar utan lokasjon og utan beholdning blir ikkje med. Dei har ingenting
+ * å seie i ei beholdning. Dei står i tellelista, der nokon skal leite etter dei.
+ */
+function vindexBeholdningsliste(varer, poster, val = {}) {
+  const valde = Array.isArray(val.lokasjonar) ? new Set(val.lokasjonar) : null;
+  const rader = [];
+  Object.values(varer || {}).forEach((v) => {
+    if (!v || v.lagervare === false) return;
+    // Strukturvarer blir ikkje lista. Verdien deira står i eiga linje per lokasjon,
+    // sjå vindexStrukturSummer.
+    if (vindexErStrukturvare(v)) return;
+    const per = vindexSaldoPerLokasjon(poster, v.artnr);
+    const kostpris = vindexKostprisNaa(varer, v);
+    vindexStader(v, per).forEach((lok) => {
+      const saldo = per[lok] || 0;
+      if (!lok && !saldo) return;
+      if (valde && !valde.has(lok)) return;
+      rader.push({
+        artnr: v.artnr,
+        benevning: v.benevning || "",
+        lokasjon: lok,
+        saldo,
+        kostpris,
+        kostverdi: saldo * kostpris,
+        salgsverdi: saldo * (parseFloat(v.veilPris) || 0),
+      });
+    });
+  });
+  // «Uten lokasjon» heilt nedst, elles i same rekkjefølgje som tellelista.
+  return rader.sort((a, b) =>
+    (a.lokasjon === "") - (b.lokasjon === "")
+    || String(a.lokasjon).localeCompare(String(b.lokasjon), "nb")
+    || String(a.artnr).localeCompare(String(b.artnr), "nb", { numeric: true }));
+}
+
+/**
+ * Verdien av strukturvarene per lokasjon. Dei blir ikkje lista, men dei skal
+ * med i summen, elles gir ei utskrift for éin lokasjon ikkje same tal som
+ * lagerverdien for den lokasjonen. Ei ferdigvare som står på lager, er ein del
+ * av verdien — og delane er ikkje lenger på lager, så dei blir ikkje talt to gonger.
+ */
+function vindexStrukturSummer(varer, poster, val = {}) {
+  const valde = Array.isArray(val.lokasjonar) ? new Set(val.lokasjonar) : null;
+  const ut = {};
+  Object.values(varer || {}).forEach((v) => {
+    if (!v || v.lagervare === false || !vindexErStrukturvare(v)) return;
+    const per = vindexSaldoPerLokasjon(poster, v.artnr);
+    const kostpris = vindexKostprisNaa(varer, v);
+    Object.entries(per).forEach(([lok, saldo]) => {
+      if (!saldo) return;
+      if (valde && !valde.has(lok)) return;
+      const s = (ut[lok] = ut[lok] || { lokasjon: lok, kostverdi: 0, salgsverdi: 0 });
+      s.kostverdi += saldo * kostpris;
+      s.salgsverdi += saldo * (parseFloat(v.veilPris) || 0);
+    });
+  });
+  return Object.values(ut).sort((a, b) =>
+    (a.lokasjon === "") - (b.lokasjon === "")
+    || String(a.lokasjon).localeCompare(String(b.lokasjon), "nb"));
+}
+
+// Linjer i ei kopi frå telleutskrifta som ikkje er artiklar: overskrifter,
+// sidefot og «Lager: 1 Vindex».
+const VINDEX_LOKASJON_HOPP = /opptellingsunderlag|^listenr\b|^side \d+ av \d+|^vindex as$|^lager:|^lokasjon\b/i;
+
+/**
+ * Lokasjonslista: éi linje per artikkel, med lokasjonen først.
+ *
+ * Tek både «lokasjon;artikkelnr» frå eit regneark, og ein kopi frå
+ * telleutskrifta frå Bravo, der kolonnene er skilde med to eller fleire
+ * mellomrom. Då står «Lager 1» med eitt mellomrom, og det er rett.
+ *
+ * Ei linje som ikkje let seg tolke blir ståande som feil. Ein artikkel som står
+ * to gonger blir ståande som dublett. Då skal ingenting leggast inn før lista
+ * er retta: «1 lokasjon pr vare» er ein regel, ikkje eit framlegg.
+ */
+function vindexLesLokasjonar(tekst) {
+  const rader = [], feil = [], sett = {}, dublettar = {};
+  String(tekst || "").split(/\r?\n/).forEach((linje, i) => {
+    const r = linje.trim();
+    if (!r || VINDEX_LOKASJON_HOPP.test(r)) return;
+    const deler = r.includes(";") ? r.split(";") : r.split(/\s{2,}/);
+    const lokasjon = (deler[0] || "").trim();
+    const artnr = (deler[1] || "").trim();
+    // Ei benevning som går over på ny linje i PDF-en står att åleine, innrykt.
+    if (deler.length < 2 && /^\s{10,}\S/.test(linje)) return;
+    if (!lokasjon || !/^[0-9A-Za-zÆØÅæøå][0-9A-Za-zÆØÅæøå.\-]*$/.test(artnr)) {
+      feil.push({ linje: i + 1, tekst: r.slice(0, 90) });
+      return;
+    }
+    if (sett[artnr] !== undefined) {
+      dublettar[artnr] = dublettar[artnr] || [sett[artnr]];
+      dublettar[artnr].push(lokasjon);
+      return;
+    }
+    sett[artnr] = lokasjon;
+    rader.push({ artnr, lokasjon, linje: i + 1 });
+  });
+  return {
+    rader,
+    feil,
+    dublettar: Object.entries(dublettar).map(([artnr, lokasjonar]) => ({ artnr, lokasjonar })),
+  };
+}
+
+/**
+ * Kva ein lokasjonsimport vil gjere mot varekorta.
+ *
+ * `sett` er dei som får ny lokasjon, `uendra` er dei som allereie står rett, og
+ * `ukjende` er artiklar som ikkje finst i varekortregisteret. Dei blir ikkje
+ * oppretta: ein import skal ikkje lage varekort av ei liste frå lageret.
+ *
+ * `annan` er dei som har beholdning registrert på ein annan lokasjon enn den
+ * nye. Beholdninga står der til ei flytting er ført, og den som importerer
+ * skal vite det før han trykker.
+ *
+ * `ikkjeMed` er lagervarer som står på ein lokasjon i systemet, men ikkje i
+ * lista. Dei blir ståande som dei er, og det er verdt å sjå på kvar for seg.
+ */
+function vindexPlanLokasjonsimport(varer, rader, poster) {
+  const ut = { sett: [], uendra: 0, ukjende: [], annan: [], ikkjeMed: [] };
+  const i = new Set((rader || []).map((r) => String(r.artnr)));
+  (rader || []).forEach((r) => {
+    const v = (varer || {})[r.artnr];
+    if (!v) { ut.ukjende.push(r.artnr); return; }
+    if ((v.lokasjon || "") === r.lokasjon) { ut.uendra++; return; }
+    ut.sett.push({ artnr: r.artnr, fra: v.lokasjon || "", til: r.lokasjon });
+    const per = vindexSaldoPerLokasjon(poster, r.artnr);
+    if (Object.keys(per).some((lok) => lok !== r.lokasjon && per[lok])) ut.annan.push(r.artnr);
+  });
+  ut.ikkjeMed = Object.values(varer || {})
+    .filter((v) => v && v.lagervare !== false && v.lokasjon && !i.has(String(v.artnr)))
+    .map((v) => String(v.artnr));
+  return ut;
 }
 
 // ===========================================================================
@@ -914,6 +1096,9 @@ function vindexDelImportrad(rad) {
     // ikkje teljast med i lagerverdien.
     lagervare: Boolean(rad.lokasjon) || Number(rad.saldo) !== 0,
   };
+  // Lokasjonen på varekortet er éin per artikkel. Ein import utan lokasjonskolonne
+  // skal ikkje nulle han ut, så feltet blir berre sett når det er noko å setje.
+  if (rad.lokasjon) vare.lokasjon = rad.lokasjon;
   // Lagerlista frå Bravo har KOSTPRIS, ikkje innkjøpspris — kostpris er
   // innkjøpsprisen med påslaget alt inni. Vi har ikkje noko anna, og utan
   // fallback ville alle 788 artiklane stått med strek i kostpriskolonna
@@ -978,8 +1163,10 @@ function vindexOrdrerorsler(linjer, alt = {}, varer = {}, val = {}) {
     if (!kode || !antall) return;
     const vare = varer[kode];
     // Arbeid, frakt og montering har kostpris, men ingen beholdning. Å trekkje
-    // 180 minutt frå eit lager som ikkje finst gir berre støy.
-    if (vare && vare.lagervare === false) return;
+    // 180 minutt frå eit lager som ikkje finst gir berre støy. Ein samansett vare
+    // som ikkje er lagervare, er same artikkel som delane, berre målt annleis, og
+    // då er det delane som går ut.
+    if (vare && vare.lagervare === false && !(vare.bestarAv || []).length) return;
     onskt[kode] = (onskt[kode] || 0) + antall;
   });
 
@@ -996,20 +1183,30 @@ function vindexOrdrerorsler(linjer, alt = {}, varer = {}, val = {}) {
     const diff = skalHaTrekt - harTrekt;
     if (!diff) return;
     const vare = varer[kode] || {};
-    rorsler.push({
-      artnr: kode,
+    // Ein samansett vare som ikkje er lagervare, har ingen beholdning sjølv.
+    // Stykklista seier kor mykje av kvar del som går med til éi eining, og det
+    // er delane som blir trekte. 3010 er terrasseplank i m², og 3310 er den
+    // same planken i lm: salet av 3010 trekkjer 3310.
+    const trekk = vare.lagervare === false && (vare.bestarAv || []).length
+      ? vare.bestarAv.map((d) => ({
+        artnr: String(d.artnr),
+        antall: -Math.round(diff * (parseFloat(d.antall) || 0) * 10000) / 10000,
+      }))
+      : [{ artnr: kode, antall: -diff }];
+    trekk.forEach((t) => rorsler.push({
+      artnr: t.artnr,
       // Lokasjonen står på varekortet. Er den ikkje kjend, blir rørsla ståande
       // utan — og då synest det i beholdninga at nokon må seie kvar den kom
       // frå. Det er betre enn å gjette på eit lager.
-      lokasjon: vare.lokasjon || "",
-      antall: -diff,
+      lokasjon: (varer[t.artnr] || {}).lokasjon || "",
+      antall: t.antall,
       // Bekreftinga skriv ein reservasjon, utleveringa skriv eit uttak. Same
       // reknestykket, to ulike rørsletypar.
       type: val.type || "ordre",
       ref,
       ordreId: val.ordreId || "",
       tid,
-    });
+    }));
   });
 
   return { rorsler, trekt: onskt };
@@ -1039,6 +1236,10 @@ function vindexProduksjonsrorsler(varer, poster, artnr, antall, val = {}) {
   const ut = { rorsler: [], mangel: [], feil: null };
   if (!vare || !(vare.bestarAv || []).length) {
     ut.feil = "Varen har ingen stykkliste, så den kan ikke lages på lager.";
+    return ut;
+  }
+  if (vare.lagervare === false) {
+    ut.feil = "Varen er ikke lagervare. Salget trekker delene direkte, så det er ingenting å lage på lager.";
     return ut;
   }
   if (!(n > 0)) {

@@ -14,7 +14,7 @@
 import {
   $, $$, app, fb, melding, opneModal, lukkModal, skrivUtDel,
 } from "./verktoy-felles.js?v=9079c0f3";
-import { eksportValg, kopleEksport, tabellRader } from "./eksport.js?v=05fb8360";
+import { eksportValg, kopleEksport, tabellRader } from "./eksport.js?v=db485cc8";
 
 // Alt som er henta, samla ein stad. Fyllast i lastLager og lesast av resten.
 const VINDEX_KOSTFAKTORDOK = "_kostfaktor";
@@ -244,11 +244,10 @@ export function teiknLagerside() {
 
   kopleEksport("lagerEksport", () => {
     const el = $("#lagerinnhald");
-    const navn = (FANER.find((f) => f.id === fane) || {}).navn || "Lager";
-    return { tittel: navn, el, rader: tabellRader(el) };
+    return { tittel: lagertittel(), el, rader: tabellRader(el) };
   });
   $("#lagerSkrivUt").addEventListener("click", () =>
-    skrivUtDel($("#lagerinnhald"), (FANER.find((f) => f.id === fane) || {}).navn || "Lager"));
+    skrivUtDel($("#lagerinnhald"), lagertittel()));
 
   $$("[data-lagerfane]").forEach((k) =>
     k.addEventListener("click", () => { fane = k.dataset.lagerfane; visAlle = false; teiknLagerside(); })
@@ -316,6 +315,7 @@ function teiknVarer(el) {
         <button class="btn btn-ghost btn-sm" id="importer">Importer fra regneark</button>
         <button class="btn btn-ghost btn-sm" id="kostfaktorar">Kostfaktor per gruppe</button>
         <button class="btn btn-ghost btn-sm" id="importerStruktur">Importer strukturer</button>
+        <button class="btn btn-ghost btn-sm" id="importerLokasjon">Importer lokasjoner</button>
         <button class="btn btn-ghost btn-sm" id="minstelager">Sett minstebeholdning</button>
         <button class="btn btn-ghost btn-sm" id="telleliste">Varetelling</button>
       </div>
@@ -359,6 +359,7 @@ function teiknVarer(el) {
   $("#importer").addEventListener("click", opneImport);
   $("#kostfaktorar").addEventListener("click", opneGruppefaktorar);
   $("#importerStruktur").addEventListener("click", opneStrukturimport);
+  $("#importerLokasjon").addEventListener("click", opneLokasjonimport);
   $("#minstelager").addEventListener("click", opneMinstelager);
   $("#telleliste").addEventListener("click", opneTelleliste);
   // Minstetalet kan skrivast rett i lista. Å opne eit artikkelkort for kvar av
@@ -698,7 +699,8 @@ async function lagreValutakurs() {
 // finn dei ikkje. Men den som vil ha tala med, får det — somme tider skal ein
 // ettergå ein mistanke, og då er det nettopp avviket ein er ute etter.
 
-let telleval = { lokasjonar: [], blind: true };
+// null er «ikkje valt ennå». Ei tom liste er «ingen», og den skal bli ståande.
+let telleval = { lokasjonar: null, blind: true };
 // Tala som blir skrivne inn att, nøkla på artikkel og lokasjon. Dei ligg her
 // og ikkje i feltet, så dialogen kan teiknast på nytt utan at nokon mistar
 // det dei har skrive.
@@ -708,7 +710,7 @@ function opneTelleliste() {
   const varekart = {};
   lagerdata.varer.forEach((v) => (varekart[v.artnr] = v));
   const stader = vindexLokasjonsliste(varekart, lagerdata.poster);
-  if (!telleval.lokasjonar.length) telleval.lokasjonar = stader.map((s) => s.lokasjon);
+  if (telleval.lokasjonar === null) telleval.lokasjonar = stader.map((s) => s.lokasjon);
 
   const teikn = () => {
     const rader = vindexTelleliste(varekart, lagerdata.poster,
@@ -1033,46 +1035,113 @@ function opneMinstelager() {
 
 // -- Beholdning --------------------------------------------------------------
 
+// Kva lokasjonar beholdninga viser. null er alle, og då følgjer nye lokasjonar
+// med av seg sjølve. Ei tom liste er ingen.
+let beholdval = { lokasjonar: null };
+
 function teiknBeholdning(el) {
   const varekart = {};
   lagerdata.varer.forEach((v) => (varekart[v.artnr] = { ...v, kostpris: kostprisFor(v.artnr) }));
-  const verdi = vindexLagerverdi(varekart, lagerdata.poster);
+  const stader = vindexLokasjonsliste(varekart, lagerdata.poster);
+  const valde = beholdval.lokasjonar || stader.map((s) => s.lokasjon);
+  const rader = vindexBeholdningsliste(varekart, lagerdata.poster, { lokasjonar: valde });
+  const strukturar = vindexStrukturSummer(varekart, lagerdata.poster, { lokasjonar: valde });
 
-  const rader = lagerdata.varer
-    .filter((v) => v.lagervare !== false)
-    .map((v) => ({ v, per: vindexSaldoPerLokasjon(lagerdata.poster, v.artnr) }))
-    .filter((r) => Object.keys(r.per).length);
+  // Éi gruppe per lokasjon, så kvar lokasjon får si eiga sum, og totalen står til slutt.
+  // Strukturvarene blir ikkje lista, men verdien deira står på lokasjonen sin.
+  const grupper = [];
+  const gruppe = (lok) => {
+    let g = grupper.find((x) => x.lokasjon === lok);
+    if (!g) grupper.push(g = { lokasjon: lok, rader: [], struktur: null, kostverdi: 0, salgsverdi: 0 });
+    return g;
+  };
+  rader.forEach((r) => {
+    const g = gruppe(r.lokasjon);
+    g.rader.push(r);
+    g.kostverdi += r.kostverdi;
+    g.salgsverdi += r.salgsverdi;
+  });
+  strukturar.forEach((s) => {
+    const g = gruppe(s.lokasjon);
+    g.struktur = s;
+    g.kostverdi += s.kostverdi;
+    g.salgsverdi += s.salgsverdi;
+  });
+  grupper.sort((a, b) =>
+    (a.lokasjon === "") - (b.lokasjon === "") || a.lokasjon.localeCompare(b.lokasjon, "nb"));
+  const totalt = grupper.reduce((s, g) => ({
+    kostverdi: s.kostverdi + g.kostverdi,
+    salgsverdi: s.salgsverdi + g.salgsverdi,
+  }), { kostverdi: 0, salgsverdi: 0 });
+  // Saldo kan vere stykk og meter i same liste. Heile tal blir viste heile.
+  const talSaldo = (n) => (Number.isInteger(n) ? tal(n) : tal(n, 2));
 
   el.innerHTML = `
     <div class="panel">
       <div class="nokkeltal">
-        <div class="tal"><span class="hint">Kostverdi</span><strong>${kroner(verdi.kostverdi)}</strong></div>
-        <div class="tal"><span class="hint">Salgsverdi</span><strong>${kroner(verdi.salgsverdi)}</strong></div>
-        <div class="tal"><span class="hint">Lokasjoner</span><strong>${verdi.lokasjonar.length}</strong></div>
+        <div class="tal"><span class="hint">Kostverdi</span><strong>${kroner(totalt.kostverdi)}</strong></div>
+        <div class="tal"><span class="hint">Salgsverdi</span><strong>${kroner(totalt.salgsverdi)}</strong></div>
+        <div class="tal"><span class="hint">Lokasjoner</span><strong>${grupper.length}</strong></div>
       </div>
       <p class="hint mt-1">Beholdningen er summen av bevegelsene, ikke et lagret tall. Derfor kan
         vi svare på hva som sto på lager en dato tilbake i tid, og derfor kan ikke to ordrer som
         bekreftes samtidig skrive over hverandre. Arbeid, frakt og montering teller ikke med,
         og en strukturvare telles ikke i tillegg til delene den består av.</p>
-      ${!rader.length ? `<div class="notice mt-2">Ingen bevegelser registrert ennå.</div>` : `
+      <div class="no-print mt-2">
+        <p class="hint">Velg lokasjonene som skal med. Utskrift og Excel-fil følger valget, og tallene
+          over gjelder for de valgte.</p>
+        <div class="knapperad">
+          ${stader.map((s) => `<label class="hakelinje"><input type="checkbox" data-beholdlok="${vindexT(s.lokasjon)}"
+            ${valde.includes(s.lokasjon) ? "checked" : ""}> ${s.lokasjon ? vindexT(s.lokasjon) : "uten lokasjon"}
+            <span class="hint">(${tal(s.artiklar)})</span></label>`).join("")}
+        </div>
+        <div class="knapperad mt-1">
+          <button class="btn btn-ghost btn-sm" id="beholdAlle">Velg alle</button>
+          <button class="btn btn-ghost btn-sm" id="beholdIngen">Velg ingen</button>
+        </div>
+      </div>
+      ${!valde.length ? `<div class="notice mt-2">Velg minst én lokasjon for å se beholdningen.</div>`
+        : !grupper.length ? `<div class="notice mt-2">Ingen bevegelser registrert ennå.</div>` : `
       <table class="tabell mt-2">
         <thead><tr><th>Artnr</th><th>Benevning</th><th>Lokasjon</th>
-          <th class="hgr">Saldo</th><th class="hgr">Kostverdi</th></tr></thead>
-        <tbody>${rader.map((r) =>
-          Object.entries(r.per).map(([lok, ant]) => `<tr>
-            <td><code>${vindexT(r.v.artnr)}</code></td>
-            <td>${vindexT(r.v.benevning)}</td>
-            <td>${vindexT(lok || "uten lokasjon")}</td>
-            <td class="hgr">${tal(ant)}</td>
-            <td class="hgr">${kroner(ant * kostprisFor(r.v.artnr))}</td>
-          </tr>`).join("")
-        ).join("")}</tbody>
+          <th class="hgr">Saldo</th><th class="hgr">Kostverdi</th><th class="hgr">Salgsverdi</th></tr></thead>
+        <tbody>${grupper.map((g) => `
+          ${g.rader.map((r) => `<tr>
+            <td><code>${vindexT(r.artnr)}</code></td>
+            <td>${vindexT(r.benevning)}</td>
+            <td>${vindexT(r.lokasjon || "uten lokasjon")}</td>
+            <td class="hgr">${talSaldo(r.saldo)}</td>
+            <td class="hgr">${kroner(r.kostverdi)}</td>
+            <td class="hgr">${kroner(r.salgsverdi)}</td>
+          </tr>`).join("")}
+          ${g.struktur ? `<tr><td colspan="4">Strukturvarer (ikke listet)</td>
+            <td class="hgr">${kroner(g.struktur.kostverdi)}</td>
+            <td class="hgr">${kroner(g.struktur.salgsverdi)}</td></tr>` : ""}
+          <tr><td colspan="4"><strong>Sum ${vindexT(g.lokasjon || "uten lokasjon")}</strong></td>
+            <td class="hgr"><strong>${kroner(g.kostverdi)}</strong></td>
+            <td class="hgr"><strong>${kroner(g.salgsverdi)}</strong></td></tr>`).join("")}
+          <tr><td colspan="4"><strong>Sum alle valgte lokasjoner</strong></td>
+            <td class="hgr"><strong>${kroner(totalt.kostverdi)}</strong></td>
+            <td class="hgr"><strong>${kroner(totalt.salgsverdi)}</strong></td></tr>
+        </tbody>
       </table>`}
       <div class="knapperad mt-2">
         <button class="btn btn-ghost btn-sm" id="nyTelling">Registrer telling</button>
       </div>
     </div>`;
   $("#nyTelling").addEventListener("click", opneTelling);
+
+  const teikn = () => teiknBeholdning(el);
+  $$("[data-beholdlok]").forEach((h) =>
+    h.addEventListener("change", () => {
+      const nå = new Set(valde);
+      if (h.checked) nå.add(h.dataset.beholdlok); else nå.delete(h.dataset.beholdlok);
+      beholdval.lokasjonar = stader.map((s) => s.lokasjon).filter((x) => nå.has(x));
+      teikn();
+    })
+  );
+  $("#beholdAlle").addEventListener("click", () => { beholdval.lokasjonar = null; teikn(); });
+  $("#beholdIngen").addEventListener("click", () => { beholdval.lokasjonar = []; teikn(); });
 }
 
 // -- Bevegelsar --------------------------------------------------------------
@@ -1226,6 +1295,8 @@ function opneVare(artnr) {
     <div class="feltrutenett">
       ${felt("vf_artnr", "Artikkelnummer", v.artnr || "", ny ? "" : "disabled")}
       ${felt("vf_benevning", "Benevning", v.benevning || "")}
+      ${felt("vf_lokasjon", "Lokasjon", v.lokasjon || "", 'list="vf_lokasjon_liste" autocomplete="off"')}
+      <datalist id="vf_lokasjon_liste">${lokasjonsnamn().map((n) => `<option value="${vindexT(n)}">`).join("")}</datalist>
       ${felt("vf_gruppe", "Artikkelgruppe", v.gruppe || "")}
       ${felt("vf_enhet", "Enhet", v.enhet || "stk")}
       ${felt("vf_veil", "Veiledende pris", v.veilPris || "", 'type="number" step="0.01"')}
@@ -1259,8 +1330,9 @@ function opneVare(artnr) {
           <option value="">Følg artikkelgruppen</option>
           <option value="prosent"${(i.kostfaktor || {}).type === "prosent" ? " selected" : ""}>Prosent påslag</option>
           <option value="kroner"${(i.kostfaktor || {}).type === "kroner" ? " selected" : ""}>Kroner påslag</option>
+          <option value="skrevet"${(i.kostfaktor || {}).type === "skrevet" ? " selected" : ""}>Skrevet sum (fast kostpris)</option>
         </select></div>
-      ${felt("vf_faktor", "Påslag", (i.kostfaktor || {}).verdi != null ? i.kostfaktor.verdi : "", 'type="number" step="0.01"')}
+      ${felt("vf_faktor", "Påslag, eller kostpris ved skrevet sum", (i.kostfaktor || {}).verdi != null ? i.kostfaktor.verdi : "", 'type="number" step="0.01"')}
     </div>
     <p class="hint">Kursen er <strong>per 1 enhet</strong>. Kina noterer per hundre —
       står det «100 CNY = 143,92 NOK», er kursen her <strong>1,4392</strong>. «Hent dagens
@@ -1278,7 +1350,9 @@ function opneVare(artnr) {
     // Står feltet på «følg artikkelgruppen», skal det synast KVA den då blir.
     // Ein tom nedtrekk som ikkje seier noko er det same som å skjule talet.
     const arva = vindexKostfaktor({ gruppe: v.gruppe }, lagerdata.grupper, lagerdata.standard);
-    $("#vf_arv").textContent = type
+    $("#vf_arv").textContent = type === "skrevet"
+      ? "Kostprisen er skrevet inn på denne artikkelen, og overstyrer både innkjøpsprisen og gruppen."
+      : type
       ? "Påslaget er satt på denne artikkelen, og overstyrer gruppen."
       : `Følger ${arva.kjelde === "gruppe" ? "artikkelgruppe " + v.gruppe : "standarden"}: ` +
         `${arva.verdi} ${arva.type === "kroner" ? "kr" : "%"}.`;
@@ -1324,6 +1398,7 @@ async function lagreVare(ny, gammal) {
     veilPris: Number($("#vf_veil").value) || 0,
     minste: Number($("#vf_minste").value) || 0,
     lagervare: $("#vf_lagervare").checked,
+    lokasjon: $("#vf_lokasjon").value.trim(),
   };
   // Strukturen blir ståande som han er — han blir ikkje redigert herfrå.
   if (gammal.bestarAv) vare.bestarAv = gammal.bestarAv;
@@ -1336,7 +1411,15 @@ async function lagreVare(ny, gammal) {
     valuta: $("#vf_valuta").value.trim() || "NOK",
     kurs: Number($("#vf_kurs").value) || 1,
   };
-  if (type) innkjop.kostfaktor = { type, verdi: Number($("#vf_faktor").value) || 0 };
+  const faktor = Number($("#vf_faktor").value) || 0;
+  // Skrevet sum er ein kostpris, så ho må vere eit tal over null. Ein strukturvare
+  // får kostprisen frå delane, så der kan ho ikkje setjast.
+  if (type === "skrevet" && !(faktor > 0)) { melding("Skriv inn kostprisen for skrevet sum.", "warn"); return; }
+  if (type === "skrevet" && (gammal.bestarAv || gammal.strukturvare)) {
+    melding("En strukturvare får kostprisen fra delene. Skrevet sum kan ikke settes her.", "warn");
+    return;
+  }
+  if (type) innkjop.kostfaktor = { type, verdi: faktor };
 
   if (VINDEX_DEMOMODUS) {
     const rad = { artnr: nr, ...vare };
@@ -1352,7 +1435,10 @@ async function lagreVare(ny, gammal) {
     // To skrivingar, to samlingar. Varekortet først: får vi ikkje lov til å
     // skrive innkjøpslina, skal varen likevel finnast.
     await fb.setDoc(fb.vareDoc(nr), vare, { merge: true });
-    await fb.setDoc(fb.innkjopDoc(nr), innkjop, { merge: true });
+    // merge beheld felt som ikkje står i objektet. Valet «følg artikkelgruppen»
+    // skal ta bort ein gammal skrevet sum, så då må feltet slettast.
+    await fb.setDoc(fb.innkjopDoc(nr), type ? innkjop : { ...innkjop, kostfaktor: fb.deleteField() },
+      { merge: true });
     await lastLager();
     lukkModal(); teiknLagerside();
     melding(`Artikkel ${nr} er lagret.`);
@@ -1381,27 +1467,49 @@ function opneTelling() {
   `, `<button class="btn" id="tf_lagre">Lagre telling</button>
       <button class="btn btn-ghost" id="tf_avbryt">Avbryt</button>`);
 
+  // Lokasjonen er den som står på varekortet, med mindre du skriv ein annan.
+  // Tom lokasjon var tidlegare «heile lageret», og då blei differansen ført på
+  // «uten lokasjon». Tom er no berre ei lokasjon, og den er ikkje ein snarveg.
+  const finn = (nr) => lagerdata.varer.find((v) => String(v.artnr) === String(nr)) || {};
+  const lokasjonFor = () =>
+    $("#tf_lokasjon").value.trim() || finn($("#tf_artnr").value.trim()).lokasjon || "";
+  const feilLokasjon = () => {
+    const heime = finn($("#tf_artnr").value.trim()).lokasjon || "";
+    const lok = lokasjonFor();
+    return heime && lok !== heime
+      ? `Artikkelen står på ${heime}. Endre lokasjonen på varekortet før du teller den et annet sted.`
+      : "";
+  };
+  const registrert = (nr, lok) => vindexSaldoPerLokasjon(lagerdata.poster, nr)[lok] || 0;
+
   const vis = () => {
     const nr = $("#tf_artnr").value.trim();
-    const lok = $("#tf_lokasjon").value.trim();
     const boks = $("#tf_svar");
     if (!nr) { boks.classList.add("hidden"); return; }
-    const fra = vindexLagersaldo(lagerdata.poster, nr, lok ? { lokasjon: lok } : {});
+    const fra = registrert(nr, lokasjonFor());
     const til = Number($("#tf_antall").value) || 0;
     const diff = til - fra;
+    const feil = feilLokasjon();
     boks.classList.remove("hidden");
-    boks.innerHTML = `Registrert nå: <strong>${tal(fra)}</strong>. Talt: <strong>${tal(til)}</strong>. ` +
-      (diff === 0 ? "Ingen differanse — det blir ingen bevegelse."
-        : `Det blir ført en bevegelse på <strong>${diff > 0 ? "+" : ""}${tal(diff)}</strong>.`);
+    boks.innerHTML = feil ? vindexT(feil)
+      : `Registrert nå: <strong>${tal(fra)}</strong>. Talt: <strong>${tal(til)}</strong>. ` +
+        (diff === 0 ? "Ingen differanse — det blir ingen bevegelse."
+          : `Det blir ført en bevegelse på <strong>${diff > 0 ? "+" : ""}${tal(diff)}</strong>.`);
   };
+  $("#tf_artnr").addEventListener("input", () => {
+    const heime = finn($("#tf_artnr").value.trim()).lokasjon;
+    if (heime && !$("#tf_lokasjon").value.trim()) $("#tf_lokasjon").value = heime;
+  });
   ["tf_artnr", "tf_lokasjon", "tf_antall"].forEach((id) => $("#" + id).addEventListener("input", vis));
 
   $("#tf_avbryt").addEventListener("click", lukkModal);
   $("#tf_lagre").addEventListener("click", async () => {
     const nr = $("#tf_artnr").value.trim();
-    const lok = $("#tf_lokasjon").value.trim();
+    const lok = lokasjonFor();
     if (!nr) { melding("Artikkelnummer må fylles ut.", "warn"); return; }
-    const fra = vindexLagersaldo(lagerdata.poster, nr, lok ? { lokasjon: lok } : {});
+    const feil = feilLokasjon();
+    if (feil) { melding(feil, "warn"); return; }
+    const fra = registrert(nr, lok);
     const diff = (Number($("#tf_antall").value) || 0) - fra;
     if (!diff) { lukkModal(); melding("Ingen differanse — ingenting å føre."); return; }
     const post = {
@@ -1556,8 +1664,9 @@ async function kjorImport() {
   if (VINDEX_DEMOMODUS) {
     delte.forEach((d) => {
       const j = lagerdata.varer.findIndex((v) => String(v.artnr) === d.vare.artnr);
-      if (j >= 0) lagerdata.varer[j] = d.vare; else lagerdata.varer.push(d.vare);
-      lagerdata.innkjop[d.vare.artnr] = d.innkjop;
+      // Same som merge i Firestore-grenen under: det importen ikkje set, står att.
+      if (j >= 0) lagerdata.varer[j] = { ...lagerdata.varer[j], ...d.vare }; else lagerdata.varer.push(d.vare);
+      lagerdata.innkjop[d.vare.artnr] = { ...(lagerdata.innkjop[d.vare.artnr] || {}), ...d.innkjop };
       if (d.post) lagerdata.poster.push({ id: "i" + d.vare.artnr, ...d.post });
     });
     importtekst = ""; importkolonnar = null;
@@ -2185,4 +2294,125 @@ async function kjorStrukturimport() {
   teiknLagerside();
   if (feila) melding(`La inn ${inn}. ${feila} feilet — siste feil: ${sisteFeil}`, "warn");
   else melding(`La inn stykklisten på ${inn} ${inn === 1 ? "struktur" : "strukturer"}.`);
+}
+
+// -- Lokasjonar ---------------------------------------------------------------
+//
+// Lokasjonen står på varekortet, éin per artikkel. Lista kjem frå telleutskrifta
+// i Bravo og blir limt inn her. Ingenting blir oppretta: ukjende artiklar blir
+// hoppa over, og ein artikkel som står to stader stoppar heile innlimingen.
+
+let lokasjontekst = "";
+
+/** Lokasjonane som står på varekorta, til forslag når ein skriv lokasjon. */
+function lokasjonsnamn() {
+  return [...new Set(lagerdata.varer.map((v) => v.lokasjon).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "nb"));
+}
+
+/** Tittelen på utskrifta og nedlastinga. For beholdninga står dei valde lokasjonane med. */
+function lagertittel() {
+  const navn = (FANER.find((f) => f.id === fane) || {}).navn || "Lager";
+  if (fane !== "beholdning" || beholdval.lokasjonar === null) return navn;
+  const valde = beholdval.lokasjonar.map((l) => l || "uten lokasjon");
+  return valde.length ? `${navn}: ${valde.join(", ")}` : navn;
+}
+
+function opneLokasjonimport() {
+  opneModal("Importer lokasjoner", `
+    <p class="lead">Lim inn lokasjonslista fra telleutskriften i Bravo: én linje per artikkel,
+      med lokasjonen først og artikkelnummeret ved siden av. Det går like bra med
+      <code>lokasjon;artikkelnr</code> fra et regneark. Overskrifter og sidefot hoppes over.</p>
+    <div class="field"><label for="lok_tekst">Limt inn</label>
+      <textarea id="lok_tekst" style="min-height:130px;font-family:monospace;font-size:12px"
+        placeholder="2box      3256    Firkantskive …">${vindexT(lokasjontekst)}</textarea></div>
+    <div id="lok_fasit"></div>
+  `, `<button class="btn" id="lok_lagre" disabled>Legg inn</button>
+      <button class="btn btn-ghost" id="lok_avbryt">Avbryt</button>`);
+
+  $("#lok_avbryt").addEventListener("click", () => { lokasjontekst = ""; lukkModal(); });
+  $("#lok_tekst").addEventListener("input", () => {
+    lokasjontekst = $("#lok_tekst").value;
+    teiknLokasjonfasit();
+  });
+  $("#lok_lagre").addEventListener("click", kjorLokasjonimport);
+  if (lokasjontekst) teiknLokasjonfasit();
+}
+
+/** Lista slik ho står no, og planen for kva ho vil gjere mot varekorta. */
+function lokasjonsplan() {
+  const les = vindexLesLokasjonar(lokasjontekst);
+  const varekart = {};
+  lagerdata.varer.forEach((v) => (varekart[v.artnr] = v));
+  return { les, plan: vindexPlanLokasjonsimport(varekart, les.rader, lagerdata.poster) };
+}
+
+const liste = (a, n = 8) => a.slice(0, n).map((x) => vindexT(x)).join(", ") + (a.length > n ? " …" : "");
+
+function teiknLokasjonfasit() {
+  const el = $("#lok_fasit");
+  const knapp = $("#lok_lagre");
+  if (!lokasjontekst.trim()) { el.innerHTML = ""; knapp.disabled = true; return; }
+  const { les, plan } = lokasjonsplan();
+  const stoppar = les.feil.length + les.dublettar.length;
+  knapp.disabled = Boolean(stoppar) || !plan.sett.length;
+  el.innerHTML = `
+    <div class="notice ${stoppar ? "notice-warn" : "notice-good"} mt-2">
+      ${tal(les.rader.length)} artikler i lista. ${plan.sett.length
+        ? `<strong>${tal(plan.sett.length)} får ny lokasjon.</strong>`
+        : "Ingen får ny lokasjon."}
+      ${plan.uendra ? `${tal(plan.uendra)} står allerede riktig.` : ""}
+      ${plan.ukjende.length ? `${tal(plan.ukjende.length)} finnes ikke i varekortregisteret og hoppes over: ${liste(plan.ukjende)}.` : ""}
+    </div>
+    ${plan.annan.length ? `<div class="notice notice-warn mt-1">${tal(plan.annan.length)} artikler har beholdning
+      registrert på en annen lokasjon enn den nye. Beholdningen står der til en flytting er ført: ${liste(plan.annan)}.</div>` : ""}
+    ${plan.ikkjeMed.length ? `<div class="notice notice-warn mt-1">${tal(plan.ikkjeMed.length)} lagervarer har en lokasjon
+      i systemet, men står ikke i lista. De blir stående: ${liste(plan.ikkjeMed)}.</div>` : ""}
+    ${les.feil.length ? `<div class="notice notice-warn mt-1">Disse linjene kan ikke tolkes. Rett dem eller slett dem før du legger inn:
+      <ul>${les.feil.slice(0, 6).map((f) => `<li>linje ${f.linje}: <code>${vindexT(f.tekst)}</code></li>`).join("")}</ul></div>` : ""}
+    ${les.dublettar.length ? `<div class="notice notice-warn mt-1">Disse artiklene står på flere lokasjoner. En artikkel skal ha én:
+      <ul>${les.dublettar.slice(0, 6).map((d) => `<li><code>${vindexT(d.artnr)}</code>: ${d.lokasjonar.map((x) => vindexT(x)).join(" og ")}</li>`).join("")}</ul></div>` : ""}
+    ${plan.sett.length ? `<table class="tabell mt-2"><thead><tr><th>Artnr</th><th>Før</th><th>Ny lokasjon</th></tr></thead>
+      <tbody>${plan.sett.slice(0, 12).map((s) => `<tr><td><code>${vindexT(s.artnr)}</code></td>
+        <td>${vindexT(s.fra || "uten lokasjon")}</td><td>${vindexT(s.til)}</td></tr>`).join("")}</tbody></table>
+      ${plan.sett.length > 12 ? `<p class="hint">… og ${tal(plan.sett.length - 12)} til.</p>` : ""}` : ""}`;
+}
+
+async function kjorLokasjonimport() {
+  const { les, plan } = lokasjonsplan();
+  if (les.feil.length || les.dublettar.length || !plan.sett.length) return;
+  const knapp = $("#lok_lagre");
+  knapp.disabled = true;
+
+  let inn = 0;
+  try {
+    if (VINDEX_DEMOMODUS) {
+      plan.sett.forEach((s) => {
+        const j = lagerdata.varer.findIndex((v) => String(v.artnr) === s.artnr);
+        if (j >= 0) lagerdata.varer[j] = { ...lagerdata.varer[j], lokasjon: s.til };
+        inn++;
+      });
+    } else {
+      // Éi skriving per 400 artiklar. Feilar det midt i, står dei som kom før på
+      // lokasjonen sin, og resten kan limast inn på nytt.
+      for (let i = 0; i < plan.sett.length; i += 400) {
+        const bolk = plan.sett.slice(i, i + 400);
+        const batch = fb.writeBatch(fb.db);
+        bolk.forEach((s) => batch.set(fb.vareDoc(s.artnr), { lokasjon: s.til }, { merge: true }));
+        await batch.commit();
+        inn += bolk.length;
+        knapp.textContent = `Legger inn … ${inn} av ${plan.sett.length}`;
+      }
+      await lastLager();
+    }
+  } catch (e) {
+    melding(`La inn ${inn} av ${plan.sett.length}. Resten feilet: ${e && e.message ? e.message : e}`, "warn");
+    knapp.disabled = false;
+    knapp.textContent = "Legg inn";
+    return;
+  }
+  lokasjontekst = "";
+  lukkModal();
+  teiknLagerside();
+  melding(`Lokasjonen er satt på ${tal(inn)} artikler.`);
 }

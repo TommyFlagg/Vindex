@@ -14,8 +14,8 @@
 import {
   $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
   datoTekst, melding, opneModal, lukkModal, skrivUtDel} from "./verktoy-felles.js?v=9079c0f3";
-import { eksportValg, kopleEksport } from "./eksport.js?v=05fb8360";
-import { lastKundar, teiknKundar, kundedata } from "./kunderegister.js?v=8963fa80";
+import { eksportValg, kopleEksport } from "./eksport.js?v=db485cc8";
+import { lastKundar, teiknKundar, kundedata } from "./kunderegister.js?v=75c00af5";
 import { lastVarsel, teiknVarselboks, varseldata } from "./varselboks.js?v=09d5603d";
 
 settTeiknar(() => teiknAlt());
@@ -284,7 +284,12 @@ async function taUtAvLager(o) {
     const snap = await fb.getDocs(fb.varerCol());
     snap.docs.forEach((d) => (varer[d.id] = { artnr: d.id, ...d.data() }));
   } catch (e) {
+    // Utan varekorta veit vi ikkje kva som er samansett. Då ville 3010 blitt ført
+    // som ein artikkel med eigen beholdning, så vi fører ingenting.
     console.warn("Fikk ikke hentet varekortene til lagerføringen.", e);
+    melding(`Fikk ikke hentet varekortene, så lageret er ikke ført for ordre ${o.id}. ` +
+      "Varene står fortsatt som reservert.", "warn");
+    return;
   }
   const linjer = Object.entries(reservert).map(([kode, antall]) => ({ kode, antall }));
   const uttak = vindexOrdrerorsler(linjer, o.lagertrekk || {}, varer, {

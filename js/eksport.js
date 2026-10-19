@@ -56,9 +56,10 @@ export function tabellRader(el) {
   el.querySelectorAll("table").forEach((t, i) => {
     if (i > 0) ut.push([]);
     t.querySelectorAll("tr").forEach((tr) => {
+      // colspan blir til tomme celler, så sumlinjene står i same kolonne som overskrifta.
       const rad = [...tr.children]
         .filter((c) => c.tagName === "TH" || c.tagName === "TD")
-        .map(cellTekst);
+        .flatMap((c) => [cellTekst(c), ...Array((parseInt(c.colSpan, 10) || 1) - 1).fill("")]);
       if (rad.length) ut.push(rad);
     });
   });

@@ -2513,9 +2513,12 @@ async function trekkFraaLager(ordre, lead) {
       const snap = await fb.getDocs(fb.varerCol());
       snap.docs.forEach((d) => (varer[d.id] = { artnr: d.id, ...d.data() }));
     } catch (e) {
-      // Utan varekortet blir rørslene ståande utan lokasjon. Det synest i
-      // beholdninga, og er betre enn å la vere å føre dei.
+      // Utan varekortet veit vi ikkje kva som er samansett. Då ville 3010 blitt
+      // ført som ein artikkel med eigen beholdning, så vi reserverer ingenting,
+      // og seljaren får beskjed.
       console.warn("Fikk ikke hentet varekortene til lagerføringen.", e);
+      melding("Ordren er bekreftet, men varene er ikke reservert i lageret. Si fra til lager.", "warn");
+      return;
     }
   }
 
