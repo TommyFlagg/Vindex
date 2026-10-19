@@ -14,7 +14,8 @@
 import {
   $, $$, app, fb, settTeiknar, settOppstart, visDemohint,
   datoTekst, melding, opneModal, lukkModal, skrivUtDel} from "./verktoy-felles.js?v=9079c0f3";
-import { lastKundar, teiknKundar, kundedata } from "./kunderegister.js?v=499a2aea";
+import { eksportValg, kopleEksport } from "./eksport.js?v=05fb8360";
+import { lastKundar, teiknKundar, kundedata } from "./kunderegister.js?v=8963fa80";
 import { lastVarsel, teiknVarselboks, varseldata } from "./varselboks.js?v=09d5603d";
 
 settTeiknar(() => teiknAlt());
@@ -126,6 +127,10 @@ function teiknOrdrelop() {
   const utknapp = $("#ordreSkrivUt");
   if (utknapp && !utknapp.dataset.kopla) {
     utknapp.dataset.kopla = "1";
+    utknapp.insertAdjacentHTML("beforebegin", eksportValg("ordreEksport"));
+    kopleEksport("ordreEksport", () => ({
+      tittel: "Ordreløpet", el: $("#ordrelop"), rader: ordreRader(),
+    }));
     utknapp.addEventListener("click", () => skrivUtDel($("#ordrelop"), "Ordreløpet"));
   }
 
@@ -136,6 +141,30 @@ function teiknOrdrelop() {
 
 function tal(n) {
   return (Number(n) || 0).toLocaleString("nb-NO");
+}
+
+/**
+ * Ordreløpet som tabell: éi linje per ordre, med bolken han står i. Tabellen
+ * blir laga av dataa, ikkje av kortet på skjermen, slik at ho er lesbar i Excel.
+ */
+function ordreRader() {
+  const bolk = Object.fromEntries(BOLKAR.map((b) => [b.id, b.tittel]));
+  const linje = (o) => {
+    const k = o.kunde || {};
+    return [
+      bolk[o.status || "bekreftet"] || o.status || "",
+      String(o.id),
+      k.navn || "",
+      [k.postnr, k.poststed].filter(Boolean).join(" "),
+      o.seljarNavn || "",
+      vindexHentarSjolv(o) ? "henting" : "sending",
+      datoTekst(o.opprettet),
+    ];
+  };
+  return [
+    ["Bolk", "Ordre", "Kunde", "Poststed", "Selger", "Henting/sending", "Opprettet"],
+    ...synlegeOrdrar().map(linje),
+  ];
 }
 
 function ordrekort(o) {

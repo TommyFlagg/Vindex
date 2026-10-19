@@ -365,6 +365,10 @@ footer.site h4 { color: #fff; margin: 0 0 0.6rem; font-size: 0.95rem; }
 .telleark .tellelokasjon td { background: #eee; padding-top: .6rem; border-top: 2px solid #999; }
 @media print { .telleark { page-break-inside: auto; } .telleark tr { page-break-inside: avoid; } }
 
+/* Lastes ned som Excel, CSV eller PDF. Valet og knappen står ved sida av utskrift. */
+.eksportvalg { display: inline-flex; gap: .35rem; align-items: center; }
+.eksportvalg select { min-height: 2rem; }
+
 #utskrift { display: none; }
 @media print {
   .topbar, footer.site, .toolbar, .btn, .no-print { display: none !important; }

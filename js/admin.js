@@ -14,8 +14,8 @@ import {
   datoTekst, lagreLead, melding, opneModal, lukkModal, visDatavarsel, demoAnmeldingar,
 } from "./verktoy-felles.js?v=9079c0f3";
 import { lastPrisdata, VINDEX_PRISDATA_DOKUMENT } from "./datalast.js?v=8d397edf";
-import { lastLager, teiknLagerside } from "./lagerside.js?v=a2d3551e";
-import { lastKundar, teiknKundar } from "./kunderegister.js?v=499a2aea";
+import { lastLager, teiknLagerside } from "./lagerside.js?v=49ccf56e";
+import { lastKundar, teiknKundar } from "./kunderegister.js?v=8963fa80";
 import { lastVarsel, teiknVarselboks } from "./varselboks.js?v=09d5603d";
 
 settTeiknar(() => teiknAlt());

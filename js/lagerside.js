@@ -14,6 +14,7 @@
 import {
   $, $$, app, fb, melding, opneModal, lukkModal, skrivUtDel,
 } from "./verktoy-felles.js?v=9079c0f3";
+import { eksportValg, kopleEksport, tabellRader } from "./eksport.js?v=05fb8360";
 
 // Alt som er henta, samla ein stad. Fyllast i lastLager og lesast av resten.
 const VINDEX_KOSTFAKTORDOK = "_kostfaktor";
@@ -233,15 +234,21 @@ export function teiknLagerside() {
   el.innerHTML = `
     <nav class="fanerad" aria-label="Lager">
       ${FANER.map((f) => `<button class="fane${fane === f.id ? " aktiv" : ""}" data-lagerfane="${f.id}">${vindexT(f.navn)}</button>`).join("")}
-      <button class="btn btn-ghost btn-sm" id="lagerSkrivUt"
-        style="margin-left:auto">Skriv ut</button>
+      <span class="knapperad" style="margin-left:auto">
+        ${eksportValg("lagerEksport")}
+        <button class="btn btn-ghost btn-sm" id="lagerSkrivUt">Skriv ut</button>
+      </span>
     </nav>
     ${lagerdata.feil ? `<div class="notice notice-warn mt-2">${vindexT(lagerdata.feil)}</div>` : ""}
     <div id="lagerinnhald" class="mt-2"></div>`;
 
+  kopleEksport("lagerEksport", () => {
+    const el = $("#lagerinnhald");
+    const navn = (FANER.find((f) => f.id === fane) || {}).navn || "Lager";
+    return { tittel: navn, el, rader: tabellRader(el) };
+  });
   $("#lagerSkrivUt").addEventListener("click", () =>
-    skrivUtDel($("#lagerinnhald"), (FANER.find((f) => f.id === fane) || {}).navn || "Lager",
-      "Lager"));
+    skrivUtDel($("#lagerinnhald"), (FANER.find((f) => f.id === fane) || {}).navn || "Lager"));
 
   $$("[data-lagerfane]").forEach((k) =>
     k.addEventListener("click", () => { fane = k.dataset.lagerfane; visAlle = false; teiknLagerside(); })
@@ -731,11 +738,17 @@ function opneTelleliste() {
         Artikler med null på lageret er med: en vare systemet tror er tom, men som
         står på hyllen, er nettopp det en telling skal finne.</p>
       <div id="telleark" class="hidden"></div>`,
-      `<button class="btn" id="telleSkriv">Skriv ut telleliste</button>
+      `${eksportValg("telleEksport")}
+       <button class="btn" id="telleSkriv">Skriv ut telleliste</button>
        <button class="btn btn-accent" id="telleFoer">Før inn tall</button>
        <button class="btn btn-ghost" id="telleLukk">Lukk</button>`);
 
     $("#telleLukk").addEventListener("click", lukkModal);
+    const telleark = document.createElement("div");
+    telleark.innerHTML = tellearkHtml(rader, telleval.blind);
+    kopleEksport("telleEksport", () => ({
+      tittel: "Varetelling", el: telleark, rader: telleRader(rader, telleval.blind),
+    }));
     $$("[data-tellelok]").forEach((h) =>
       h.addEventListener("change", () => {
         const lok = h.dataset.tellelok;
@@ -883,6 +896,17 @@ function opneTelleinnforing(rader) {
     });
   };
   teikn();
+}
+
+/** Tellelista som tabell, til Excel og CSV. Blindtelling viser ikkje forventa tal. */
+function telleRader(rader, blind) {
+  const hode = blind
+    ? ["Lokasjon", "Artnr", "Benevning", "Enhet", "Talt antall", "Merknad"]
+    : ["Lokasjon", "Artnr", "Benevning", "Enhet", "Forventet", "Talt antall", "Merknad"];
+  const linjer = rader.map((r) => blind
+    ? [r.lokasjon || "Uten lokasjon", String(r.artnr), r.benevning, r.enhet, "", ""]
+    : [r.lokasjon || "Uten lokasjon", String(r.artnr), r.benevning, r.enhet, r.forventa, "", ""]);
+  return [hode, ...linjer];
 }
 
 /** Sjølve arket. Ei linje per artikkel per lokasjon, med plass til å skrive. */

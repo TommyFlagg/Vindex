@@ -9,6 +9,7 @@
 // ============================================================================
 
 import { $, $$, app, fb, melding, opneModal, lukkModal, skrivUtDel } from "./verktoy-felles.js?v=9079c0f3";
+import { eksportValg, kopleEksport, tabellRader } from "./eksport.js?v=05fb8360";
 
 export const kundedata = { kundar: [], henta: false, feil: "" };
 let kundesok = "";
@@ -70,6 +71,7 @@ export function teiknKundar() {
           value="${vindexT(kundesok)}" style="flex:1;min-width:240px">
         <button class="btn btn-sm" id="nyKunde">Ny kunde</button>
         <button class="btn btn-ghost btn-sm" id="importerKundar">Importer fra regnskap</button>
+        ${eksportValg("kundeEksport")}
         <button class="btn btn-ghost btn-sm" id="kundeSkrivUt">Skriv ut</button>
       </div>
       <p class="hint mt-1"><strong>${tal(kundedata.kundar.length)} kunder i registeret</strong>${
@@ -99,9 +101,11 @@ export function teiknKundar() {
   });
   $("#nyKunde").addEventListener("click", () => opneKunde(null));
   $("#importerKundar").addEventListener("click", opneKundeimport);
+  kopleEksport("kundeEksport", () => ({
+    tittel: "Kunderegister", el: $("#kundar"), rader: tabellRader($("#kundar")),
+  }));
   $("#kundeSkrivUt").addEventListener("click", () =>
-    skrivUtDel($("#kundar"), "Kunderegister",
-      kundesok.trim() ? `Søk: ${kundesok.trim()}` : `${kundedata.kundar.length} kunder`));
+    skrivUtDel($("#kundar"), "Kunderegister"));
   $$("#kundar [data-kunde]").forEach((r) =>
     r.addEventListener("click", () =>
       opneKunde(kundedata.kundar.find((k) => String(k.kundenr) === r.dataset.kunde))
