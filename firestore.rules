@@ -64,6 +64,14 @@ service cloud.firestore {
       return erAdmin() || erOrdrekontor();
     }
 
+    // Ordren er sendt til Finago, eller er i ferd med det. Då skal innhaldet stå fast, så
+    // fakturaen blir det som står i Vindex. Eit feila forsøk (feil) kan endrast: då finst
+    // ingen faktura i Finago, og neste forsøk lagar ho på nytt frå det som står no.
+    function s24Laast(ordre) {
+      return ordre.get('s24', {}).get('status', '') in
+        ['oppretter', 'utkast', 'fakturerer', 'faktura', 'feil_faktura', 'trenger_opprydding'];
+    }
+
     // -- Leads ---------------------------------------------------------------
     // Validering av det bestillingsskjemaet sender inn. Vi held oss til felta
     // skjemaet faktisk bruker, slik at ingen kan dytte inn eigne felt eller
@@ -175,21 +183,30 @@ service cloud.firestore {
 
     // -- Ordrar --------------------------------------------------------------
     match /orders/{orderId} {
-      allow create: if erSeljar() && !erLager();
+      // Ingen skal kunne sette s24 når ordren blir laga. Det er funksjonene som skriv det.
+      allow create: if erSeljar() && !erLager() && !request.resource.data.keys().hasAny(['s24']);
       allow read: if erSeljar()
                   && (resource.data.seljarId == request.auth.uid || erKontor() || erLager());
       // Lageret kvitterer ut plukk, men skal ikkje kunne endre mål eller pris.
       //
       // Ordrekontoret driv løpet: status, spørsmålet tilbake til seljaren, og
-      // kva lageret har kvittert ut. Ikkje mål, ikkje prisar — det er seljaren
-      // sitt, og ei endring der skal gå gjennom han.
-      allow update: if (erSeljar() && (resource.data.seljarId == request.auth.uid || erAdmin()))
+      // kva lageret har kvittert ut og ført (Klar). Ikkje mål, ikkje prisar — det er
+      // seljaren sitt, og ei endring der skal gå gjennom han.
+      // Feltet `s24` (Finago-ID-ar og fakturastatus) blir skrive av Cloud Function
+      // med admin-rettar. Ingen klient skal kunne endre det, heller ikkje admin.
+      // Er ordren send til Finago, står innhaldet fast (sjå s24Laast).
+      allow update: if (erSeljar() && (resource.data.seljarId == request.auth.uid || erAdmin())
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['s24'])
+                        && !(s24Laast(resource.data)
+                             && request.resource.data.diff(resource.data).affectedKeys()
+                                  .hasAny(['kunde', 'felt', 'rader', 'linjer', 'frakt', 'sum', 'produktId', 'leadId', 'skjemaId', 'salstype'])))
                     || (erOrdrekontor()
                         && request.resource.data.diff(resource.data).affectedKeys()
-                             .hasOnly(['status', 'sporsmaal', 'logg', 'plukka', 'klarTid']))
+                             .hasOnly(['status', 'sporsmaal', 'logg', 'plukka', 'klarTid', 'lagerreservert', 'lagertrekk']))
                     || (erLager()
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']));
-      allow delete: if erAdmin();
+      // Ein ordre som er send til Finago kan ikkje slettast her: då står fakturaen der utan kobling.
+      allow delete: if erAdmin() && !s24Laast(resource.data);
     }
 
     // -- Dagens salstips: kven som har likt kva ------------------------------

@@ -233,6 +233,7 @@ function opneOrdrekort(id) {
         (l) => `<li><strong>${vindexT(l.navn)}</strong> ${vindexT(l.verdi)} ${vindexT(l.enhet)}</li>`
       ).join("")}</ul>` : ""}
 
+    ${s24Panel(o)}
     <h3 class="mt-2">Hvor i løpet</h3>
     <div class="knapperad">
       ${steg.filter((s) => s.id !== "sporsmaal").map((s) => `
@@ -257,15 +258,163 @@ function opneOrdrekort(id) {
   $$("[data-sett]").forEach((b) =>
     b.addEventListener("click", () => settStatus(o, b.dataset.sett))
   );
+  s24Knapper(o);
+}
+
+// ---------------------------------------------------------------------------
+// Finago Office — utkast og faktura
+// ---------------------------------------------------------------------------
+// Bare hovedkontoret ser dette. Knappane kallar Cloud Functions i functions/,
+// og dei sjekkar rolla på nytt på serveren. Skjul knappen gjer ingen sikkerheit
+// åleine, men det er det som gjer at dei som ikkje skal fakturere, ikkje ser
+// kva som kan gjerast.
+
+/** Adressa til Cloud Functions. Endre regionen hvis de deployer et annet sted. */
+const S24_URL = "https://europe-west1-vindex-d2de6.cloudfunctions.net";
+// Samme tid som låsen i functions/index.js (LÅS_MS).
+const S24_LAAS_MS = 10 * 60 * 1000;
+
+/**
+ * Linjene som skal på fakturaen, og grunnene til at appen ikkje kan lage henne.
+ *
+ * Direktesal har linjene på ordren. Ordrer frå eit tilbud får prisene rekna ut
+ * av tilbodet. Har tilbodet fastpris, kroneavslag, montering eller frakt, er
+ * ikkje summen av linjene lik det kunden skal betale. Då blir fakturaen ikkje
+ * laga automatisk, og det må gjerast i Finago.
+ */
+function s24Oppsett(o) {
+  const grunner = [];
+  let linjer = [];
+  if (o.linjer && o.linjer.length) {
+    linjer = o.linjer.map((l) => ({
+      artnr: l.kode ? String(l.kode) : "",
+      navn: l.navn || "",
+      antall: Number(l.antall) || 0,
+      pris: Number(l.pris) || 0,
+      rabattProsent: 0,
+    }));
+    // Finago får linjene og ingen frakt. Stemmer ikkje summen med linjene, er det noko vi ikkje ser.
+    if (o.frakt) grunner.push("ordren har frakt");
+    // Summen på ordren er varene pluss frakt, så vi samanliknar med varene åleine.
+    const sum = linjer.reduce((s, l) => s + l.antall * l.pris, 0);
+    if (typeof o.sum === "number" && Math.abs(sum - (o.sum - (o.frakt || 0))) > 0.5) {
+      grunner.push("summen er ikke lik linjene");
+    }
+  } else {
+    const lead = (app.leads || []).find((x) => x.id === o.leadId);
+    if (!lead || !lead.tilbud || typeof vindexRegnTilbod !== "function") {
+      grunner.push("tilbudet finst ikke");
+    } else {
+      const r = vindexRegnTilbod(lead.tilbud);
+      // Det som er skrive inn i tilbodet avgjer, ikkje summen. Ein frakt «Må avtales» har
+      // sum 0, men fakturaen skal likevel ikkje lagast automatisk.
+      if (r.fastpris) grunner.push("tilbudet har fastpris");
+      if (parseFloat(lead.tilbud.rabattKr) > 0) grunner.push("tilbudet har kroneavslag");
+      if (r.montering && (r.montering.sum || r.montering.oppgitt)) grunner.push("tilbudet har montering");
+      if (r.frakt && (r.frakt.sum || (r.frakt.oppgitt && !r.frakt.hentesSjolv))) grunner.push("tilbudet har frakt");
+      linjer = (r.linjer || []).map((l) => ({
+        artnr: l.kode ? String(l.kode) : "",
+        navn: l.navn || "",
+        antall: parseFloat(l.antall) || 0,
+        pris: parseFloat(l.enhetspris) || 0,
+        rabattProsent: l.rabattProsent || 0,
+      }));
+    }
+  }
+  if (!linjer.length) grunner.push("ordren har ingen linjer");
+  if (linjer.some((l) => !l.artnr)) grunner.push("noen linjer mangler artikkelnummer");
+  if (linjer.some((l) => !Number.isInteger(Number(l.rabattProsent)))) grunner.push("rabatten har desimaler");
+  if (!((o.kunde || {}).kundenr || o.kundenr)) grunner.push("kunden mangler kundenummer");
+  return { linjer, grunner };
+}
+
+function s24Panel(o) {
+  if (!app.brukar || app.brukar.rolle !== "admin") return "";
+  if (VINDEX_DEMOMODUS) {
+    return `<h3 class="mt-2">Finago Office</h3><p class="hint">Ikke tilgjengelig i demomodus.</p>`;
+  }
+  const s = o.s24 || {};
+  const { grunner } = s24Oppsett(o);
+  const kanFakturere = !grunner.length;
+  const av = kanFakturere ? "" : "disabled";
+  const utkastKnapp = `<button class="btn" id="s24_utkast" ${av}>Lag utkast i Finago Office</button>`;
+  const fakturKnapp = `<button class="btn" id="s24_faktur" ${av}>Fakturer i Finago Office</button>`;
+  // Ei lås eldre enn ti minutt er ei funksjon som døydde midt i. Då må det vere ein knapp å prøve på nytt med.
+  const utgått = !s.tid || Date.now() - Date.parse(s.tid) > S24_LAAS_MS;
+  let tekst, knapp = "";
+  if (s.status === "faktura") {
+    tekst = `Faktura er laget i Finago Office${s.fakturanr ? `, nr. ${s.fakturanr}` : ""}.`;
+  } else if (s.status === "utkast") {
+    tekst = `Utkast i Finago Office, nr. ${s.salgsordreId}. Kontroller det der før du fakturerer.`;
+    knapp = fakturKnapp;
+  } else if (s.status === "feil_faktura") {
+    tekst = `Forrige faktureringsforsøk feilet: ${s.feil || "ukjent feil"}`;
+    knapp = fakturKnapp;
+  } else if (s.status === "oppretter" || s.status === "fakturerer") {
+    tekst = utgått
+      ? "Forrige forsøk ble ikke fullført. Det kan prøves på nytt."
+      : "Behandles i Finago Office akkurat nå. Last siden på nytt om litt.";
+    if (utgått) knapp = s.status === "fakturerer" ? fakturKnapp : utkastKnapp;
+  } else if (s.status === "trenger_opprydding") {
+    tekst = `Forrige forsøk feilet: ${s.feil || "ukjent feil"}`;
+    knapp = utkastKnapp;
+  } else {
+    tekst = s.status === "feil" && s.feil
+      ? `Forrige forsøk feilet: ${s.feil}`
+      : "Ikke sendt til Finago Office ennå.";
+    knapp = utkastKnapp;
+  }
+  const info = knapp && !kanFakturere
+    ? `Kan ikke lages automatisk i Finago Office: ${vindexT(grunner.join(", "))}.`
+    : "";
+  return `<h3 class="mt-2">Finago Office</h3>
+    <p>${vindexT(tekst)}</p>
+    ${info ? `<p class="hint">${info}</p>` : ""}
+    <div class="knapperad">${knapp}</div>`;
+}
+
+function s24Knapper(o) {
+  const utkast = $("#s24_utkast");
+  if (utkast) utkast.addEventListener("click", () =>
+    s24Kall(o, "s24Utkast", { ordreId: o.id, linjer: s24Oppsett(o).linjer }, "Utkastet er laget i Finago Office.")
+  );
+  const faktur = $("#s24_faktur");
+  if (faktur) faktur.addEventListener("click", () =>
+    s24Kall(o, "s24Faktur", { ordreId: o.id }, "Fakturaen er laget i Finago Office.")
+  );
+}
+
+async function s24Kall(o, funksjon, kropp, okTekst) {
+  const knappar = document.querySelectorAll("#s24_utkast, #s24_faktur");
+  knappar.forEach((k) => (k.disabled = true));
+  try {
+    const token = await fb.auth.currentUser.getIdToken();
+    const svar = await fetch(`${S24_URL}/${funksjon}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
+      body: JSON.stringify(kropp),
+    });
+    const data = await svar.json().catch(() => ({}));
+    if (!svar.ok) throw new Error(data.feil || `Feil ${svar.status}`);
+    // Serveren svarer «faktura» eller «utkast» når ordren alt var der, og då skal det stå slik her.
+    o.s24 = funksjon === "s24Faktur"
+      ? { ...(o.s24 || {}), status: "faktura", fakturanr: data.fakturanr ?? null }
+      : { ...(o.s24 || {}), status: data.status || "utkast", salgsordreId: data.salgsordreId };
+    lukkModal();
+    opneOrdrekort(o.id);
+    melding(okTekst);
+  } catch (e) {
+    knappar.forEach((k) => (k.disabled = false));
+    melding("Fikk ikke til hos Finago Office: " + (e && e.message ? e.message : e), "warn");
+  }
 }
 
 /**
  * «Klar» er det som faktisk tek varene ut av lageret.
  *
  * Seljaren reserverte dei då han bekrefta. Her blir reservasjonen frigjeven og
- * eit verkeleg uttak ført, i den rekkjefølgja: forsvinn straumen midt i, har
- * lageret for mykje reservert og det synest — motsett veg ville varene blitt
- * ført ut to gonger.
+ * eit verkeleg uttak ført, i éi bolk: anten skrivst alt, eller ingenting. Ein
+ * halv bolk ville ført varene ut to gonger ved neste forsøk.
  *
  * Uttaket les reservasjonen, ikkje delelista. Ordrekontoret har ikkje
  * tilbodet til seljaren, men det ordren RESERVERTE står på ordren, og det er
@@ -302,16 +451,19 @@ async function taUtAvLager(o) {
     type: VINDEX_RESERVERT,
   });
   try {
-    for (const r of slepp.rorsler) await fb.addDoc(fb.lagerpostCol(), r);
-    for (const r of uttak.rorsler) await fb.addDoc(fb.lagerpostCol(), r);
-    await fb.updateDoc(fb.orderDoc(o.id), { lagerreservert: {}, lagertrekk: uttak.trekt });
+    // Rørslene og ordren i same bolk. Feilar bolken, står det ingen halve rørsle att,
+    // og neste forsøk fører frå starten.
+    const batch = fb.writeBatch(fb.db);
+    for (const r of [...slepp.rorsler, ...uttak.rorsler]) batch.set(fb.doc(fb.lagerpostCol()), r);
+    batch.update(fb.orderDoc(o.id), { lagerreservert: {}, lagertrekk: uttak.trekt });
+    await batch.commit();
     o.lagerreservert = {};
     o.lagertrekk = uttak.trekt;
   } catch (e) {
     console.error("Fikk ikke ført ordren ut av lageret.", e);
     melding(
       `Status er endret, men lageret ble ikke oppdatert for ordre ${o.id}. ` +
-        "Varene står fortsatt som reservert — si fra så ryddes det.",
+        "Varene står fortsatt som reservert. Sett status til til plukk og så klar igjen for å prøve på nytt.",
       "warn"
     );
   }
